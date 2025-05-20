@@ -56,6 +56,6 @@ IconData getCategoryIcon(String category) {
     case 'Shopping':
       return Icons.shopping_cart;
     default:
-      return Icons.close;
+      return Icons.menu;
   }
 }
