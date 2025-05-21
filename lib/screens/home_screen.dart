@@ -113,52 +113,51 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _scheduleEventNotifications(Event event) {
-    if (event.repeatDays.isNotEmpty) {
-      for (int day in event.repeatDays) {
-        // Notificación de inicio
-        NotificationService().scheduleNotification(
-          event.id.hashCode + day,
-          event.title,
-          event.description ?? 'New Task',
-          _calculateNotificationTime(day, event.startTime),
-          context,
-        );
-
-        // Notificación de finalización (solo si hay endTime)
-        if (event.endTime != null) {
-          NotificationService().scheduleEndNotification(
-            event.id.hashCode + day,
-            event.title,
-            event.description ?? 'New Task',
-            _calculateEndNotificationTime(day, event.endTime!),
-            context,
-          );
-        }
-      }
-    } else {
+void _scheduleEventNotifications(Event event) {
+  if (event.repeatDays.isNotEmpty) {
+    for (int day in event.repeatDays) {
       // Notificación de inicio
       NotificationService().scheduleNotification(
-        event.id.hashCode,
+        event.id.hashCode + day,
         event.title,
         event.description ?? 'New Task',
-        event.startTime,
-        context,
+        _calculateNotificationTime(day, event.startTime),
+        null, // Pass null for context when called from background
       );
 
       // Notificación de finalización (solo si hay endTime)
       if (event.endTime != null) {
         NotificationService().scheduleEndNotification(
-          event.id.hashCode,
+          event.id.hashCode + day,
           event.title,
           event.description ?? 'New Task',
-          event.endTime!,
-          context,
+          _calculateEndNotificationTime(day, event.endTime!),
+          null, // Pass null for context when called from background
         );
       }
     }
-  }
+  } else {
+    // Notificación de inicio
+    NotificationService().scheduleNotification(
+      event.id.hashCode,
+      event.title,
+      event.description ?? 'New Task',
+      event.startTime,
+      null, // Pass null for context when called from background
+    );
 
+    // Notificación de finalización (solo si hay endTime)
+    if (event.endTime != null) {
+      NotificationService().scheduleEndNotification(
+        event.id.hashCode,
+        event.title,
+        event.description ?? 'New Task',
+        event.endTime!,
+        null, // Pass null for context when called from background
+      );
+    }
+  }
+}
   // Método para calcular el tiempo de notificación de finalización para eventos recurrentes
   DateTime _calculateEndNotificationTime(int day, DateTime endTime) {
     DateTime now = DateTime.now();
