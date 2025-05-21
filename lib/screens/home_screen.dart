@@ -42,70 +42,102 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
- void updateEvent(int index, Event event) {
-  setState(() {
-    final oldEvent = allEvents[index];
-    allEvents[index] = event;
+  void updateEvent(int index, Event event) {
+    setState(() {
+      final oldEvent = allEvents[index];
+      allEvents[index] = event;
 
-    // Usar el nuevo método _cancelAllEventNotifications en lugar de _cancelEventNotifications
-    _cancelAllEventNotifications(oldEvent);
+      // Usar el nuevo método _cancelAllEventNotifications en lugar de _cancelEventNotifications
+      _cancelAllEventNotifications(oldEvent);
 
-    if (!event.isCompleted) {
-      _scheduleEventNotifications(event);
-    }
+      if (!event.isCompleted) {
+        _scheduleEventNotifications(event);
+      }
 
-    _filterDailyEvents();
-    _saveEvents();
-  });
-}
-
-void _cancelAllEventNotifications(Event event) {
-  // Cancelar la notificación base del evento
-  NotificationService().flutterLocalNotificationsPlugin.cancel(event.id.hashCode);
-
-  // Si es un evento repetitivo, cancelar todas las notificaciones de los días repetidos
-  if (event.repeatDays.isNotEmpty) {
-    for (int day in event.repeatDays) {
-      NotificationService().flutterLocalNotificationsPlugin.cancel(event.id.hashCode + day);
-    }
+      _filterDailyEvents();
+      _saveEvents();
+    });
   }
 
-  // Cancelar cualquier notificación específica del día
-  NotificationService().flutterLocalNotificationsPlugin.cancel(event.id.hashCode + DateTime.now().weekday);
-}
+  void _cancelAllEventNotifications(Event event) {
+    // Cancelar la notificación base del evento
+    NotificationService().flutterLocalNotificationsPlugin.cancel(
+      event.id.hashCode,
+    );
+    // Cancelar la notificación de finalización del evento
+    NotificationService().flutterLocalNotificationsPlugin.cancel(
+      event.id.hashCode + 10000,
+    );
 
-void deleteEvent(int index, bool allDays) {
-  setState(() {
-    final event = allEvents[index];
-
-    // Cancelar todas las notificaciones relacionadas con el evento
-    _cancelAllEventNotifications(event);
-
-    if (allDays) {
-      // Eliminar todos los eventos con el mismo ID
-      allEvents.removeWhere((e) => e.id == event.id);
-    } else {
-      // Eliminar solo el evento específico
-      allEvents.removeAt(index);
+    // Si es un evento repetitivo, cancelar todas las notificaciones de los días repetidos
+    if (event.repeatDays.isNotEmpty) {
+      for (int day in event.repeatDays) {
+        // Cancelar notificación de inicio
+        NotificationService().flutterLocalNotificationsPlugin.cancel(
+          event.id.hashCode + day,
+        );
+        // Cancelar notificación de finalización
+        NotificationService().flutterLocalNotificationsPlugin.cancel(
+          event.id.hashCode + day + 10000,
+        );
+      }
     }
 
-    _filterDailyEvents();
-    _saveEvents();
-  });
-}
+    // Cancelar cualquier notificación específica del día
+    NotificationService().flutterLocalNotificationsPlugin.cancel(
+      event.id.hashCode + DateTime.now().weekday,
+    );
+    // Cancelar cualquier notificación de finalización específica del día
+    NotificationService().flutterLocalNotificationsPlugin.cancel(
+      event.id.hashCode + DateTime.now().weekday + 10000,
+    );
+  }
+
+  void deleteEvent(int index, bool allDays) {
+    setState(() {
+      final event = allEvents[index];
+
+      // Cancelar todas las notificaciones relacionadas con el evento
+      _cancelAllEventNotifications(event);
+
+      if (allDays) {
+        // Eliminar todos los eventos con el mismo ID
+        allEvents.removeWhere((e) => e.id == event.id);
+      } else {
+        // Eliminar solo el evento específico
+        allEvents.removeAt(index);
+      }
+
+      _filterDailyEvents();
+      _saveEvents();
+    });
+  }
 
   void _scheduleEventNotifications(Event event) {
     if (event.repeatDays.isNotEmpty) {
       for (int day in event.repeatDays) {
+        // Notificación de inicio
         NotificationService().scheduleNotification(
           event.id.hashCode + day,
           event.title,
           event.description ?? 'New Task',
           _calculateNotificationTime(day, event.startTime),
-            context,
+          context,
         );
+
+        // Notificación de finalización (solo si hay endTime)
+        if (event.endTime != null) {
+          NotificationService().scheduleEndNotification(
+            event.id.hashCode + day,
+            event.title,
+            event.description ?? 'New Task',
+            _calculateEndNotificationTime(day, event.endTime!),
+            context,
+          );
+        }
       }
     } else {
+      // Notificación de inicio
       NotificationService().scheduleNotification(
         event.id.hashCode,
         event.title,
@@ -113,67 +145,95 @@ void deleteEvent(int index, bool allDays) {
         event.startTime,
         context,
       );
+
+      // Notificación de finalización (solo si hay endTime)
+      if (event.endTime != null) {
+        NotificationService().scheduleEndNotification(
+          event.id.hashCode,
+          event.title,
+          event.description ?? 'New Task',
+          event.endTime!,
+          context,
+        );
+      }
     }
+  }
+
+  // Método para calcular el tiempo de notificación de finalización para eventos recurrentes
+  DateTime _calculateEndNotificationTime(int day, DateTime endTime) {
+    DateTime now = DateTime.now();
+    int daysUntilNext = (day - now.weekday + 7) % 7;
+    DateTime nextNotificationDate = now.add(Duration(days: daysUntilNext));
+    return DateTime(
+      nextNotificationDate.year,
+      nextNotificationDate.month,
+      nextNotificationDate.day,
+      endTime.hour,
+      endTime.minute,
+    );
   }
 
   void _filterDailyEvents() {
     final Set<String> seenIds = {}; // Para rastrear IDs únicos
-    dailyEvents = allEvents.where((event) {
-      // Verificar si el evento es para el día actual o repetido
-      final bool shouldInclude = isSameDay(event.startTime, selectedDate) ||
-          event.repeatDays.contains(selectedDate.weekday);
+    dailyEvents =
+        allEvents.where((event) {
+          // Verificar si el evento es para el día actual o repetido
+          final bool shouldInclude =
+              isSameDay(event.startTime, selectedDate) ||
+              event.repeatDays.contains(selectedDate.weekday);
 
-      // Solo incluir el evento si no hemos visto su ID antes
-      if (shouldInclude && !seenIds.contains(event.id)) {
-        seenIds.add(event.id);
-        return true;
-      }
-      return false;
-    }).toList();
+          // Solo incluir el evento si no hemos visto su ID antes
+          if (shouldInclude && !seenIds.contains(event.id)) {
+            seenIds.add(event.id);
+            return true;
+          }
+          return false;
+        }).toList();
   }
 
-Future<void> _loadEvents() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final eventsData = prefs.getStringList('events');
-    if (eventsData != null) {
-      final loadedEvents = eventsData.map((eventData) {
-        final eventMap = jsonDecode(eventData);
-        return Event.fromJson(eventMap);
-      }).toList();
+  Future<void> _loadEvents() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final eventsData = prefs.getStringList('events');
+      if (eventsData != null) {
+        final loadedEvents =
+            eventsData.map((eventData) {
+              final eventMap = jsonDecode(eventData);
+              return Event.fromJson(eventMap);
+            }).toList();
 
-      // Eliminar duplicados basados en el ID
-      final uniqueEvents = <Event>[];
-      final seenIds = <String>{};
-      for (final event in loadedEvents) {
-        if (!seenIds.contains(event.id)) {
-          uniqueEvents.add(event);
-          seenIds.add(event.id);
+        // Eliminar duplicados basados en el ID
+        final uniqueEvents = <Event>[];
+        final seenIds = <String>{};
+        for (final event in loadedEvents) {
+          if (!seenIds.contains(event.id)) {
+            uniqueEvents.add(event);
+            seenIds.add(event.id);
+          }
         }
+
+        setState(() {
+          allEvents = uniqueEvents;
+          _filterDailyEvents();
+        });
+
+        // Imprimir IDs para verificación
+        allEvents.forEach((event) {
+          print('Event ID: ${event.id}');
+        });
       }
-
-      setState(() {
-        allEvents = uniqueEvents;
-        _filterDailyEvents();
-      });
-
-      // Imprimir IDs para verificación
-      allEvents.forEach((event) {
-        print('Event ID: ${event.id}');
-      });
+    } catch (e) {
+      print('Error loading events: $e');
     }
-  } catch (e) {
-    print('Error loading events: $e');
   }
-}
-
 
   Future<void> _saveEvents() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final eventsData = allEvents.map((event) {
-        return jsonEncode(event.toJson());
-      }).toList();
+      final eventsData =
+          allEvents.map((event) {
+            return jsonEncode(event.toJson());
+          }).toList();
       prefs.setStringList('events', eventsData);
     } catch (e) {
       print('Error saving events: $e');
@@ -184,8 +244,13 @@ Future<void> _loadEvents() async {
     DateTime now = DateTime.now();
     int daysUntilNext = (day - now.weekday + 7) % 7;
     DateTime nextNotificationDate = now.add(Duration(days: daysUntilNext));
-    return DateTime(nextNotificationDate.year, nextNotificationDate.month,
-        nextNotificationDate.day, startTime.hour, startTime.minute);
+    return DateTime(
+      nextNotificationDate.year,
+      nextNotificationDate.month,
+      nextNotificationDate.day,
+      startTime.hour,
+      startTime.minute,
+    );
   }
 
   @override
@@ -199,16 +264,11 @@ Future<void> _loadEvents() async {
           children: [
             Text(
               getDayName(selectedDate.weekday),
-              style: const TextStyle(
-                fontSize: 25,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
             ),
             Text(
               '${selectedDate.day} - ${selectedDate.month.toString().padLeft(2, '0')}',
-              style: const TextStyle(
-                fontSize: 15,
-              ),
+              style: const TextStyle(fontSize: 15),
             ),
           ],
         ),
@@ -219,13 +279,15 @@ Future<void> _loadEvents() async {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => MonthlyCalendarScreen(
-                    events: allEvents,
-                    onAddEvent: addEvent,
-                    onUpdateEvent: updateEvent,
-                    onDeleteEvent:
-                        deleteEvent, fromHomeScreen: true, // Pasamos deleteEvent correctamente
-                  ),
+                  builder:
+                      (context) => MonthlyCalendarScreen(
+                        events: allEvents,
+                        onAddEvent: addEvent,
+                        onUpdateEvent: updateEvent,
+                        onDeleteEvent: deleteEvent,
+                        fromHomeScreen:
+                            true, // Pasamos deleteEvent correctamente
+                      ),
                 ),
               );
             },

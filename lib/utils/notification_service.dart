@@ -89,7 +89,6 @@ class NotificationService {
             priority: Priority.high,
             icon: '@mipmap/launcher_icon',
             enableVibration: true,
-            // fullScreenIntent: false,  // ya no
             styleInformation: DefaultStyleInformation(true, true),
             autoCancel: true,
           ),
@@ -110,8 +109,57 @@ class NotificationService {
     }
   }
 
+  // Nuevo método para programar la notificación de finalización de un evento
+  Future<void> scheduleEndNotification(
+    int id,
+    String title,
+    String body,
+    DateTime scheduledDate,
+    BuildContext context,
+  ) async {
+    try {
+      // Utilizamos un ID diferente para la notificación de finalización
+      // sumando un valor fijo para diferenciarla
+      final endNotificationId = id + 10000;
+      
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        endNotificationId,
+        "Evento finalizado: $title",
+        "El evento $title ha terminado",
+        tz.TZDateTime.from(scheduledDate, tz.local),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'your_channel_id',
+            'your_channel_name',
+            channelDescription: 'your_channel_description',
+            importance: Importance.max,
+            priority: Priority.high,
+            icon: '@mipmap/launcher_icon',
+            enableVibration: true,
+            styleInformation: DefaultStyleInformation(true, true),
+            autoCancel: true,
+          ),
+        ),
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dateAndTime,
+        androidScheduleMode: AndroidScheduleMode.exact,
+        payload: id.toString(),
+      );
+      // opcional: log para depurar
+      debugPrint('📅 Notificación de finalización programada ($endNotificationId) para $scheduledDate');
+    } catch (e) {
+      debugPrint('Error scheduling end notification: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error scheduling end notification: $e')),
+      );
+    }
+  }
+
   Future<void> cancelNotification(int id) async {
     await flutterLocalNotificationsPlugin.cancel(id);
+    // Cancelar también la notificación de finalización
+    await flutterLocalNotificationsPlugin.cancel(id + 10000);
     debugPrint('❌ Notificación cancelada ($id)');
   }
 
