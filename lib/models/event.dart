@@ -1,13 +1,43 @@
-class Event {
+import 'package:hive/hive.dart';
+import 'package:json_annotation/json_annotation.dart';
+
+part 'event.g.dart';
+
+@HiveType(typeId: 0)
+@JsonSerializable()
+class Event extends HiveObject {
+  @HiveField(0)
   final String id;
+
+  @HiveField(1)
   final String title;
+
+  @HiveField(2)
   final String? description;
+
+  @HiveField(3)
   final DateTime startTime;
+
+  @HiveField(4)
   final DateTime? endTime;
-  final List<int> repeatDays; // List of days of the week (1 = Monday, 7 = Sunday)
-  final int? importance; // 0: None, 1: Low, 2: Moderate, 3: Important, 4: Very Important
-  final String category; // New field for category
-  bool isCompleted; // Field to indicate if the event is completed
+
+  @HiveField(5)
+  final List<int> repeatDays;
+
+  @HiveField(6)
+  final int? importance;
+
+  @HiveField(7)
+  final String category;
+
+  @HiveField(8)
+  bool isCompleted;
+
+  @HiveField(9)
+  final String userId; // New field to associate with Supabase user
+
+  @HiveField(10)
+  DateTime lastModified; // For sync purposes
 
   Event({
     required this.id,
@@ -17,37 +47,18 @@ class Event {
     this.endTime,
     required this.repeatDays,
     this.importance,
-    required this.category, // New field for category
-    this.isCompleted = false, // Default value
-  });
+    required this.category,
+    this.isCompleted = false,
+    required this.userId,
+    DateTime? lastModified,
+  }) : lastModified = lastModified ?? DateTime.now();
 
-  // Convert Event to JSON
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'description': description,
-    'startTime': startTime.toIso8601String(),
-    'endTime': endTime?.toIso8601String(),
-    'repeatDays': repeatDays,
-    'importance': importance,
-    'category': category, // New field for category
-    'isCompleted': isCompleted,
-  };
+  // Factory constructor for JSON serialization
+  factory Event.fromJson(Map<String, dynamic> json) => _$EventFromJson(json);
+  
+  // Convert to JSON
+  Map<String, dynamic> toJson() => _$EventToJson(this);
 
-  // Create Event from JSON
-  factory Event.fromJson(Map<String, dynamic> json) => Event(
-    id: json['id'],
-    title: json['title'],
-    description: json['description'],
-    startTime: DateTime.parse(json['startTime']),
-    endTime: json['endTime'] != null ? DateTime.parse(json['endTime']) : null,
-    repeatDays: List<int>.from(json['repeatDays']),
-    importance: json['importance'],
-    category: json['category'], // New field for category
-    isCompleted: json['isCompleted'] ?? false,
-  );
-
-  // Create a copy of the Event with optional field updates
   Event copyWith({
     String? id,
     String? title,
@@ -56,8 +67,10 @@ class Event {
     DateTime? endTime,
     List<int>? repeatDays,
     int? importance,
-    String? category, // New field for category
+    String? category,
     bool? isCompleted,
+    String? userId,
+    DateTime? lastModified,
   }) {
     return Event(
       id: id ?? this.id,
@@ -67,8 +80,10 @@ class Event {
       endTime: endTime ?? this.endTime,
       repeatDays: repeatDays ?? this.repeatDays,
       importance: importance ?? this.importance,
-      category: category ?? this.category, // New field for category
+      category: category ?? this.category,
       isCompleted: isCompleted ?? this.isCompleted,
+      userId: userId ?? this.userId,
+      lastModified: lastModified ?? DateTime.now(),
     );
   }
 }

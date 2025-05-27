@@ -38,8 +38,28 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+             <!-- Añadir el intent filter para deep linking -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Scheme y host para deep linking -->
+                <data
+                    android:scheme="io.supabase.flutterquickstart"
+                    android:host="login-callback" />
+            </intent-filter>
+            <intent-filter>
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data
+        android:scheme="io.supabase.flutterquickstart"
+        android:host="login-callback" />
+</intent-filter>
+
             </activity>
 
+   
         <receiver android:exported="true" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="true" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>
@@ -49,6 +69,7 @@
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
         </intent-filter>
     </receiver>
+
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
