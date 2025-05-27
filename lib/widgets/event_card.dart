@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:myapp/screens/pomodoro_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:myapp/models/event.dart';
 import 'package:myapp/screens/add_event_screen.dart';
@@ -89,13 +90,14 @@ class _EventCardState extends State<EventCard> {
   bool _shouldShowProgressIndicator() {
     final now = DateTime.now();
     final hasEndTime = widget.event.endTime != null;
-    
+
     if (!hasEndTime) {
       return false;
     }
-    
+
     // Solo mostrar el indicador si el evento ha comenzado pero no ha terminado
-    return now.isAfter(widget.event.startTime) && now.isBefore(widget.event.endTime!);
+    return now.isAfter(widget.event.startTime) &&
+        now.isBefore(widget.event.endTime!);
   }
 
   @override
@@ -105,7 +107,7 @@ class _EventCardState extends State<EventCard> {
         _showEventDetails(context);
       },
       child: Card(
-        color: Theme.of(context).colorScheme.surfaceContainer,
+        color: Theme.of(context).colorScheme.surface,
         elevation: 0,
         child: Opacity(
           opacity: isCompleted ? 0.5 : 1.0,
@@ -135,6 +137,21 @@ class _EventCardState extends State<EventCard> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              IconButton(
+                                icon: const Icon(Icons.timer),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => PomodoroScreen(
+                                            event: widget.event,
+                                          ),
+                                    ),
+                                  );
+                                },
+                                tooltip: 'Start Pomodoro Timer',
+                              ),
                               Expanded(
                                 child: Text(
                                   widget.event.title,

@@ -1,3 +1,4 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 import 'utils/notification_service.dart';
@@ -22,22 +23,22 @@ void alarmCallback() async {
 void main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Start the app first, then initialize background services
   runApp(const MyApp());
-  
+
   // Initialize services in a try-catch block to prevent startup crashes
   try {
     // Initialize notification service
     await NotificationService().init();
-    
+
     // Request permissions
     await _requestPermissions();
-    
+
     // Initialize Android Alarm Manager
     final bool alarmInitialized = await AndroidAlarmManager.initialize();
     print('Alarm Manager initialized: $alarmInitialized');
-    
+
     if (alarmInitialized) {
       // Setup periodic background check (every 15 minutes)
       const int helloAlarmID = 0;
@@ -59,13 +60,14 @@ void main() async {
 Future<void> _requestPermissions() async {
   try {
     // Request all necessary permissions
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.notification,
-      Permission.scheduleExactAlarm,
-      // Optional: Request background activity permissions
-      Permission.ignoreBatteryOptimizations,
-    ].request();
-    
+    Map<Permission, PermissionStatus> statuses =
+        await [
+          Permission.notification,
+          Permission.scheduleExactAlarm,
+          // Optional: Request background activity permissions
+          Permission.ignoreBatteryOptimizations,
+        ].request();
+
     print('Permission statuses: $statuses');
   } catch (e) {
     print('Error requesting permissions: $e');
@@ -77,17 +79,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Routine',
-      debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.system,
-      theme: ThemeData.light(
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData.dark(
-        useMaterial3: true,
-      ),
-      home: const HomeScreen(),
+    return DynamicColorBuilder(
+      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+        return MaterialApp(
+          title: 'Routine',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(useMaterial3: true, colorScheme: lightDynamic),
+          darkTheme: ThemeData(useMaterial3: true, colorScheme: darkDynamic),
+          themeMode: ThemeMode.system,
+          home: const HomeScreen(),
+        );
+      },
     );
   }
 }
