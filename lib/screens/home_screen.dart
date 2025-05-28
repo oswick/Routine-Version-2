@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:myapp/screens/calendar_screen.dart';
+import 'package:myapp/services/auth_service.dart';
+import 'package:myapp/services/sync_service.dart';
 import 'package:myapp/utils/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'day_screen.dart';
 import '../models/event.dart';
@@ -16,7 +19,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+   final AuthService _authService = AuthService();
+  final SyncService _syncService = SyncService();
   List<Event> allEvents = [];
+
+
   List<Event> dailyEvents = [];
   DateTime selectedDate = DateTime.now();
   final Uuid uuid = const Uuid(); // Inicializa UUID
@@ -28,7 +35,22 @@ class _HomeScreenState extends State<HomeScreen> {
     NotificationService().init();
     NotificationService().requestNotificationPermission();
     _filterDailyEvents();
+        _initializeServices();
+
   }
+  
+  Future<void> _initializeServices() async {
+    await _syncService.init();
+    _loadEvents();
+    
+    // Listen to auth changes
+    _authService.authStateChanges.listen((state) {
+      if (state.event == AuthChangeEvent.signedIn) {
+        _syncService.syncEvents().then((_) => _loadEvents());
+      }
+    });
+  }
+
 
   void addEvent(Event event) {
     setState(() {
@@ -190,41 +212,13 @@ void _scheduleEventNotifications(Event event) {
         }).toList();
   }
 
-  Future<void> _loadEvents() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final eventsData = prefs.getStringList('events');
-      if (eventsData != null) {
-        final loadedEvents =
-            eventsData.map((eventData) {
-              final eventMap = jsonDecode(eventData);
-              return Event.fromJson(eventMap);
-            }).toList();
-
-        // Eliminar duplicados basados en el ID
-        final uniqueEvents = <Event>[];
-        final seenIds = <String>{};
-        for (final event in loadedEvents) {
-          if (!seenIds.contains(event.id)) {
-            uniqueEvents.add(event);
-            seenIds.add(event.id);
-          }
-        }
-
-        setState(() {
-          allEvents = uniqueEvents;
-          _filterDailyEvents();
-        });
-
-        // Imprimir IDs para verificación
-        allEvents.forEach((event) {
-          print('Event ID: ${event.id}');
-        });
-      }
-    } catch (e) {
-      print('Error loading events: $e');
-    }
+   Future<void> _loadEvents() async {
+    final events = await _syncService.getEvents();
+    setState(() {
+      allEvents = events;
+    });
   }
+
 
   Future<void> _saveEvents() async {
     try {
@@ -272,6 +266,18 @@ void _scheduleEventNotifications(Event event) {
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(_authService.currentUser != null 
+              ? Icons.logout 
+              : Icons.login),
+            onPressed: () async {
+              if (_authService.currentUser != null) {
+                await _authService.signOut();
+              } else {
+                await _authService.signInWithGoogle();
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.calendar_today),
             onPressed: () {

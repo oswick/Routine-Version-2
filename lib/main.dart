@@ -1,5 +1,7 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:myapp/config/supabase_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/home_screen.dart';
 import 'utils/notification_service.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -21,26 +23,24 @@ void alarmCallback() async {
 }
 
 void main() async {
-  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Start the app first, then initialize background services
+  // Inicializar Supabase
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
+  );
+
   runApp(const MyApp());
 
-  // Initialize services in a try-catch block to prevent startup crashes
   try {
-    // Initialize notification service
     await NotificationService().init();
-
-    // Request permissions
     await _requestPermissions();
 
-    // Initialize Android Alarm Manager
     final bool alarmInitialized = await AndroidAlarmManager.initialize();
     print('Alarm Manager initialized: $alarmInitialized');
 
     if (alarmInitialized) {
-      // Setup periodic background check (every 15 minutes)
       const int helloAlarmID = 0;
       final bool alarmSet = await AndroidAlarmManager.periodic(
         const Duration(minutes: 15),
@@ -56,6 +56,7 @@ void main() async {
     print('Error initializing services: $e');
   }
 }
+
 
 Future<void> _requestPermissions() async {
   try {

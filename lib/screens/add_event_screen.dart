@@ -253,7 +253,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet> {
                           repeatDays: _repeatDays,
                           importance: _importance,
                           category: _category,
-                          isCompleted: _isCompleted,
+                          isCompleted: _isCompleted, userId: '',
                         );
                         widget.onAddEvent(updatedEvent);
                         Navigator.pop(context);
