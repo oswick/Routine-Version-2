@@ -1,10 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:myapp/screens/calendar_screen.dart';
 import 'package:myapp/services/auth_service.dart';
 import 'package:myapp/services/sync_service.dart';
 import 'package:myapp/utils/notification_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'day_screen.dart';
@@ -19,14 +17,12 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-   final AuthService _authService = AuthService();
+  final AuthService _authService = AuthService();
   final SyncService _syncService = SyncService();
   List<Event> allEvents = [];
-
-
   List<Event> dailyEvents = [];
   DateTime selectedDate = DateTime.now();
-  final Uuid uuid = const Uuid(); // Inicializa UUID
+  final Uuid uuid = const Uuid();
 
   @override
   void initState() {
@@ -35,50 +31,52 @@ class _HomeScreenState extends State<HomeScreen> {
     NotificationService().init();
     NotificationService().requestNotificationPermission();
     _filterDailyEvents();
-        _initializeServices();
+    _initializeServices();
 
-  }
-  
-  Future<void> _initializeServices() async {
-    await _syncService.init();
-    _loadEvents();
-    
-    // Listen to auth changes
+    // Escuchar cambios de autenticación
     _authService.authStateChanges.listen((state) {
       if (state.event == AuthChangeEvent.signedIn) {
-        _syncService.syncEvents().then((_) => _loadEvents());
+        _loadEvents();
       }
     });
   }
 
+  Future<void> _initializeServices() async {
+    await _syncService.init();
+    await _loadEvents();
+  }
 
-  void addEvent(Event event) {
+  Future<void> _loadEvents() async {
+    final events = await _syncService.getEvents();
     setState(() {
-      final newEvent = event.copyWith(id: uuid.v4()); // Asigna un ID único
-      allEvents.add(newEvent);
-      if (!newEvent.isCompleted) {
-        _scheduleEventNotifications(newEvent);
-      }
+      allEvents = events;
       _filterDailyEvents();
-      _saveEvents();
     });
   }
 
-  void updateEvent(int index, Event event) {
-    setState(() {
-      final oldEvent = allEvents[index];
-      allEvents[index] = event;
+  void addEvent(Event event) async {
+    final userId = _authService.currentUserId;
+    if (userId == null) return;
 
-      // Usar el nuevo método _cancelAllEventNotifications en lugar de _cancelEventNotifications
-      _cancelAllEventNotifications(oldEvent);
+    final newEvent = event.copyWith(id: uuid.v4(), userId: userId);
 
-      if (!event.isCompleted) {
-        _scheduleEventNotifications(event);
-      }
+    await _syncService.saveEvent(newEvent);
+    await _loadEvents();
 
-      _filterDailyEvents();
-      _saveEvents();
-    });
+    if (!newEvent.isCompleted) {
+      _scheduleEventNotifications(newEvent);
+    }
+  }
+
+  void updateEvent(int index, Event event) async {
+    final oldEvent = allEvents[index];
+    await _syncService.saveEvent(event);
+    await _loadEvents();
+
+    _cancelAllEventNotifications(oldEvent);
+    if (!event.isCompleted) {
+      _scheduleEventNotifications(event);
+    }
   }
 
   void _cancelAllEventNotifications(Event event) {
@@ -115,71 +113,65 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void deleteEvent(int index, bool allDays) {
-    setState(() {
-      final event = allEvents[index];
+  void deleteEvent(int index, bool allDays) async {
+    final event = allEvents[index];
+    _cancelAllEventNotifications(event);
 
-      // Cancelar todas las notificaciones relacionadas con el evento
-      _cancelAllEventNotifications(event);
+    if (allDays) {
+      await _syncService.deleteAllEventInstances(event.id);
+    } else {
+      await _syncService.deleteEvent(event.id);
+    }
 
-      if (allDays) {
-        // Eliminar todos los eventos con el mismo ID
-        allEvents.removeWhere((e) => e.id == event.id);
-      } else {
-        // Eliminar solo el evento específico
-        allEvents.removeAt(index);
-      }
-
-      _filterDailyEvents();
-      _saveEvents();
-    });
+    await _loadEvents();
   }
 
-void _scheduleEventNotifications(Event event) {
-  if (event.repeatDays.isNotEmpty) {
-    for (int day in event.repeatDays) {
+  void _scheduleEventNotifications(Event event) {
+    if (event.repeatDays.isNotEmpty) {
+      for (int day in event.repeatDays) {
+        // Notificación de inicio
+        NotificationService().scheduleNotification(
+          event.id.hashCode + day,
+          event.title,
+          event.description ?? 'New Task',
+          _calculateNotificationTime(day, event.startTime),
+          null, // Pass null for context when called from background
+        );
+
+        // Notificación de finalización (solo si hay endTime)
+        if (event.endTime != null) {
+          NotificationService().scheduleEndNotification(
+            event.id.hashCode + day,
+            event.title,
+            event.description ?? 'New Task',
+            _calculateEndNotificationTime(day, event.endTime!),
+            null, // Pass null for context when called from background
+          );
+        }
+      }
+    } else {
       // Notificación de inicio
       NotificationService().scheduleNotification(
-        event.id.hashCode + day,
+        event.id.hashCode,
         event.title,
         event.description ?? 'New Task',
-        _calculateNotificationTime(day, event.startTime),
+        event.startTime,
         null, // Pass null for context when called from background
       );
 
       // Notificación de finalización (solo si hay endTime)
       if (event.endTime != null) {
         NotificationService().scheduleEndNotification(
-          event.id.hashCode + day,
+          event.id.hashCode,
           event.title,
           event.description ?? 'New Task',
-          _calculateEndNotificationTime(day, event.endTime!),
+          event.endTime!,
           null, // Pass null for context when called from background
         );
       }
     }
-  } else {
-    // Notificación de inicio
-    NotificationService().scheduleNotification(
-      event.id.hashCode,
-      event.title,
-      event.description ?? 'New Task',
-      event.startTime,
-      null, // Pass null for context when called from background
-    );
-
-    // Notificación de finalización (solo si hay endTime)
-    if (event.endTime != null) {
-      NotificationService().scheduleEndNotification(
-        event.id.hashCode,
-        event.title,
-        event.description ?? 'New Task',
-        event.endTime!,
-        null, // Pass null for context when called from background
-      );
-    }
   }
-}
+
   // Método para calcular el tiempo de notificación de finalización para eventos recurrentes
   DateTime _calculateEndNotificationTime(int day, DateTime endTime) {
     DateTime now = DateTime.now();
@@ -196,41 +188,19 @@ void _scheduleEventNotifications(Event event) {
 
   void _filterDailyEvents() {
     final Set<String> seenIds = {}; // Para rastrear IDs únicos
-    dailyEvents =
-        allEvents.where((event) {
-          // Verificar si el evento es para el día actual o repetido
-          final bool shouldInclude =
-              isSameDay(event.startTime, selectedDate) ||
-              event.repeatDays.contains(selectedDate.weekday);
+    dailyEvents = allEvents.where((event) {
+      // Verificar si el evento es para el día actual o repetido
+      final bool shouldInclude =
+          isSameDay(event.startTime, selectedDate) ||
+          event.repeatDays.contains(selectedDate.weekday);
 
-          // Solo incluir el evento si no hemos visto su ID antes
-          if (shouldInclude && !seenIds.contains(event.id)) {
-            seenIds.add(event.id);
-            return true;
-          }
-          return false;
-        }).toList();
-  }
-
-   Future<void> _loadEvents() async {
-    final events = await _syncService.getEvents();
-    setState(() {
-      allEvents = events;
-    });
-  }
-
-
-  Future<void> _saveEvents() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final eventsData =
-          allEvents.map((event) {
-            return jsonEncode(event.toJson());
-          }).toList();
-      prefs.setStringList('events', eventsData);
-    } catch (e) {
-      print('Error saving events: $e');
-    }
+      // Solo incluir el evento si no hemos visto su ID antes
+      if (shouldInclude && !seenIds.contains(event.id)) {
+        seenIds.add(event.id);
+        return true;
+      }
+      return false;
+    }).toList();
   }
 
   DateTime _calculateNotificationTime(int day, DateTime startTime) {
@@ -267,9 +237,9 @@ void _scheduleEventNotifications(Event event) {
         ),
         actions: [
           IconButton(
-            icon: Icon(_authService.currentUser != null 
-              ? Icons.logout 
-              : Icons.login),
+            icon: Icon(
+              _authService.currentUser != null ? Icons.logout : Icons.login,
+            ),
             onPressed: () async {
               if (_authService.currentUser != null) {
                 await _authService.signOut();
@@ -284,15 +254,13 @@ void _scheduleEventNotifications(Event event) {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder:
-                      (context) => MonthlyCalendarScreen(
-                        events: allEvents,
-                        onAddEvent: addEvent,
-                        onUpdateEvent: updateEvent,
-                        onDeleteEvent: deleteEvent,
-                        fromHomeScreen:
-                            true, // Pasamos deleteEvent correctamente
-                      ),
+                  builder: (context) => MonthlyCalendarScreen(
+                    events: allEvents,
+                    onAddEvent: addEvent,
+                    onUpdateEvent: updateEvent,
+                    onDeleteEvent: deleteEvent,
+                    fromHomeScreen: true, // Pasamos deleteEvent correctamente
+                  ),
                 ),
               );
             },

@@ -1,43 +1,33 @@
-import 'package:hive/hive.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'event.g.dart';
 
-@HiveType(typeId: 0)
 @JsonSerializable()
-class Event extends HiveObject {
-  @HiveField(0)
+class Event {
   final String id;
-
-  @HiveField(1)
   final String title;
-
-  @HiveField(2)
   final String? description;
-
-  @HiveField(3)
+  
+  @JsonKey(name: 'start_time')
   final DateTime startTime;
-
-  @HiveField(4)
+  
+  @JsonKey(name: 'end_time')
   final DateTime? endTime;
-
-  @HiveField(5)
+  
+  @JsonKey(name: 'repeat_days')
   final List<int> repeatDays;
-
-  @HiveField(6)
+  
   final int? importance;
-
-  @HiveField(7)
   final String category;
-
-  @HiveField(8)
+  
+  @JsonKey(name: 'is_completed')
   bool isCompleted;
-
-  @HiveField(9)
-  final String userId; // New field to associate with Supabase user
-
-  @HiveField(10)
-  DateTime lastModified; // For sync purposes
+  
+  @JsonKey(name: 'user_id')
+  final String userId;
+  
+  @JsonKey(name: 'last_modified')
+  DateTime lastModified;
 
   Event({
     required this.id,
@@ -53,10 +43,8 @@ class Event extends HiveObject {
     DateTime? lastModified,
   }) : lastModified = lastModified ?? DateTime.now();
 
-  // Factory constructor for JSON serialization
   factory Event.fromJson(Map<String, dynamic> json) => _$EventFromJson(json);
   
-  // Convert to JSON
   Map<String, dynamic> toJson() => _$EventToJson(this);
 
   Event copyWith({
