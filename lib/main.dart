@@ -26,7 +26,8 @@ Future<void> main() async {
 
   await Supabase.initialize(
     url: 'https://mjlurwscaotbziijzymq.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qbHVyd3NjYW90YnppaWp6eW1xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNjA1NTAsImV4cCI6MjA2MzkzNjU1MH0.2wnp7hupGpdcUiFxTagBvMkK3Ez-_5zqC4tJGineujk',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qbHVyd3NjYW90YnppaWp6eW1xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNjA1NTAsImV4cCI6MjA2MzkzNjU1MH0.2wnp7hupGpdcUiFxTagBvMkK3Ez-_5zqC4tJGineujk',
   );
 
   runApp(const MyApp());
@@ -58,13 +59,12 @@ Future<void> main() async {
 Future<void> _requestPermissions() async {
   try {
     // Request all necessary permissions
-    Map<Permission, PermissionStatus> statuses =
-        await [
-          Permission.notification,
-          Permission.scheduleExactAlarm,
-          // Optional: Request background activity permissions
-          Permission.ignoreBatteryOptimizations,
-        ].request();
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.notification,
+      Permission.scheduleExactAlarm,
+      // Optional: Request background activity permissions
+      Permission.ignoreBatteryOptimizations,
+    ].request();
 
     print('Permission statuses: $statuses');
   } catch (e) {
