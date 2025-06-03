@@ -24,13 +24,52 @@ class DayScreen extends StatefulWidget {
   _DayScreenState createState() => _DayScreenState();
 }
 
-class _DayScreenState extends State<DayScreen> {
+class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixin {
   bool _showMorningEvents = true;
   bool _showAfternoonEvents = true;
   bool _showNightEvents = true;
 
+  // Mapa para mantener el estado de los eventos por su ID único
+  final Map<String, bool> _eventStates = {};
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeEventStates();
+  }
+
+  @override
+  void didUpdateWidget(DayScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Actualizar estados cuando cambien los eventos
+    if (oldWidget.events != widget.events) {
+      _initializeEventStates();
+    }
+  }
+
+  void _initializeEventStates() {
+    // Inicializar estados basados en los eventos actuales
+    for (var event in widget.events) {
+      if (!_eventStates.containsKey(event.id)) {
+        _eventStates[event.id] = event.isCompleted;
+      } else {
+        // Actualizar el estado si ha cambiado en Supabase
+        _eventStates[event.id] = event.isCompleted;
+      }
+    }
+    
+    // Limpiar estados de eventos que ya no existen
+    _eventStates.removeWhere((eventId, _) => 
+        !widget.events.any((event) => event.id == eventId));
+  }
+
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Necesario para AutomaticKeepAliveClientMixin
+    
     // Group events by time of day
     List<Event> morningEvents = [];
     List<Event> afternoonEvents = [];
@@ -92,7 +131,6 @@ class _DayScreenState extends State<DayScreen> {
     );
   }
 
-
   Widget _buildHeader(String title, bool isVisible, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -101,8 +139,19 @@ class _DayScreenState extends State<DayScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(title),
-            Icon(isVisible ? Icons.expand_less : Icons.expand_more),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              isVisible ? Icons.expand_less : Icons.expand_more,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ],
         ),
       ),
@@ -111,7 +160,7 @@ class _DayScreenState extends State<DayScreen> {
 
   Widget _buildEventCard(Event event, int index) {
     return Dismissible(
-      key: Key(event.id),
+      key: Key('${event.id}_${event.startTime.millisecondsSinceEpoch}'),
       direction: DismissDirection.endToStart,
       background: Container(
         color: Colors.red,
@@ -136,8 +185,15 @@ class _DayScreenState extends State<DayScreen> {
           _showEventOptions(context, event, index);
         },
         child: EventCard(
+          key: ValueKey('${event.id}_${event.isCompleted}_${event.startTime.millisecondsSinceEpoch}'),
           event: event,
-          onUpdateEvent: (updatedEvent) {
+          onUpdateEvent: (updatedEvent) async {
+            // Actualizar el estado local inmediatamente
+            setState(() {
+              _eventStates[event.id] = updatedEvent.isCompleted;
+            });
+            
+            // Luego actualizar en Supabase
             widget.onUpdateEvent(index, updatedEvent);
           },
         ),
@@ -152,23 +208,33 @@ class _DayScreenState extends State<DayScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Delete Event'),
-          content: const Text('Do you want to delete this event?'),
+          content: Text('Do you want to delete "${event.title}"?'),
           backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           actions: [
             TextButton(
               onPressed: () {
+                // Eliminar del estado local
+                _eventStates.remove(event.id);
                 widget.onDeleteEvent(index, false);
                 Navigator.of(context).pop(true);
               },
-              child: const Text('Delete'),
+              child: Text(
+                'Delete',
+                style: TextStyle(color: Colors.red),
+              ),
             ),
             if (event.repeatDays.isNotEmpty)
               TextButton(
                 onPressed: () {
+                  // Eliminar del estado local
+                  _eventStates.remove(event.id);
                   widget.onDeleteEvent(index, true);
                   Navigator.of(context).pop(true);
                 },
-                child: const Text('Delete All Days'),
+                child: Text(
+                  'Delete All Days',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             TextButton(
               onPressed: () {
@@ -186,12 +252,24 @@ class _DayScreenState extends State<DayScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => AddEventBottomSheet(
-        onAddEvent: (event) {
-          widget.onAddEvent(event);
-          setState(() {}); // Forzar la reconstrucción del widget
-        },
-        day: widget.day,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: AddEventBottomSheet(
+          onAddEvent: (event) {
+            // Actualizar estado local
+            _eventStates[event.id] = event.isCompleted;
+            widget.onAddEvent(event);
+            setState(() {}); // Forzar la reconstrucción del widget
+          },
+          day: widget.day,
+        ),
       ),
     );
   }
@@ -201,23 +279,35 @@ class _DayScreenState extends State<DayScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Event Options'),
+          title: Text('Options for "${event.title}"'),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 showModalBottomSheet(
                   context: context,
-                  isScrollControlled:
-                      true, // Permite que el BottomSheet se ajuste al teclado
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
                   builder: (context) {
-                    return AddEventBottomSheet(
-                      onAddEvent: (updatedEvent) {
-                        widget.onUpdateEvent(index, updatedEvent);
-                        setState(() {}); // Forzar la reconstrucción del widget
-                      },
-                      day: widget.day,
-                      event: event,
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: AddEventBottomSheet(
+                        onAddEvent: (updatedEvent) {
+                          // Actualizar estado local
+                          _eventStates[updatedEvent.id] = updatedEvent.isCompleted;
+                          widget.onUpdateEvent(index, updatedEvent);
+                          setState(() {}); // Forzar la reconstrucción del widget
+                        },
+                        day: widget.day,
+                        event: event,
+                      ),
                     );
                   },
                 );
@@ -229,7 +319,10 @@ class _DayScreenState extends State<DayScreen> {
                 Navigator.pop(context);
                 _showDeleteConfirmationDialog(context, index, event);
               },
-              child: const Text('Delete'),
+              child: Text(
+                'Delete',
+                style: TextStyle(color: Colors.red),
+              ),
             ),
             TextButton(
               onPressed: () {
@@ -241,5 +334,11 @@ class _DayScreenState extends State<DayScreen> {
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _eventStates.clear();
+    super.dispose();
   }
 }

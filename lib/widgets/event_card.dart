@@ -99,14 +99,15 @@ class _EventCardState extends State<EventCard> {
     return now.isAfter(widget.event.startTime) &&
         now.isBefore(widget.event.endTime!);
   }
-// Inside the EventCard widget, modify the build method:
+  // Inside the EventCard widget, modify the build method:
 
   @override
   Widget build(BuildContext context) {
     // Add this at the beginning of build method to check if event has ended
-    final bool hasEnded = widget.event.endTime != null && 
-                         DateTime.now().isAfter(widget.event.endTime!);
-    
+    final bool hasEnded =
+        widget.event.endTime != null &&
+        DateTime.now().isAfter(widget.event.endTime!);
+
     // If event has ended, update its completed status
     if (hasEnded && !isCompleted) {
       _updateCompletedStatus(true);
@@ -147,7 +148,7 @@ class _EventCardState extends State<EventCard> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              // Modificar el IconButton del pomodoro para que solo aparezca 
+                              // Modificar el IconButton del pomodoro para que solo aparezca
                               // si el evento tiene end time y no está completado
                               if (widget.event.endTime != null && !isCompleted)
                                 IconButton(
@@ -156,9 +157,8 @@ class _EventCardState extends State<EventCard> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => PomodoroScreen(
-                                          event: widget.event,
-                                        ),
+                                        builder: (context) =>
+                                            PomodoroScreen(event: widget.event),
                                       ),
                                     );
                                   },
@@ -181,7 +181,9 @@ class _EventCardState extends State<EventCard> {
                       ),
                     ),
                     Tooltip(
-                      message: isCompleted ? "Mark as incomplete" : "Mark as complete",
+                      message: isCompleted
+                          ? "Mark as incomplete"
+                          : "Mark as complete",
                       child: Checkbox(
                         shape: const CircleBorder(),
                         value: isCompleted,
@@ -216,7 +218,7 @@ class _EventCardState extends State<EventCard> {
       ),
     );
   }
-  
+
   void _showEventDetails(BuildContext context) {
     showModalBottomSheet(
       context: context,

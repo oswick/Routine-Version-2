@@ -3,13 +3,12 @@ import '../models/event.dart';
 
 class SyncService {
   static final SyncService _instance = SyncService._internal();
-  
   factory SyncService() => _instance;
-  
+
   SyncService._internal();
 
   final supabase = Supabase.instance.client;
-  
+
   Future<void> init() async {
     // Ya no necesitamos inicializar Hive
   }
@@ -23,10 +22,8 @@ class SyncService {
           .from('events')
           .select()
           .eq('user_id', user.id);
-      
-      return (response as List)
-          .map((json) => Event.fromJson(json))
-          .toList();
+
+      return (response as List).map((json) => Event.fromJson(json)).toList();
     } catch (e) {
       print('Error getting events: $e');
       return [];
@@ -38,9 +35,7 @@ class SyncService {
     if (user == null) return;
 
     try {
-      await supabase
-          .from('events')
-          .upsert(event.toJson());
+      await supabase.from('events').upsert(event.toJson());
     } catch (e) {
       print('Error saving event: $e');
     }
@@ -48,10 +43,7 @@ class SyncService {
 
   Future<void> deleteEvent(String eventId) async {
     try {
-      await supabase
-          .from('events')
-          .delete()
-          .eq('id', eventId);
+      await supabase.from('events').delete().eq('id', eventId);
     } catch (e) {
       print('Error deleting event: $e');
     }
@@ -59,10 +51,7 @@ class SyncService {
 
   Future<void> deleteAllEventInstances(String eventId) async {
     try {
-      await supabase
-          .from('events')
-          .delete()
-          .eq('id', eventId);
+      await supabase.from('events').delete().eq('id', eventId);
     } catch (e) {
       print('Error deleting event instances: $e');
     }

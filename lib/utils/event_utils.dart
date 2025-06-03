@@ -33,12 +33,16 @@ String getImportanceText(int importance) {
 Color getCategoryColor(String category) {
   switch (category) {
     case 'School':
-      return Colors.transparent; 
+      return Colors.transparent;
     case 'Home':
       return Colors.transparent;
     case 'Work':
       return Colors.transparent;
     case 'Shopping':
+      return Colors.transparent;
+        case 'Health':
+      return Colors.transparent;
+    case 'Personal':
       return Colors.transparent;
     default:
       return Colors.transparent;
@@ -55,6 +59,10 @@ IconData getCategoryIcon(String category) {
       return Icons.work;
     case 'Shopping':
       return Icons.shopping_cart;
+    case 'Health':
+      return Icons.health_and_safety;
+    case 'Personal':
+      return Icons.person;
     default:
       return Icons.menu;
   }

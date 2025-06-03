@@ -218,6 +218,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = _authService.currentUser;
+    
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
@@ -236,18 +238,43 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          // Imagen del usuario cuando está logueado
+          if (user != null) ...[
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundImage: user.userMetadata?['avatar_url'] != null
+                    ? NetworkImage(user.userMetadata!['avatar_url'])
+                    : null,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                child: user.userMetadata?['avatar_url'] == null
+                    ? Text(
+                        user.userMetadata?['full_name']?.toString().substring(0, 1).toUpperCase() ?? 
+                        user.email?.substring(0, 1).toUpperCase() ?? 'U',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+          ],
+          // Botón de login/logout
           IconButton(
             icon: Icon(
-              _authService.currentUser != null ? Icons.logout : Icons.login,
+              user != null ? Icons.logout : Icons.login,
             ),
             onPressed: () async {
-              if (_authService.currentUser != null) {
+              if (user != null) {
                 await _authService.signOut();
               } else {
                 await _authService.signInWithGoogle();
               }
             },
           ),
+          // Botón del calendario
           IconButton(
             icon: const Icon(Icons.calendar_today),
             onPressed: () {
