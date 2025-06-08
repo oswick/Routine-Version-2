@@ -24,94 +24,144 @@ class DayScreen extends StatefulWidget {
   _DayScreenState createState() => _DayScreenState();
 }
 
-class _DayScreenState extends State<DayScreen> {
+class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixin {
   bool _showMorningEvents = true;
   bool _showAfternoonEvents = true;
   bool _showNightEvents = true;
 
-  @override
-  Widget build(BuildContext context) {
-    // Group events by time of day
-    List<Event> morningEvents = [];
-    List<Event> afternoonEvents = [];
-    List<Event> nightEvents = [];
+  // Mapa para mantener el estado de los eventos por su ID único
+  final Map<String, bool> _eventStates = {};
 
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeEventStates();
+  }
+
+  @override
+  void didUpdateWidget(DayScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Actualizar estados cuando cambien los eventos
+    if (oldWidget.events != widget.events) {
+      _initializeEventStates();
+    }
+  }
+
+  void _initializeEventStates() {
+    // Inicializar estados basados en los eventos actuales
     for (var event in widget.events) {
-      final hour = event.startTime.hour;
-      if (hour >= 0 && hour < 12) {
-        morningEvents.add(event);
-      } else if (hour >= 12 && hour < 18) {
-        afternoonEvents.add(event);
+      if (!_eventStates.containsKey(event.id)) {
+        _eventStates[event.id] = event.isCompleted;
       } else {
-        nightEvents.add(event);
+        // Actualizar el estado si ha cambiado en Supabase
+        _eventStates[event.id] = event.isCompleted;
       }
     }
+    
+    // Limpiar estados de eventos que ya no existen
+    _eventStates.removeWhere((eventId, _) => 
+        !widget.events.any((event) => event.id == eventId));
+  }
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body: ListView(
+@override
+Widget build(BuildContext context) {
+  super.build(context);
+
+  // Group events by time of day
+  List<Event> morningEvents = [];
+  List<Event> afternoonEvents = [];
+  List<Event> nightEvents = [];
+
+  for (var event in widget.events) {
+    final hour = event.startTime.hour;
+    if (hour >= 0 && hour < 12) {
+      morningEvents.add(event);
+    } else if (hour >= 12 && hour < 18) {
+      afternoonEvents.add(event);
+    } else {
+      nightEvents.add(event);
+    }
+  }
+
+  return Scaffold(
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    body: ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        if (morningEvents.isNotEmpty) ...[
+          _buildHeader('Morning', _showMorningEvents, () {
+            setState(() {
+              _showMorningEvents = !_showMorningEvents;
+            });
+          }),
+          if (_showMorningEvents)
+            ...morningEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event))),
+        ],
+        if (afternoonEvents.isNotEmpty) ...[
+          _buildHeader('Afternoon', _showAfternoonEvents, () {
+            setState(() {
+              _showAfternoonEvents = !_showAfternoonEvents;
+            });
+          }),
+          if (_showAfternoonEvents)
+            ...afternoonEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event))),
+        ],
+        if (nightEvents.isNotEmpty) ...[
+          _buildHeader('Night', _showNightEvents, () {
+            setState(() {
+              _showNightEvents = !_showNightEvents;
+            });
+          }),
+          if (_showNightEvents)
+            ...nightEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event))),
+        ],
+      ],
+    ),
+    floatingActionButton: FloatingActionButton(
+      backgroundColor: Theme.of(context).colorScheme.primary,
+      onPressed: _showAddEventBottomSheet,
+      child: Icon(
+        Icons.add,
+        color: Theme.of(context).colorScheme.onPrimary,
+      ),
+    ),
+  );
+}
+
+Widget _buildHeader(String title, bool isVisible, VoidCallback onTap) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          if (morningEvents.isNotEmpty) ...[
-            _buildHeader('Morning Events', _showMorningEvents, () {
-              setState(() {
-                _showMorningEvents = !_showMorningEvents;
-              });
-            }),
-            if (_showMorningEvents)
-              ...morningEvents.map((event) =>
-                  _buildEventCard(event, widget.events.indexOf(event))),
-          ],
-          if (afternoonEvents.isNotEmpty) ...[
-            _buildHeader('Afternoon Events', _showAfternoonEvents, () {
-              setState(() {
-                _showAfternoonEvents = !_showAfternoonEvents;
-              });
-            }),
-            if (_showAfternoonEvents)
-              ...afternoonEvents.map((event) =>
-                  _buildEventCard(event, widget.events.indexOf(event))),
-          ],
-          if (nightEvents.isNotEmpty) ...[
-            _buildHeader('Night Events', _showNightEvents, () {
-              setState(() {
-                _showNightEvents = !_showNightEvents;
-              });
-            }),
-            if (_showNightEvents)
-              ...nightEvents.map((event) =>
-                  _buildEventCard(event, widget.events.indexOf(event))),
-          ],
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          Icon(
+            isVisible ? Icons.expand_less : Icons.expand_more,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddEventBottomSheet();
-        },
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
+    ),
+  );
+}
 
-
-  Widget _buildHeader(String title, bool isVisible, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(title),
-            Icon(isVisible ? Icons.expand_less : Icons.expand_more),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEventCard(Event event, int index) {
-    return Dismissible(
-      key: Key(event.id),
+Widget _buildEventCard(Event event, int index) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4.0),
+    child: Dismissible(
+      key: Key('${event.id}_${event.startTime.millisecondsSinceEpoch}'),
       direction: DismissDirection.endToStart,
       background: Container(
         color: Colors.red,
@@ -120,126 +170,96 @@ class _DayScreenState extends State<DayScreen> {
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       confirmDismiss: (direction) async {
-        bool? result =
-            await _showDeleteConfirmationDialog(context, index, event);
+        bool? result = await _showDeleteConfirmationDialog(context, index, event);
         if (result == null || !result) {
-          // Si se cancela la eliminación, forzamos una reconstrucción
           setState(() {});
         }
         return result;
       },
-      onDismissed: (direction) {
-        // La eliminación ya se ha manejado en confirmDismiss
-      },
-      child: GestureDetector(
-        onLongPress: () {
-          _showEventOptions(context, event, index);
+      onDismissed: (direction) {},
+      child: EventCard(
+        key: ValueKey('${event.id}_${event.isCompleted}_${event.startTime.millisecondsSinceEpoch}'),
+        event: event,
+        onUpdateEvent: (updatedEvent) async {
+          setState(() {
+            _eventStates[event.id] = updatedEvent.isCompleted;
+          });
+          widget.onUpdateEvent(index, updatedEvent);
         },
-        child: EventCard(
-          event: event,
-          onUpdateEvent: (updatedEvent) {
-            widget.onUpdateEvent(index, updatedEvent);
-          },
-        ),
       ),
-    );
-  }
-
-  Future<bool?> _showDeleteConfirmationDialog(
-      BuildContext context, int index, Event event) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete Event'),
-          content: const Text('Do you want to delete this event?'),
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-          actions: [
+    ),
+  );
+}
+Future<bool?> _showDeleteConfirmationDialog(BuildContext context, int index, Event event) {
+  return showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text('Delete Event'),
+        content: Text('Do you want to delete "${event.title}"?'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        actions: [
+          TextButton(
+            onPressed: () {
+              _eventStates.remove(event.id);
+              widget.onDeleteEvent(index, false);
+              Navigator.of(context).pop(true);
+            },
+            child: Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+          if (event.repeatDays.isNotEmpty)
             TextButton(
               onPressed: () {
-                widget.onDeleteEvent(index, false);
+                _eventStates.remove(event.id);
+                widget.onDeleteEvent(index, true);
                 Navigator.of(context).pop(true);
               },
-              child: const Text('Delete'),
-            ),
-            if (event.repeatDays.isNotEmpty)
-              TextButton(
-                onPressed: () {
-                  widget.onDeleteEvent(index, true);
-                  Navigator.of(context).pop(true);
-                },
-                child: const Text('Delete All Days'),
+              child: Text(
+                'Delete All Days',
+                style: TextStyle(color: Colors.red),
               ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-              child: const Text('Cancel'),
             ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showAddEventBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => AddEventBottomSheet(
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(false);
+            },
+            child: Text('Cancel'),
+          ),
+        ],
+      );
+    },
+  );
+}
+void _showAddEventBottomSheet() {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: AddEventBottomSheet(
         onAddEvent: (event) {
+          _eventStates[event.id] = event.isCompleted;
           widget.onAddEvent(event);
-          setState(() {}); // Forzar la reconstrucción del widget
+          setState(() {});
         },
         day: widget.day,
       ),
-    );
-  }
-
-  void _showEventOptions(BuildContext context, Event event, int index) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Event Options'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled:
-                      true, // Permite que el BottomSheet se ajuste al teclado
-                  builder: (context) {
-                    return AddEventBottomSheet(
-                      onAddEvent: (updatedEvent) {
-                        widget.onUpdateEvent(index, updatedEvent);
-                        setState(() {}); // Forzar la reconstrucción del widget
-                      },
-                      day: widget.day,
-                      event: event,
-                    );
-                  },
-                );
-              },
-              child: const Text('Edit'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _showDeleteConfirmationDialog(context, index, event);
-              },
-              child: const Text('Delete'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Cancel'),
-            ),
-          ],
-        );
-      },
-    );
+    ),
+  );
+}
+  @override
+  void dispose() {
+    _eventStates.clear();
+    super.dispose();
   }
 }
