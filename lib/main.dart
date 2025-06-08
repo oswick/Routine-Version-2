@@ -82,8 +82,14 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: 'Routine',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(useMaterial3: true, colorScheme: lightDynamic),
-          darkTheme: ThemeData(useMaterial3: true, colorScheme: darkDynamic),
+          theme: ThemeData(
+            useMaterial3: true,
+            useSystemColors: true,
+            colorScheme: lightDynamic,
+          ),
+          darkTheme: ThemeData(useMaterial3: true,
+          useSystemColors: true,
+          colorScheme: darkDynamic),
           themeMode: ThemeMode.system,
           home: const HomeScreen(),
         );

@@ -8,6 +8,7 @@ import 'package:myapp/models/event.dart';
 import 'package:myapp/screens/add_event_screen.dart';
 import 'package:myapp/utils/event_utils.dart';
 
+
 class EventCard extends StatefulWidget {
   final Event event;
   final Function(Event) onUpdateEvent;
@@ -32,8 +33,19 @@ class _EventCardState extends State<EventCard> {
     super.initState();
     isCompleted = widget.event.isCompleted;
     _loadCompletedStatus();
-    _checkAndResetCompletedStatus();
+    _checkAndUpdateCompletedStatus();
     _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(EventCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // Verificar si el evento fue editado y si necesita ser desmarcado
+    if (oldWidget.event.endTime != widget.event.endTime ||
+        oldWidget.event.startTime != widget.event.startTime) {
+      _checkAndUpdateCompletedStatus();
+    }
   }
 
   @override
@@ -99,125 +111,197 @@ class _EventCardState extends State<EventCard> {
     return now.isAfter(widget.event.startTime) &&
         now.isBefore(widget.event.endTime!);
   }
-  // Inside the EventCard widget, modify the build method:
 
-  @override
-  Widget build(BuildContext context) {
-    // Add this at the beginning of build method to check if event has ended
-    final bool hasEnded =
-        widget.event.endTime != null &&
-        DateTime.now().isAfter(widget.event.endTime!);
-
-    // If event has ended, update its completed status
-    if (hasEnded && !isCompleted) {
-      _updateCompletedStatus(true);
+  // Método mejorado que maneja tanto el marcado automático como el desmarcado
+  void _checkAndUpdateCompletedStatus() {
+    final now = DateTime.now();
+    final hasEndTime = widget.event.endTime != null;
+    
+    if (hasEndTime) {
+      final hasEnded = now.isAfter(widget.event.endTime!);
+      final isCurrentlyInProgress = now.isAfter(widget.event.startTime) && 
+                                   now.isBefore(widget.event.endTime!);
+      
+      // Si el evento ha terminado y no está marcado, marcarlo automáticamente
+      if (hasEnded && !isCompleted) {
+        _updateCompletedStatus(true);
+      }
+      // Si el evento está marcado como completado pero aún está en progreso o no ha comenzado,
+      // desmarcarlo automáticamente (esto maneja el caso de extensión de tiempo)
+      else if (isCompleted && (isCurrentlyInProgress || now.isBefore(widget.event.startTime))) {
+        _updateCompletedStatus(false);
+      }
     }
 
-    return GestureDetector(
-      onTap: () {
-        _showEventDetails(context);
-      },
-      child: Card(
-        color: Theme.of(context).colorScheme.surface,
-        elevation: 0,
-        child: Opacity(
-          opacity: isCompleted ? 0.5 : 1.0,
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    if (widget.event.importance != null)
-                      Container(
-                        width: 5,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          color: getImportanceColor(widget.event.importance!),
-                          borderRadius: BorderRadius.circular(2),
+    // Lógica para eventos repetitivos
+    if (widget.event.repeatDays.isNotEmpty && widget.event.isCompleted) {
+      final eventDate = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        widget.event.startTime.hour,
+        widget.event.startTime.minute,
+      );
+
+      if (now.isAfter(eventDate)) {
+        _updateCompletedStatus(false);
+      }
+    }
+  }
+
+@override
+Widget build(BuildContext context) {
+  // Verificar el estado de completado en cada build
+  _checkAndUpdateCompletedStatus();
+
+  return GestureDetector(
+    onTap: () {
+      _showEventDetails(context);
+    },
+    child: Card(
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Opacity(
+        opacity: isCompleted ? 0.6 : 1.0,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  if (widget.event.importance != null)
+                    Container(
+                      width: 4,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: getImportanceColor(widget.event.importance!),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  const SizedBox(width: 12),
+                  if (widget.event.category.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        getCategoryIcon(widget.event.category),
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.event.title,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              formatTime(widget.event.startTime),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (widget.event.endTime != null && !isCompleted)
+                    IconButton(
+                      icon: Icon(
+                        Icons.timer,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PomodoroScreen(event: widget.event),
+                          ),
+                        );
+                      },
+                    ),
+                  Tooltip(
+                    message: isCompleted ? "Mark as incomplete" : "Mark as complete",
+                    child: Checkbox(
+                      shape: const CircleBorder(),
+                      value: isCompleted,
+                      onChanged: (value) {
+                        setState(() {
+                          isCompleted = value!;
+                          final updatedEvent = widget.event.copyWith(
+                            isCompleted: isCompleted,
+                          );
+                          widget.onUpdateEvent(updatedEvent);
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              if (_shouldShowProgressIndicator())
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Column(
+                    children: [
+                      LinearProgressIndicator(
+                        value: _calculateProgress(),
+                        minHeight: 4,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Theme.of(context).colorScheme.primary,
                         ),
                       ),
-                    const SizedBox(width: 5),
-                    if (widget.event.category.isNotEmpty)
-                      Icon(getCategoryIcon(widget.event.category), size: 16),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // Modificar el IconButton del pomodoro para que solo aparezca
-                              // si el evento tiene end time y no está completado
-                              if (widget.event.endTime != null && !isCompleted)
-                                IconButton(
-                                  icon: const Icon(Icons.timer),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            PomodoroScreen(event: widget.event),
-                                      ),
-                                    );
-                                  },
-                                  tooltip: 'Start Pomodoro Timer',
-                                ),
-                              Expanded(
-                                child: Text(
-                                  widget.event.title,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                              ),
-                              Text(
-                                formatTime(widget.event.startTime),
-                                style: const TextStyle(fontSize: 10),
-                              ),
-                            ],
+                          Text(
+                            formatTime(widget.event.startTime),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                          ),
+                          Text(
+                            formatTime(widget.event.endTime!),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    Tooltip(
-                      message: isCompleted
-                          ? "Mark as incomplete"
-                          : "Mark as complete",
-                      child: Checkbox(
-                        shape: const CircleBorder(),
-                        value: isCompleted,
-                        onChanged: (value) {
-                          setState(() {
-                            isCompleted = value!;
-                            final updatedEvent = widget.event.copyWith(
-                              isCompleted: isCompleted,
-                            );
-                            widget.onUpdateEvent(updatedEvent);
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                if (_shouldShowProgressIndicator())
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: LinearProgressIndicator(
-                      value: _calculateProgress(),
-                      minHeight: 3,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
+                    ],
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showEventDetails(BuildContext context) {
     showModalBottomSheet(
@@ -242,23 +326,6 @@ class _EventCardState extends State<EventCard> {
       widget.onUpdateEvent(updatedEvent);
       _saveCompletedStatus(isCompleted);
     });
-  }
-
-  void _checkAndResetCompletedStatus() {
-    final now = DateTime.now();
-    final eventDate = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      widget.event.startTime.hour,
-      widget.event.startTime.minute,
-    );
-
-    if (now.isAfter(eventDate) &&
-        widget.event.repeatDays.isNotEmpty &&
-        widget.event.isCompleted) {
-      _updateCompletedStatus(false);
-    }
   }
 
   String formatTime(DateTime dateTime) {

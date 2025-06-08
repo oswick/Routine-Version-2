@@ -15,7 +15,8 @@ class MonthlyCalendarScreen extends StatefulWidget {
     required this.events,
     required this.onAddEvent,
     required this.onUpdateEvent,
-    required this.onDeleteEvent, required bool fromHomeScreen,
+    required this.onDeleteEvent,
+    required bool fromHomeScreen,
   });
 
   @override
@@ -50,14 +51,53 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        title: const Text('Calendar'),
+        elevation: 0,
+        title: Text(
+          'Calendar',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: Column(
         children: [
           TableCalendar(
-            headerStyle: const HeaderStyle(
+            headerStyle: HeaderStyle(
               formatButtonVisible: false,
               titleCentered: true,
+              titleTextStyle: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              leftChevronIcon: Icon(
+                Icons.chevron_left,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              rightChevronIcon: Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            calendarStyle: CalendarStyle(
+              defaultTextStyle: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              weekendTextStyle: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+              selectedTextStyle: TextStyle(
+                color: Theme.of(context).colorScheme.onPrimary,
+              ),
+              todayDecoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              selectedDecoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                shape: BoxShape.circle,
+              ),
             ),
             firstDay: DateTime.utc(2010, 10, 16),
             lastDay: DateTime.utc(2030, 3, 14),
@@ -90,13 +130,14 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 final now = DateTime.now();
                 if (events.isNotEmpty &&
                     date.isAfter(now.subtract(const Duration(days: 1)))) {
-                  return Align(
-                    alignment: Alignment.topRight,
+                  return Positioned(
+                    right: 1,
+                    bottom: 1,
                     child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -109,57 +150,83 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           Expanded(
             child: events.isNotEmpty
                 ? ListView.builder(
+                    padding: const EdgeInsets.all(8.0),
                     itemCount: events.length,
                     itemBuilder: (context, index) {
                       final event = events[index];
-                      return Dismissible(
-                        key: Key(event.id),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          color: Colors.red,
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 20.0),
-                          child: const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        confirmDismiss: (direction) async {
-                          bool? result = await _showDeleteConfirmationDialog(context, event);
-                          if (result == null || !result) {
-                            // Si se cancela la eliminación, forzamos una reconstrucción
-                            setState(() {});
-                          }
-                          return result;
-                        },
-                        onDismissed: (direction) {
-                          // La eliminación ya se ha manejado en confirmDismiss
-                        },
-                        child: EventCard(
-                          event: event,
-                          onUpdateEvent: (updatedEvent) {
-                            widget.onUpdateEvent(widget.events.indexOf(event), updatedEvent);
-                            setState(() {}); // Forzar la reconstrucción del widget
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: Dismissible(
+                          key: Key(event.id),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            color: Colors.red,
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20.0),
+                            child: const Icon(
+                              Icons.delete,
+                              color: Colors.white,
+                            ),
+                          ),
+                          confirmDismiss: (direction) async {
+                            bool? result = await _showDeleteConfirmationDialog(
+                              context,
+                              event,
+                            );
+                            if (result == null || !result) {
+                              setState(() {});
+                            }
+                            return result;
                           },
+                          onDismissed: (direction) {},
+                          child: EventCard(
+                            event: event,
+                            onUpdateEvent: (updatedEvent) {
+                              widget.onUpdateEvent(
+                                widget.events.indexOf(event),
+                                updatedEvent,
+                              );
+                              setState(() {});
+                            },
+                          ),
                         ),
                       );
                     },
                   )
-                : const Center(child: Text('Select a day to view events')),
+                : Center(
+                    child: Text(
+                      'Select a day to view events',
+                      style: TextStyle(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: Theme.of(context).colorScheme.primary,
         onPressed: () {
           if (_selectedDay != null) {
             _showAddEventBottomSheet();
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Please select a day on the calendar to add an event'),
-                duration: Duration(seconds: 2),
+              SnackBar(
+                content: Text(
+                  'Please select a day on the calendar to add an event',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                duration: const Duration(seconds: 2),
               ),
             );
           }
         },
-        child: const Icon(Icons.add),
+        child: Icon(Icons.add, color: Theme.of(context).colorScheme.onPrimary),
       ),
     );
   }
@@ -168,33 +235,47 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => AddEventBottomSheet(
-        onAddEvent: (event) {
-          widget.onAddEvent(event);
-          setState(() {}); // Forzar la reconstrucción del widget
-        },
-        day: _selectedDay!,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: AddEventBottomSheet(
+          onAddEvent: (event) {
+            widget.onAddEvent(event);
+            setState(() {});
+          },
+          day: _selectedDay!,
+        ),
       ),
     );
   }
 
-  Future<bool?> _showDeleteConfirmationDialog(BuildContext context, Event event) {
+  Future<bool?> _showDeleteConfirmationDialog(
+    BuildContext context,
+    Event event,
+  ) {
     final index = widget.events.indexOf(event);
     return showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text('Delete Event'),
           content: const Text(
-              'Do you want to delete this event? This action cannot be undone.'),
+            'Do you want to delete this event? This action cannot be undone.',
+          ),
+          backgroundColor: Theme.of(context).colorScheme.surface,
           actions: [
             TextButton(
               onPressed: () {
                 widget.onDeleteEvent(index, false);
                 Navigator.of(context).pop(true);
               },
-              child: const Text('Delete'),
+              child: Text('Delete', style: TextStyle(color: Colors.red)),
             ),
             if (event.repeatDays.isNotEmpty)
               TextButton(
@@ -202,7 +283,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   widget.onDeleteEvent(index, true);
                   Navigator.of(context).pop(true);
                 },
-                child: const Text('All Days'),
+                child: Text('All Days', style: TextStyle(color: Colors.red)),
               ),
             TextButton(
               onPressed: () {
