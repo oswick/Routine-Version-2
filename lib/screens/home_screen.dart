@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:myapp/screens/calendar_screen.dart';
 import 'package:myapp/services/auth_service.dart';
 import 'package:myapp/services/sync_service.dart';
 import 'package:myapp/utils/notification_service.dart';
@@ -10,7 +9,21 @@ import '../models/event.dart';
 import 'package:uuid/uuid.dart'; // Importa la librería UUID
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  // Parámetros opcionales para recibir eventos externos
+  final List<Event>? events;
+  final Function(Event)? onAddEvent;
+  final Function(int, Event)? onUpdateEvent;
+  final Function(int, bool)? onDeleteEvent;
+  final VoidCallback? onEventsUpdated;
+
+  const HomeScreen({
+    super.key,
+    this.events,
+    this.onAddEvent,
+    this.onUpdateEvent,
+    this.onDeleteEvent,
+    this.onEventsUpdated,
+  });
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
@@ -216,105 +229,93 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-@override
-Widget build(BuildContext context) {
-  final user = _authService.currentUser;
+  @override
+  Widget build(BuildContext context) {
+    final user = _authService.currentUser;
 
-  return Scaffold(
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    appBar: AppBar(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-      elevation: 0,
-      title: Padding(
-        padding: const EdgeInsets.only(top: 8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              getDayName(selectedDate.weekday),
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        elevation: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                getDayName(selectedDate.weekday),
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
-            ),
-            Text(
-              '${selectedDate.day} - ${selectedDate.month.toString().padLeft(2, '0')}',
-              style: TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              Text(
+                '${selectedDate.day} - ${selectedDate.month.toString().padLeft(2, '0')}',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          if (user != null) ...[
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundImage: user.userMetadata?['avatar_url'] != null
+                    ? NetworkImage(user.userMetadata!['avatar_url'])
+                    : null,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withOpacity(0.2),
+                child: user.userMetadata?['avatar_url'] == null
+                    ? Text(
+                        user.userMetadata?['full_name']
+                                ?.toString()
+                                .substring(0, 1)
+                                .toUpperCase() ??
+                            user.email?.substring(0, 1).toUpperCase() ??
+                            'U',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
               ),
             ),
           ],
-        ),
-      ),
-      actions: [
-        if (user != null) ...[
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundImage: user.userMetadata?['avatar_url'] != null
-                  ? NetworkImage(user.userMetadata!['avatar_url'])
-                  : null,
-              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-              child: user.userMetadata?['avatar_url'] == null
-                  ? Text(
-                      user.userMetadata?['full_name']?.toString().substring(0, 1).toUpperCase() ??
-                      user.email?.substring(0, 1).toUpperCase() ?? 'U',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
+          IconButton(
+            icon: Icon(
+              user != null ? Icons.logout : Icons.login,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
+            onPressed: () async {
+              if (user != null) {
+                await _authService.signOut();
+              } else {
+                await _authService.signInWithGoogle();
+              }
+            },
           ),
         ],
-        IconButton(
-          icon: Icon(
-            user != null ? Icons.logout : Icons.login,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-          onPressed: () async {
-            if (user != null) {
-              await _authService.signOut();
-            } else {
-              await _authService.signInWithGoogle();
-            }
-          },
-        ),
-        IconButton(
-          icon: Icon(
-            Icons.calendar_today,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => MonthlyCalendarScreen(
-                  events: allEvents,
-                  onAddEvent: addEvent,
-                  onUpdateEvent: updateEvent,
-                  onDeleteEvent: deleteEvent,
-                  fromHomeScreen: true,
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    ),
-    body: DayScreen(
-      day: selectedDate,
-      events: dailyEvents,
-      onAddEvent: addEvent,
-      onUpdateEvent: updateEvent,
-      onDeleteEvent: deleteEvent,
-    ),
-  );
-}
+      ),
+      body: DayScreen(
+        day: selectedDate,
+        events: dailyEvents,
+        onAddEvent: addEvent,
+        onUpdateEvent: updateEvent,
+        onDeleteEvent: deleteEvent,
+      ),
+    );
+  }
 
   String getDayName(int dayOfWeek) {
     switch (dayOfWeek) {

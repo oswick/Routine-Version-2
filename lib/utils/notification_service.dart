@@ -83,6 +83,8 @@ class NotificationService {
       enableVibration: true,
       showBadge: true,
       enableLights: true,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('notification'), // Sonido por defecto
     );
 
     await flutterLocalNotificationsPlugin
@@ -197,6 +199,8 @@ class NotificationService {
                   enableVibration: true,
                   styleInformation: DefaultStyleInformation(true, true),
                   autoCancel: true,
+                  playSound: true,
+                  sound: RawResourceAndroidNotificationSound('notification'),
                 ),
               ),
               uiLocalNotificationDateInterpretation:

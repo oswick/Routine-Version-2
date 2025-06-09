@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:myapp/screens/add_event_screen.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../models/event.dart';
 import '../widgets/event_card.dart'; // Import the EventCard widget
@@ -205,49 +204,6 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        onPressed: () {
-          if (_selectedDay != null) {
-            _showAddEventBottomSheet();
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Please select a day on the calendar to add an event',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
-        },
-        child: Icon(Icons.add, color: Theme.of(context).colorScheme.onPrimary),
-      ),
-    );
-  }
-
-  void _showAddEventBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: AddEventBottomSheet(
-          onAddEvent: (event) {
-            widget.onAddEvent(event);
-            setState(() {});
-          },
-          day: _selectedDay!,
-        ),
       ),
     );
   }

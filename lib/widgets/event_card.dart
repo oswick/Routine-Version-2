@@ -54,26 +54,37 @@ class _EventCardState extends State<EventCard> {
     super.dispose();
   }
 
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    void _startTimer() {
+    // Reducir la frecuencia de actualización a cada minuto en lugar de cada segundo
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) {
-        setState(() {});
+        _checkAndUpdateCompletedStatus();
       }
     });
   }
 
   Future<void> _loadCompletedStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    final completedStatus =
-        prefs.getBool('event_${widget.event.id}_completed') ?? false;
-    setState(() {
-      isCompleted = completedStatus;
-    });
+    final key = 'event_${widget.event.id}_${_getDateKey()}';
+    final completedStatus = prefs.getBool(key) ?? widget.event.isCompleted;
+    
+    if (mounted) {
+      setState(() {
+        isCompleted = completedStatus;
+      });
+    }
+  }
+  String _getDateKey() {
+    // Crear una clave única para cada día
+    final now = DateTime.now();
+    return '${now.year}-${now.month}-${now.day}';
   }
 
+ 
   Future<void> _saveCompletedStatus(bool completed) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('event_${widget.event.id}_completed', completed);
+    final key = 'event_${widget.event.id}_${_getDateKey()}';
+    await prefs.setBool(key, completed);
   }
 
   double _calculateProgress() {
@@ -112,38 +123,36 @@ class _EventCardState extends State<EventCard> {
         now.isBefore(widget.event.endTime!);
   }
 
-  // Método mejorado que maneja tanto el marcado automático como el desmarcado
   void _checkAndUpdateCompletedStatus() {
     final now = DateTime.now();
     final hasEndTime = widget.event.endTime != null;
     
-    if (hasEndTime) {
-      final hasEnded = now.isAfter(widget.event.endTime!);
-      final isCurrentlyInProgress = now.isAfter(widget.event.startTime) && 
-                                   now.isBefore(widget.event.endTime!);
+    // Si el evento es repetitivo, verificar si estamos en un nuevo día
+    if (widget.event.repeatDays.isNotEmpty) {
+      final today = DateTime(now.year, now.month, now.day);
+      final eventDate = DateTime(
+        widget.event.startTime.year,
+        widget.event.startTime.month,
+        widget.event.startTime.day,
+      );
       
-      // Si el evento ha terminado y no está marcado, marcarlo automáticamente
-      if (hasEnded && !isCompleted) {
-        _updateCompletedStatus(true);
-      }
-      // Si el evento está marcado como completado pero aún está en progreso o no ha comenzado,
-      // desmarcarlo automáticamente (esto maneja el caso de extensión de tiempo)
-      else if (isCompleted && (isCurrentlyInProgress || now.isBefore(widget.event.startTime))) {
-        _updateCompletedStatus(false);
+      // Si estamos en un nuevo día y el evento debe repetirse hoy
+      if (!today.isAtSameMomentAs(eventDate) &&
+          widget.event.repeatDays.contains(now.weekday)) {
+        // Cargar el estado completado para el día actual
+        _loadCompletedStatus();
+        return;
       }
     }
-
-    // Lógica para eventos repetitivos
-    if (widget.event.repeatDays.isNotEmpty && widget.event.isCompleted) {
-      final eventDate = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        widget.event.startTime.hour,
-        widget.event.startTime.minute,
-      );
-
-      if (now.isAfter(eventDate)) {
+       if (hasEndTime) {
+      final hasEnded = now.isAfter(widget.event.endTime!);
+      final isCurrentlyInProgress = now.isAfter(widget.event.startTime) && 
+                                  now.isBefore(widget.event.endTime!);
+      
+      if (hasEnded && !isCompleted) {
+        _updateCompletedStatus(true);
+      } else if (isCompleted && isCurrentlyInProgress) {
+        // Solo desmarcar si el evento está en progreso
         _updateCompletedStatus(false);
       }
     }
@@ -319,15 +328,17 @@ Widget build(BuildContext context) {
     );
   }
 
-  void _updateCompletedStatus(bool value) {
-    setState(() {
-      isCompleted = value;
-      final updatedEvent = widget.event.copyWith(isCompleted: isCompleted);
-      widget.onUpdateEvent(updatedEvent);
-      _saveCompletedStatus(isCompleted);
-    });
+   void _updateCompletedStatus(bool value) {
+    if (mounted) {
+      setState(() {
+        isCompleted = value;
+        final updatedEvent = widget.event.copyWith(isCompleted: value);
+        widget.onUpdateEvent(updatedEvent);
+        _saveCompletedStatus(value);
+      });
+    }
   }
-
+  
   String formatTime(DateTime dateTime) {
     return DateFormat.jm().format(dateTime);
   }

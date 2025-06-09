@@ -1,7 +1,7 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:myapp/screens/nav_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/home_screen.dart';
 import 'utils/notification_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
@@ -83,15 +83,17 @@ class MyApp extends StatelessWidget {
           title: 'Routine',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
+            typography: Typography.material2021(),
             useMaterial3: true,
             useSystemColors: true,
             colorScheme: lightDynamic,
           ),
           darkTheme: ThemeData(useMaterial3: true,
           useSystemColors: true,
+          typography: Typography.material2021(),
           colorScheme: darkDynamic),
           themeMode: ThemeMode.system,
-          home: const HomeScreen(),
+          home: MainHomeScreen(),
         );
       },
     );
