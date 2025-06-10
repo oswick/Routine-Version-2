@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Reemplaza con tu OAuth Client ID de Google Cloud Console -->
+    <string name="default_web_client_id">641741918490-01dhk8snfaoent4j60jnaph1ev5v4726.apps.googleusercontent.com</string>
+</resources>
