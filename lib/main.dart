@@ -9,15 +9,11 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 // This function will be called periodically by the alarm manager
 @pragma('vm:entry-point')
 void alarmCallback() async {
-  // Add a try-catch block to prevent crashes
   try {
-    print('Alarm triggered at ${DateTime.now()}');
-    // Initialize notification service
     await NotificationService().init();
-    // Check and reschedule notifications if needed
     await NotificationService().ensureScheduledNotificationsExist();
   } catch (e) {
-    print('Error in alarm callback: $e');
+    // Consider logging this error to a crash reporting tool
   }
 }
 
@@ -37,11 +33,9 @@ Future<void> main() async {
     await _requestPermissions();
 
     final bool alarmInitialized = await AndroidAlarmManager.initialize();
-    print('Alarm Manager initialized: $alarmInitialized');
-
     if (alarmInitialized) {
       const int helloAlarmID = 0;
-      final bool alarmSet = await AndroidAlarmManager.periodic(
+      await AndroidAlarmManager.periodic(
         const Duration(minutes: 15),
         helloAlarmID,
         alarmCallback,
@@ -49,26 +43,21 @@ Future<void> main() async {
         wakeup: true,
         rescheduleOnReboot: true,
       );
-      print('Alarm set: $alarmSet');
     }
   } catch (e) {
-    print('Error initializing services: $e');
+    // Consider logging this error to a crash reporting tool
   }
 }
 
 Future<void> _requestPermissions() async {
   try {
-    // Request all necessary permissions
-    Map<Permission, PermissionStatus> statuses = await [
+    await [
       Permission.notification,
       Permission.scheduleExactAlarm,
-      // Optional: Request background activity permissions
       Permission.ignoreBatteryOptimizations,
     ].request();
-
-    print('Permission statuses: $statuses');
   } catch (e) {
-    print('Error requesting permissions: $e');
+    // Consider logging this error to a crash reporting tool
   }
 }
 
@@ -88,10 +77,12 @@ class MyApp extends StatelessWidget {
             useSystemColors: true,
             colorScheme: lightDynamic,
           ),
-          darkTheme: ThemeData(useMaterial3: true,
-          useSystemColors: true,
-          typography: Typography.material2021(),
-          colorScheme: darkDynamic),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            useSystemColors: true,
+            typography: Typography.material2021(),
+            colorScheme: darkDynamic,
+          ),
           themeMode: ThemeMode.system,
           home: MainHomeScreen(),
         );
