@@ -8,8 +8,13 @@ import '../utils/notification_service.dart';
 
 class PomodoroScreen extends StatefulWidget {
   final Event event;
+  final Function(bool)? onAmoledModeChanged; // Nuevo callback
 
-  const PomodoroScreen({super.key, required this.event});
+  const PomodoroScreen({
+    super.key,
+    required this.event,
+    this.onAmoledModeChanged,
+  });
 
   @override
   _PomodoroScreenState createState() => _PomodoroScreenState();
@@ -42,6 +47,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _startTimer();
       _isRunning = true;
     }
+
+    // Notificar el estado inicial del modo AMOLED después de que se complete el frame actual
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.onAmoledModeChanged != null) {
+        widget.onAmoledModeChanged!(_isAmoledMode);
+      }
+    });
   }
 
   void _initializeAnimations() {
@@ -111,8 +123,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _breathingController.dispose();
     _buttonController.dispose();
 
-    // Desactivar wakelock al salir de la pantalla
-    WakelockPlus.disable();
+    // Desactivar el modo AMOLED al salir de la pantalla
+    if (_isAmoledMode) {
+      WakelockPlus.disable();
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      // Notificar al padre que el modo AMOLED se ha desactivado
+      if (widget.onAmoledModeChanged != null) {
+        widget.onAmoledModeChanged!(false);
+      }
+    }
 
     super.dispose();
   }
@@ -177,11 +196,18 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     setState(() {
       _isAmoledMode = !_isAmoledMode;
 
+      // Llamar al callback si está definido
+      if (widget.onAmoledModeChanged != null) {
+        widget.onAmoledModeChanged!(_isAmoledMode);
+      }
+
       // Activar/desactivar wakelock según el modo AMOLED
       if (_isAmoledMode) {
         WakelockPlus.enable(); // Mantener pantalla encendida
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
       } else {
         WakelockPlus.disable(); // Permitir que la pantalla se apague normalmente
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }
     });
   }
@@ -219,8 +245,72 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     return Theme.of(context).colorScheme.onSurface;
   }
 
-  @override
-  Widget build(BuildContext context) {
+@override
+Widget build(BuildContext context) {
+  if (_isAmoledMode) {
+    return Scaffold(
+      backgroundColor: _backgroundColor,
+      body: Stack(
+        children: [
+          // Contenido principal centrado
+          Center(
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                setState(() {
+                  if (_isRunning) {
+                    _pauseTimer();
+                  } else {
+                    _startTimer();
+                    _isRunning = true;
+                  }
+                });
+              },
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    widget.event.title,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w500,
+                      color: _textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTimerWidget(),
+                  const SizedBox(height: 20),
+                  
+                ],
+              ),
+            ),
+          ),
+          // Botón para salir del modo AMOLED (en la esquina superior derecha)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            right: 20,
+            child: GestureDetector(
+              onTap: _toggleAmoledMode,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withOpacity(0.5),
+                ),
+                child: Icon(
+                  Icons.light_mode,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  } else {
+    // El diseño original
     return Scaffold(
       backgroundColor: _backgroundColor,
       body: AnimatedContainer(
@@ -282,7 +372,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   ],
                 ),
               ),
-
               // Timer principal
               Expanded(
                 child: Center(
@@ -305,7 +394,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   ),
                 ),
               ),
-
               // Controles
               Padding(
                 padding: const EdgeInsets.all(40),
@@ -317,6 +405,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       ),
     );
   }
+}
 
   Widget _buildTimerWidget() {
     final size = MediaQuery.of(context).size.width * 0.75;
