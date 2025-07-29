@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../models/event.dart';
-import '../widgets/event_card.dart'; // Import the EventCard widget
+import '../widgets/event_card.dart';
 
 class MonthlyCalendarScreen extends StatefulWidget {
   final List<Event> events;
@@ -30,21 +30,23 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedDay = DateTime.now(); // Seleccionar automáticamente el día actual
+    _selectedDay = DateTime.now();
   }
 
-  // Función para obtener eventos filtrados para un día específico
   List<Event> _getEventsForDay(DateTime day) {
     return widget.events.where((event) {
-      return (isSameDay(event.startTime, day) ||
-              event.repeatDays.contains(day.weekday)) &&
-          day.isAfter(DateTime.now().subtract(const Duration(days: 1)));
+      return isSameDay(event.startTime, day) || event.repeatDays.contains(day.weekday);
     }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final events = _selectedDay != null ? _getEventsForDay(_selectedDay!) : [];
+    events.sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    final now = DateTime.now();
+    final pastEvents = events.where((e) => e.endTime != null && e.endTime!.isBefore(now)).toList();
+    final futureEvents = events.where((e) => e.endTime == null || e.endTime!.isAfter(now)).toList();
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -126,9 +128,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             },
             calendarBuilders: CalendarBuilders(
               markerBuilder: (context, date, events) {
-                final now = DateTime.now();
-                if (events.isNotEmpty &&
-                    date.isAfter(now.subtract(const Duration(days: 1)))) {
+                if (events.isNotEmpty) {
                   return Positioned(
                     right: 1,
                     bottom: 1,
@@ -147,13 +147,22 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             ),
           ),
           Expanded(
-            child: events.isNotEmpty
-                ? ListView.builder(
-                    padding: const EdgeInsets.all(8.0),
-                    itemCount: events.length,
-                    itemBuilder: (context, index) {
-                      final event = events[index];
-                      return Padding(
+            child: ListView(
+              padding: const EdgeInsets.all(8.0),
+              children: [
+                if (futureEvents.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      'Próximos Eventos',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  ...futureEvents.map((event) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4.0),
                         child: Dismissible(
                           key: Key(event.id),
@@ -189,19 +198,76 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                             },
                           ),
                         ),
-                      );
-                    },
-                  )
-                : Center(
+                      )),
+                ],
+                if (pastEvents.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Text(
-                      'Select a day to view events',
+                      'Eventos Pasados',
                       style: TextStyle(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(0.6),
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                        fontSize: 16,
                       ),
                     ),
                   ),
+                  ...pastEvents.map((event) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: Dismissible(
+                          key: Key(event.id),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            color: Colors.red,
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20.0),
+                            child: const Icon(
+                              Icons.delete,
+                              color: Colors.white,
+                            ),
+                          ),
+                          confirmDismiss: (direction) async {
+                            bool? result = await _showDeleteConfirmationDialog(
+                              context,
+                              event,
+                            );
+                            if (result == null || !result) {
+                              setState(() {});
+                            }
+                            return result;
+                          },
+                          onDismissed: (direction) {},
+                          child: EventCard(
+                            event: event,
+                            onUpdateEvent: (updatedEvent) {
+                              widget.onUpdateEvent(
+                                widget.events.indexOf(event),
+                                updatedEvent,
+                              );
+                              setState(() {});
+                            },
+                            // Cambios visuales para eventos pasados
+                            pastEvent: true,
+                          ),
+                        ),
+                      )),
+                ],
+                if (events.isEmpty) ...[
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 32.0),
+                      child: Text(
+                        'No hay eventos para este día',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),

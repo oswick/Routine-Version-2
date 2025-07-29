@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:myapp/models/event.dart';
 import 'package:myapp/screens/calendar_screen.dart';
 import 'package:myapp/screens/home_screen.dart';
-import 'package:myapp/screens/pomodoro_screen.dart';
+import 'package:myapp/screens/profile_screen.dart';
 import 'package:myapp/services/sync_service.dart';
 import 'package:myapp/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -90,19 +90,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         onDeleteEvent: _onDeleteEvent,
         onEventsUpdated: _loadEvents, // Callback para recargar eventos
       ),
-      PomodoroScreen(
-        event: Event(
-          id: 'temp-id',
-          title: 'Focus Time',
-          description: 'Pomodoro Session',
-          startTime: DateTime.now(),
-          endTime: DateTime.now().add(const Duration(minutes: 25)),
-          repeatDays: [],
-          importance: 3,
-          category: 'productivity',
-          userId: 'local-user',
-        ),
-      ),
       MonthlyCalendarScreen(
         events: _events,
         onAddEvent: _onAddEvent,
@@ -110,6 +97,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         onDeleteEvent: _onDeleteEvent,
         fromHomeScreen: true,
       ),
+      ProfileScreen(), //pantalla de perfil
     ];
 
     return Scaffold(
@@ -159,41 +147,14 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                 icon: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _selectedIndex == 1 
+                    color: _selectedIndex == 1
                         ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
-                    _selectedIndex == 1 ? Icons.timer_rounded : Icons.timer_outlined,
-                    color: _selectedIndex == 1 
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                    size: 24,
-                  ),
-                ),
-                selectedIcon: Container(
-                  padding: const EdgeInsets.all(12),
-                  child: Icon(
-                    Icons.timer_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 24,
-                  ),
-                ),
-                label: 'Focus',
-              ),
-              NavigationDestination(
-                icon: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _selectedIndex == 2 
-                        ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    _selectedIndex == 2 ? Icons.calendar_month_rounded : Icons.calendar_month_outlined,
-                    color: _selectedIndex == 2 
+                    _selectedIndex == 1 ? Icons.calendar_month_rounded : Icons.calendar_month_outlined,
+                    color: _selectedIndex == 1
                         ? Theme.of(context).colorScheme.primary
                         : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     size: 24,
@@ -208,6 +169,33 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   ),
                 ),
                 label: 'Calendar',
+              ),
+        NavigationDestination(
+                icon: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _selectedIndex == 2
+                        ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    _selectedIndex == 2 ? Icons.person : Icons.person_outline,
+                    color: _selectedIndex == 2
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    size: 24,
+                  ),
+                ),
+                selectedIcon: Container(
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(
+                    Icons.person,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 24,
+                  ),
+                ),
+                label: 'Profile',
               ),
             ],
           ),
