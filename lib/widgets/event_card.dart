@@ -11,7 +11,7 @@ import 'package:myapp/utils/event_utils.dart';
 class EventCard extends StatefulWidget {
   final Event event;
   final Function(Event) onUpdateEvent;
-  final bool pastEvent; // NUEVO: indica si el evento es pasado
+  final bool pastEvent;
 
   const EventCard({
     super.key,
@@ -27,10 +27,12 @@ class EventCard extends StatefulWidget {
 class _EventCardState extends State<EventCard> {
   late bool isCompleted;
   Timer? _timer;
+  String? _currentDateKey;
 
   @override
   void initState() {
     super.initState();
+    _currentDateKey = _getDateKey();
     isCompleted = widget.event.isCompleted;
     _loadCompletedStatus();
     _checkAndUpdateCompletedStatus();
@@ -40,6 +42,14 @@ class _EventCardState extends State<EventCard> {
   @override
   void didUpdateWidget(EventCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    
+    // Verificar si cambió el día
+    final newDateKey = _getDateKey();
+    if (_currentDateKey != newDateKey) {
+      _currentDateKey = newDateKey;
+      _loadCompletedStatus(); // Recargar el estado para el nuevo día
+    }
+    
     if (oldWidget.event.endTime != widget.event.endTime ||
         oldWidget.event.startTime != widget.event.startTime) {
       _checkAndUpdateCompletedStatus();
@@ -55,31 +65,93 @@ class _EventCardState extends State<EventCard> {
   void _startTimer() {
     _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) {
+        final newDateKey = _getDateKey();
+        // Si cambió el día, recargar el estado
+        if (_currentDateKey != newDateKey) {
+          _currentDateKey = newDateKey;
+          _loadCompletedStatus();
+        }
         _checkAndUpdateCompletedStatus();
       }
     });
   }
 
   Future<void> _loadCompletedStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'event_${widget.event.id}_${_getDateKey()}';
-    final completedStatus = prefs.getBool(key) ?? widget.event.isCompleted;
-    if (mounted) {
-      setState(() {
-        isCompleted = completedStatus;
-      });
+    if (_isRepetitiveEvent()) {
+      // Para eventos repetitivos, cargar el estado específico del día actual
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getCompletionKey();
+      final completedStatus = prefs.getBool(key) ?? false; // Default false para nuevos días
+      if (mounted) {
+        setState(() {
+          isCompleted = completedStatus;
+        });
+      }
+    } else {
+      // Para eventos únicos, usar el estado del evento directamente
+      if (mounted) {
+        setState(() {
+          isCompleted = widget.event.isCompleted;
+        });
+      }
     }
   }
 
   String _getDateKey() {
     final now = DateTime.now();
-    return '${now.year}-${now.month}-${now.day}';
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  String _getCompletionKey() {
+    return 'event_${widget.event.id}_completion_${_currentDateKey}';
+  }
+
+  bool _isRepetitiveEvent() {
+    return widget.event.repeatDays.isNotEmpty;
   }
 
   Future<void> _saveCompletedStatus(bool completed) async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'event_${widget.event.id}_${_getDateKey()}';
-    await prefs.setBool(key, completed);
+    if (_isRepetitiveEvent()) {
+      // Para eventos repetitivos, guardar el estado específico del día
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getCompletionKey();
+      await prefs.setBool(key, completed);
+      
+      // Opcional: limpiar estados antiguos (más de 30 días)
+      _cleanOldCompletionStates();
+    } else {
+      // Para eventos únicos, actualizar el evento directamente
+      final updatedEvent = widget.event.copyWith(isCompleted: completed);
+      widget.onUpdateEvent(updatedEvent);
+    }
+  }
+
+  Future<void> _cleanOldCompletionStates() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys();
+      final now = DateTime.now();
+      final cutoffDate = now.subtract(const Duration(days: 30));
+      
+      final keysToRemove = keys.where((key) {
+        if (key.startsWith('event_${widget.event.id}_completion_')) {
+          final dateStr = key.split('_').last;
+          try {
+            final date = DateTime.parse(dateStr);
+            return date.isBefore(cutoffDate);
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+      }).toList();
+      
+      for (String key in keysToRemove) {
+        await prefs.remove(key);
+      }
+    } catch (e) {
+      debugPrint('Error cleaning old completion states: $e');
+    }
   }
 
   double _calculateProgress() {
@@ -106,30 +178,42 @@ class _EventCardState extends State<EventCard> {
     if (!hasEndTime) {
       return false;
     }
-    return now.isAfter(widget.event.startTime) &&
-        now.isBefore(widget.event.endTime!);
+    
+    if (_isRepetitiveEvent()) {
+      // Para eventos repetitivos, verificar si hoy es uno de los días de repetición
+      final today = now.weekday;
+      if (!widget.event.repeatDays.contains(today)) {
+        return false;
+      }
+      
+      // Crear las horas de inicio y fin para hoy
+      final todayStart = DateTime(now.year, now.month, now.day, 
+          widget.event.startTime.hour, widget.event.startTime.minute);
+      final todayEnd = DateTime(now.year, now.month, now.day, 
+          widget.event.endTime!.hour, widget.event.endTime!.minute);
+          
+      return now.isAfter(todayStart) && now.isBefore(todayEnd);
+    } else {
+      return now.isAfter(widget.event.startTime) && now.isBefore(widget.event.endTime!);
+    }
   }
 
   void _checkAndUpdateCompletedStatus() {
     final now = DateTime.now();
     final hasEndTime = widget.event.endTime != null;
-    if (widget.event.repeatDays.isNotEmpty) {
-      final today = DateTime(now.year, now.month, now.day);
-      final eventDate = DateTime(
-        widget.event.startTime.year,
-        widget.event.startTime.month,
-        widget.event.startTime.day,
-      );
-      if (!today.isAtSameMomentAs(eventDate) &&
-          widget.event.repeatDays.contains(now.weekday)) {
-        _loadCompletedStatus();
-        return;
-      }
+    
+    if (_isRepetitiveEvent()) {
+      // Para eventos repetitivos, no hacer cambios automáticos
+      // El usuario debe marcarlos manualmente cada día
+      return;
     }
+    
+    // Para eventos únicos, mantener la lógica original
     if (hasEndTime) {
       final hasEnded = now.isAfter(widget.event.endTime!);
       final isCurrentlyInProgress = now.isAfter(widget.event.startTime) &&
           now.isBefore(widget.event.endTime!);
+      
       if (hasEnded && !isCompleted) {
         // Si no quieres marcar como hecho automáticamente, comenta la siguiente línea
         // _updateCompletedStatus(true);
@@ -139,9 +223,101 @@ class _EventCardState extends State<EventCard> {
     }
   }
 
+  void _updateCompletedStatus(bool value) {
+    if (mounted) {
+      setState(() {
+        isCompleted = value;
+        _saveCompletedStatus(value);
+        
+        // Solo actualizar el evento si no es repetitivo
+        if (!_isRepetitiveEvent()) {
+          final updatedEvent = widget.event.copyWith(isCompleted: value);
+          widget.onUpdateEvent(updatedEvent);
+        }
+      });
+    }
+  }
+
+  Widget _buildCompletionIndicator() {
+    if (_isRepetitiveEvent()) {
+      return Tooltip(
+        message: isCompleted ? "Marcar como no realizado hoy" : "Marcar como realizado hoy",
+        child: Checkbox(
+          shape: const CircleBorder(),
+          value: isCompleted,
+          onChanged: widget.pastEvent
+              ? null
+              : (value) {
+                  _updateCompletedStatus(value!);
+                },
+        ),
+      );
+    } else {
+      return Tooltip(
+        message: isCompleted ? "Mark as incomplete" : "Mark as complete",
+        child: Checkbox(
+          shape: const CircleBorder(),
+          value: isCompleted,
+          onChanged: widget.pastEvent
+              ? null
+              : (value) {
+                  _updateCompletedStatus(value!);
+                },
+        ),
+      );
+    }
+  }
+
+  Widget _buildStatusIndicator() {
+    if (widget.pastEvent) {
+      if (isCompleted) {
+        return Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 16),
+            const SizedBox(width: 4),
+            Text('Realizado', style: TextStyle(color: Colors.green, fontSize: 12)),
+          ],
+        );
+      } else {
+        return Row(
+          children: [
+            Icon(Icons.history, color: Colors.grey, size: 16),
+            const SizedBox(width: 4),
+            Text('No realizado', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          ],
+        );
+      }
+    }
+    
+    if (_isRepetitiveEvent()) {
+      return Row(
+        children: [
+          Icon(Icons.repeat, color: Theme.of(context).colorScheme.primary, size: 16),
+          const SizedBox(width: 4),
+          Text(
+            _getRepeatDaysText(),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      );
+    }
+    
+    return const SizedBox.shrink();
+  }
+
+  String _getRepeatDaysText() {
+    final dayNames = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    final days = widget.event.repeatDays.map((day) => dayNames[day]).join(', ');
+    return days;
+  }
+
   @override
   Widget build(BuildContext context) {
-    bool isPast = widget.pastEvent; // Usamos el flag recibido
+    bool isPast = widget.pastEvent;
     double cardOpacity = isPast ? 0.5 : (isCompleted ? 0.6 : 1.0);
 
     return GestureDetector(
@@ -212,22 +388,8 @@ class _EventCardState extends State<EventCard> {
                               ),
                             ],
                           ),
-                          if (isPast && !isCompleted)
-                            Row(
-                              children: [
-                                Icon(Icons.history, color: Colors.grey, size: 16),
-                                const SizedBox(width: 4),
-                                Text('No realizado', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                              ],
-                            ),
-                          if (isPast && isCompleted)
-                            Row(
-                              children: [
-                                Icon(Icons.check_circle, color: Colors.grey, size: 16),
-                                const SizedBox(width: 4),
-                                Text('Realizado', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                              ],
-                            ),
+                          const SizedBox(height: 4),
+                          _buildStatusIndicator(),
                         ],
                       ),
                     ),
@@ -246,24 +408,7 @@ class _EventCardState extends State<EventCard> {
                           );
                         },
                       ),
-                    Tooltip(
-                      message: isCompleted ? "Mark as incomplete" : "Mark as complete",
-                      child: Checkbox(
-                        shape: const CircleBorder(),
-                        value: isCompleted,
-                        onChanged: isPast
-                            ? null // No editable si es pasado
-                            : (value) {
-                                setState(() {
-                                  isCompleted = value!;
-                                  final updatedEvent = widget.event.copyWith(
-                                    isCompleted: isCompleted,
-                                  );
-                                  widget.onUpdateEvent(updatedEvent);
-                                });
-                              },
-                      ),
-                    ),
+                    _buildCompletionIndicator(),
                   ],
                 ),
                 if (_shouldShowProgressIndicator())
@@ -325,17 +470,6 @@ class _EventCardState extends State<EventCard> {
         );
       },
     );
-  }
-
-  void _updateCompletedStatus(bool value) {
-    if (mounted) {
-      setState(() {
-        isCompleted = value;
-        final updatedEvent = widget.event.copyWith(isCompleted: value);
-        widget.onUpdateEvent(updatedEvent);
-        _saveCompletedStatus(value);
-      });
-    }
   }
 
   String formatTime(DateTime dateTime) {
