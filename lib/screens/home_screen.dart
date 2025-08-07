@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:myapp/services/auth_service.dart';
 import 'package:myapp/services/sync_service.dart';
 import 'package:myapp/utils/notification_service.dart';
+import 'package:myapp/widgets/connectivity_indicator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'day_screen.dart';
 import '../models/event.dart';
-import 'package:uuid/uuid.dart'; // Importa la librería UUID
+import 'package:uuid/uuid.dart';
 
 class HomeScreen extends StatefulWidget {
-  // Parámetros opcionales para recibir eventos externos
   final List<Event>? events;
   final Function(Event)? onAddEvent;
   final Function(int, Event)? onUpdateEvent;
   final Function(int, bool)? onDeleteEvent;
-  final VoidCallback? onEventsUpdated;
+  final VoidCallback? onEventsUpdated; 
 
   const HomeScreen({
     super.key,
@@ -50,6 +50,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _authService.authStateChanges.listen((state) {
       if (state.event == AuthChangeEvent.signedIn) {
         _loadEvents();
+      } else if (state.event == AuthChangeEvent.signedOut) {
+        setState(() {
+          allEvents = [];
+          dailyEvents = [];
+        });
       }
     });
   }
@@ -148,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
           event.title,
           event.description ?? 'New Task',
           _calculateNotificationTime(day, event.startTime),
-          null, // Pass null for context when called from background
+          null,
         );
 
         // Notificación de finalización (solo si hay endTime)
@@ -158,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
             event.title,
             event.description ?? 'New Task',
             _calculateEndNotificationTime(day, event.endTime!),
-            null, // Pass null for context when called from background
+            null,
           );
         }
       }
@@ -169,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
         event.title,
         event.description ?? 'New Task',
         event.startTime,
-        null, // Pass null for context when called from background
+        null,
       );
 
       // Notificación de finalización (solo si hay endTime)
@@ -179,13 +184,12 @@ class _HomeScreenState extends State<HomeScreen> {
           event.title,
           event.description ?? 'New Task',
           event.endTime!,
-          null, // Pass null for context when called from background
+          null,
         );
       }
     }
   }
 
-  // Método para calcular el tiempo de notificación de finalización para eventos recurrentes
   DateTime _calculateEndNotificationTime(int day, DateTime endTime) {
     DateTime now = DateTime.now();
     int daysUntilNext = (day - now.weekday + 7) % 7;
@@ -200,14 +204,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _filterDailyEvents() {
-    final Set<String> seenIds = {}; // Para rastrear IDs únicos
+    final Set<String> seenIds = {};
     dailyEvents = allEvents.where((event) {
-      // Verificar si el evento es para el día actual o repetido
       final bool shouldInclude =
           isSameDay(event.startTime, selectedDate) ||
           event.repeatDays.contains(selectedDate.weekday);
 
-      // Solo incluir el evento si no hemos visto su ID antes
       if (shouldInclude && !seenIds.contains(event.id)) {
         seenIds.add(event.id);
         return true;
@@ -227,6 +229,10 @@ class _HomeScreenState extends State<HomeScreen> {
       startTime.hour,
       startTime.minute,
     );
+  }
+
+  Future<void> _refreshEvents() async {
+    await _loadEvents();
   }
 
   @override
@@ -255,15 +261,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 '${selectedDate.day} - ${selectedDate.month.toString().padLeft(2, '0')}',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                 ),
               ),
             ],
           ),
         ),
         actions: [
+          // Indicador de conectividad
+          const Padding(
+            padding: EdgeInsets.only(right: 8.0),
+            child: ConnectivityIndicator(),
+          ),
+          
+          // Botón de actualizar
+          IconButton(
+            icon: Icon(
+              Icons.refresh,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+            onPressed: _refreshEvents,
+            tooltip: 'Refresh events',
+          ),
+          
           if (user != null) ...[
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
@@ -272,9 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 backgroundImage: user.userMetadata?['avatar_url'] != null
                     ? NetworkImage(user.userMetadata!['avatar_url'])
                     : null,
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withOpacity(0.2),
+                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
                 child: user.userMetadata?['avatar_url'] == null
                     ? Text(
                         user.userMetadata?['full_name']
@@ -307,12 +325,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: DayScreen(
-        day: selectedDate,
-        events: dailyEvents,
-        onAddEvent: addEvent,
-        onUpdateEvent: updateEvent,
-        onDeleteEvent: deleteEvent,
+      body: RefreshIndicator(
+        onRefresh: _refreshEvents,
+        child: DayScreen(
+          day: selectedDate,
+          events: dailyEvents,
+          onAddEvent: addEvent,
+          onUpdateEvent: updateEvent,
+          onDeleteEvent: deleteEvent,
+        ),
       ),
     );
   }

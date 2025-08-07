@@ -50,16 +50,13 @@ class NotificationService {
   final Map<DateTime, int> scheduledNotifications = {};
 
   factory NotificationService() => _notificationService;
-
   NotificationService._internal();
 
   Future<void> init() async {
     const AndroidInitializationSettings androidInitSettings =
         AndroidInitializationSettings('@mipmap/launcher_icon');
-
     const InitializationSettings initSettings =
         InitializationSettings(android: androidInitSettings);
-
     await flutterLocalNotificationsPlugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
@@ -69,7 +66,6 @@ class NotificationService {
         }
       },
     );
-
     tz.initializeTimeZones();
     await _createNotificationChannel();
   }
@@ -84,9 +80,8 @@ class NotificationService {
       showBadge: true,
       enableLights: true,
       playSound: true,
-      sound: RawResourceAndroidNotificationSound('notification'), // Sonido por defecto
+      sound: RawResourceAndroidNotificationSound('notification'),
     );
-
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -106,55 +101,49 @@ class NotificationService {
     }
   }
 
-  // Save notification data to SharedPreferences for persistence
   Future<void> _saveNotificationData(ScheduledNotificationData notificationData) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final notificationsJson = prefs.getStringList('scheduled_notifications') ?? [];
-      
-      // Check if this notification already exists
+
       final existingIndex = notificationsJson.indexWhere((item) {
         final existing = ScheduledNotificationData.fromJson(jsonDecode(item));
         return existing.id == notificationData.id;
       });
-      
+
       if (existingIndex >= 0) {
-        // Update existing
         notificationsJson[existingIndex] = jsonEncode(notificationData.toJson());
       } else {
-        // Add new
         notificationsJson.add(jsonEncode(notificationData.toJson()));
       }
-      
+
       await prefs.setStringList('scheduled_notifications', notificationsJson);
     } catch (e) {
       debugPrint('Error saving notification data: $e');
     }
   }
 
-  // Remove notification data from SharedPreferences
   Future<void> _removeNotificationData(int id) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final notificationsJson = prefs.getStringList('scheduled_notifications') ?? [];
-      
+
       final filteredNotifications = notificationsJson.where((item) {
         final existing = ScheduledNotificationData.fromJson(jsonDecode(item));
         return existing.id != id;
       }).toList();
-      
+
       await prefs.setStringList('scheduled_notifications', filteredNotifications);
     } catch (e) {
       debugPrint('Error removing notification data: $e');
     }
   }
 
-  // Get all scheduled notifications from SharedPreferences
   Future<List<ScheduledNotificationData>> _getScheduledNotificationsData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final notificationsJson = prefs.getStringList('scheduled_notifications') ?? [];
-      
+
       return notificationsJson
           .map((item) => ScheduledNotificationData.fromJson(jsonDecode(item)))
           .toList();
@@ -164,25 +153,18 @@ class NotificationService {
     }
   }
 
-  // This method ensures that all scheduled notifications are properly set
-  // It will be called periodically by the AlarmManager
   Future<void> ensureScheduledNotificationsExist() async {
     try {
-      // Get all notification data that should be scheduled
       final notificationsData = await _getScheduledNotificationsData();
-      
-      // Get currently pending notifications
+
       final pendingNotifications = await getPendingNotifications();
       final pendingIds = pendingNotifications.map((n) => n.id).toSet();
-      
-      // For each notification data, check if it's already scheduled
+
       for (final notificationData in notificationsData) {
-        // Only schedule notifications in the future
         if (notificationData.scheduledDate.isAfter(DateTime.now())) {
-          // If not already scheduled, schedule it
           if (!pendingIds.contains(notificationData.id)) {
             print('Rescheduling notification ${notificationData.id} from background');
-            
+
             await flutterLocalNotificationsPlugin.zonedSchedule(
               notificationData.id,
               notificationData.title,
@@ -210,7 +192,6 @@ class NotificationService {
             );
           }
         } else {
-          // Clean up past notifications
           await _removeNotificationData(notificationData.id);
         }
       }
@@ -227,7 +208,6 @@ class NotificationService {
     BuildContext? context,
   ) async {
     try {
-      // Only schedule if it's in the future
       if (scheduledDate.isAfter(DateTime.now())) {
         await flutterLocalNotificationsPlugin.zonedSchedule(
           id,
@@ -245,26 +225,23 @@ class NotificationService {
               enableVibration: true,
               styleInformation: DefaultStyleInformation(true, true),
               autoCancel: true,
-              // This flag allows notifications to be shown when the app is closed
               fullScreenIntent: true,
             ),
           ),
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // Use exactAllowWhileIdle
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           payload: id.toString(),
         );
-        
-        // Save notification data for persistence
+
         await _saveNotificationData(ScheduledNotificationData(
           id: id,
           title: title,
           body: body,
           scheduledDate: scheduledDate,
         ));
-        
-        // opcional: log para depurar
-        debugPrint('📅 Notificación programada ($id) para $scheduledDate');
+
+        debugPrint('📅 Scheduled notification ($id) for $scheduledDate');
       }
     } catch (e) {
       debugPrint('Error scheduling notification: $e');
@@ -276,7 +253,6 @@ class NotificationService {
     }
   }
 
-  // Nuevo método para programar la notificación de finalización de un evento
   Future<void> scheduleEndNotification(
     int id,
     String title,
@@ -285,16 +261,13 @@ class NotificationService {
     BuildContext? context,
   ) async {
     try {
-      // Utilizamos un ID diferente para la notificación de finalización
-      // sumando un valor fijo para diferenciarla
       final endNotificationId = id + 10000;
-      
-      // Only schedule if it's in the future
+
       if (scheduledDate.isAfter(DateTime.now())) {
         await flutterLocalNotificationsPlugin.zonedSchedule(
           endNotificationId,
-          "Evento finalizado: $title",
-          "El evento $title ha terminado",
+          "Event finished: $title",
+          "The event $title has ended",
           tz.TZDateTime.from(scheduledDate, tz.local),
           const NotificationDetails(
             android: AndroidNotificationDetails(
@@ -307,27 +280,24 @@ class NotificationService {
               enableVibration: true,
               styleInformation: DefaultStyleInformation(true, true),
               autoCancel: true,
-              // This flag allows notifications to be shown when the app is closed
               fullScreenIntent: true,
             ),
           ),
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // Use exactAllowWhileIdle
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           payload: id.toString(),
         );
-        
-        // Save notification data for persistence
+
         await _saveNotificationData(ScheduledNotificationData(
           id: endNotificationId,
-          title: "Evento finalizado: $title",
-          body: "El evento $title ha terminado",
+          title: "Event finished: $title",
+          body: "The event $title has ended",
           scheduledDate: scheduledDate,
           isEndNotification: true,
         ));
-        
-        // optional: log for debugging
-        debugPrint('📅 Notificación de finalización programada ($endNotificationId) para $scheduledDate');
+
+        debugPrint('📅 Scheduled end notification ($endNotificationId) for $scheduledDate');
       }
     } catch (e) {
       debugPrint('Error scheduling end notification: $e');
@@ -342,13 +312,12 @@ class NotificationService {
   Future<void> cancelNotification(int id) async {
     await flutterLocalNotificationsPlugin.cancel(id);
     await _removeNotificationData(id);
-    
-    // Cancelar también la notificación de finalización
+
     final endNotificationId = id + 10000;
     await flutterLocalNotificationsPlugin.cancel(endNotificationId);
     await _removeNotificationData(endNotificationId);
-    
-    debugPrint('❌ Notificación cancelada ($id)');
+
+    debugPrint('❌ Notification canceled ($id)');
   }
 
   Future<List<PendingNotificationRequest>> getPendingNotifications() async {
@@ -357,11 +326,10 @@ class NotificationService {
 
   Future<void> cancelAllNotifications() async {
     await flutterLocalNotificationsPlugin.cancelAll();
-    
-    // Clear stored notification data
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('scheduled_notifications');
-    
+
     scheduledNotifications.clear();
   }
 }

@@ -103,7 +103,7 @@ class _EventCardState extends State<EventCard> {
   }
 
   String _getCompletionKey() {
-    return 'event_${widget.event.id}_completion_${_currentDateKey}';
+    return 'event_${widget.event.id}_completion_$_currentDateKey';
   }
 
   bool _isRepetitiveEvent() {
