@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:myapp/services/auth_service.dart';
+import 'package:myapp/services/connectivity_service.dart';
 import 'package:myapp/services/sync_service.dart';
 import 'package:myapp/utils/notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,7 +14,7 @@ class HomeScreen extends StatefulWidget {
   final Function(Event)? onAddEvent;
   final Function(int, Event)? onUpdateEvent;
   final Function(int, bool)? onDeleteEvent;
-  final VoidCallback? onEventsUpdated; 
+  final VoidCallback? onEventsUpdated;
 
   const HomeScreen({
     super.key,
@@ -36,14 +37,17 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime selectedDate = DateTime.now();
   final Uuid uuid = const Uuid();
 
+  bool _isOnline = false;
+  SyncStatus _syncStatus = SyncStatus.offline;
+  SyncInfo? _syncInfo;
+  bool _isSyncing = false;
+  final ConnectivityService _connectivity = ConnectivityService();
+
   @override
   void initState() {
     super.initState();
-    _loadEvents();
-    NotificationService().init();
-    NotificationService().requestNotificationPermission();
-    _filterDailyEvents();
     _initializeServices();
+    _initConnectivity(); // 👈 nuevo
 
     // Escuchar cambios de autenticación
     _authService.authStateChanges.listen((state) {
@@ -53,6 +57,38 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           allEvents = [];
           dailyEvents = [];
+        });
+      }
+    });
+  }
+
+  Color _getConnectivityBorderColor() {
+    if (!_isOnline) return Colors.grey;
+    if (_isSyncing || _syncStatus == SyncStatus.syncing) return Colors.blue;
+    if (_syncStatus == SyncStatus.error) return Colors.red;
+    if (_syncInfo?.hasUnsyncedChanges == true) return Colors.amber;
+    return Colors.green;
+  }
+
+  void _initConnectivity() async {
+    _isOnline = await _connectivity.testInternetConnection();
+    _syncInfo = _syncService.getSyncInfo();
+
+    setState(() {});
+
+    _connectivity.connectionStream.listen((isConnected) {
+      if (mounted) {
+        setState(() => _isOnline = isConnected);
+      }
+    });
+
+    _syncService.syncStatusStream.listen((status) {
+      if (mounted) {
+        setState(() {
+          _syncStatus = status;
+          if (status == SyncStatus.synced || status == SyncStatus.error) {
+            _isSyncing = false;
+          }
         });
       }
     });
@@ -72,10 +108,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void addEvent(Event event) async {
-    final userId = _authService.currentUserId;
-    if (userId == null) return;
+    // Usar ID temporal para usuarios no autenticados
+    final userId = _authService.currentUserId ?? 'local_user';
 
-    final newEvent = event.copyWith(id: uuid.v4(), userId: userId);
+    final newEvent = event.copyWith(
+      id: uuid.v4(),
+      userId: userId,
+      needsSync:
+          _authService
+              .isAuthenticated, // Solo marcar para sync si está autenticado
+    );
 
     await _syncService.saveEvent(newEvent);
     await _loadEvents();
@@ -204,17 +246,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _filterDailyEvents() {
     final Set<String> seenIds = {};
-    dailyEvents = allEvents.where((event) {
-      final bool shouldInclude =
-          isSameDay(event.startTime, selectedDate) ||
-          event.repeatDays.contains(selectedDate.weekday);
+    dailyEvents =
+        allEvents.where((event) {
+          final bool shouldInclude =
+              isSameDay(event.startTime, selectedDate) ||
+              event.repeatDays.contains(selectedDate.weekday);
 
-      if (shouldInclude && !seenIds.contains(event.id)) {
-        seenIds.add(event.id);
-        return true;
-      }
-      return false;
-    }).toList();
+          if (shouldInclude && !seenIds.contains(event.id)) {
+            seenIds.add(event.id);
+            return true;
+          }
+          return false;
+        }).toList();
   }
 
   DateTime _calculateNotificationTime(int day, DateTime startTime) {
@@ -260,37 +303,53 @@ class _HomeScreenState extends State<HomeScreen> {
                 '${selectedDate.day} - ${selectedDate.month.toString().padLeft(2, '0')}',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.6),
                 ),
               ),
             ],
           ),
         ),
         actions: [
-          // Indicador de conectividad 
+          // Indicador de conectividad
           if (user != null) ...[
             Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: CircleAvatar(
-                radius: 18,
-                backgroundImage: user.userMetadata?['avatar_url'] != null
-                    ? NetworkImage(user.userMetadata!['avatar_url'])
-                    : null,
-                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                child: user.userMetadata?['avatar_url'] == null
-                    ? Text(
-                        user.userMetadata?['full_name']
-                                ?.toString()
-                                .substring(0, 1)
-                                .toUpperCase() ??
-                            user.email?.substring(0, 1).toUpperCase() ??
-                            'U',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
+              padding: const EdgeInsets.only(right: 12.0),
+              child: Container(
+                padding: const EdgeInsets.all(2), // Borde exterior
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _getConnectivityBorderColor(),
+                    width: 2.5,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundImage:
+                      user.userMetadata?['avatar_url'] != null
+                          ? NetworkImage(user.userMetadata!['avatar_url'])
+                          : null,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primary.withOpacity(0.2),
+                  child:
+                      user.userMetadata?['avatar_url'] == null
+                          ? Text(
+                            user.userMetadata?['full_name']
+                                    ?.toString()
+                                    .substring(0, 1)
+                                    .toUpperCase() ??
+                                user.email?.substring(0, 1).toUpperCase() ??
+                                'U',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                          : null,
+                ),
               ),
             ),
           ],

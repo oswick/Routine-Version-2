@@ -48,14 +48,18 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   // Función para agregar eventos
-  void _onAddEvent(Event event) async {
-    final userId = _authService.currentUserId;
-    if (userId == null) return;
-
-    final newEvent = event.copyWith(userId: userId);
-    await _syncService.saveEvent(newEvent);
-    await _loadEvents(); // Recargar desde la base de datos
-  }
+void _onAddEvent(Event event) async {
+  // Usar ID temporal para usuarios no autenticados
+  final userId = _authService.currentUserId ?? 'local_user';
+  
+  final newEvent = event.copyWith(
+    userId: userId,
+    needsSync: _authService.isAuthenticated, // Solo marcar para sync si está autenticado
+  );
+  
+  await _syncService.saveEvent(newEvent);
+  await _loadEvents();
+}
 
   // Función para actualizar eventos
   void _onUpdateEvent(int index, Event updatedEvent) async {

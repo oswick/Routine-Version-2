@@ -3,7 +3,6 @@ import 'package:myapp/services/auth_service.dart';
 import 'package:myapp/services/sync_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/event.dart';
-import '../widgets/connectivity_indicator.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -102,9 +101,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     final now = DateTime.now();
-    final dateKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final dateKey =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final completionKey = 'event_${event.id}_completion_$dateKey';
-    
+
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(completionKey) ?? false;
   }
@@ -113,7 +113,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isEventForToday(Event event) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     if (event.repeatDays.isNotEmpty) {
       // Para eventos repetitivos, verificar si hoy es uno de los días
       return event.repeatDays.contains(now.weekday);
@@ -137,7 +137,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Calcular eventos completados y incompletos
     for (var event in _events) {
       bool isCompleted = await _isRepetitiveEventCompletedToday(event);
-      
+
       if (isCompleted) {
         completed++;
       } else {
@@ -189,25 +189,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: _isLoading
-                ? SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Theme.of(context).colorScheme.primary,
+            child:
+                _isLoading
+                    ? SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    )
+                    : IconButton(
+                      icon: Icon(
+                        user != null
+                            ? Icons.logout_rounded
+                            : Icons.login_rounded,
+                        color:
+                            user != null
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).colorScheme.primary,
+                      ),
+                      onPressed:
+                          user != null ? _showSignOutDialog : _handleAuthAction,
+                      tooltip:
+                          user != null ? 'Sign out' : 'Sign in with Google',
                     ),
-                  )
-                : IconButton(
-                    icon: Icon(
-                      user != null ? Icons.logout_rounded : Icons.login_rounded,
-                      color: user != null
-                          ? Theme.of(context).colorScheme.error
-                          : Theme.of(context).colorScheme.primary,
-                    ),
-                    onPressed: user != null ? _showSignOutDialog : _handleAuthAction,
-                    tooltip: user != null ? 'Sign out' : 'Sign in with Google',
-                  ),
           ),
         ],
       ),
@@ -228,7 +234,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Text(
                       'Sign in to view your profile and statistics',
                       style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.6),
                       ),
                     ),
                   ),
@@ -252,25 +260,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundImage: user.userMetadata?['avatar_url'] != null
-                  ? NetworkImage(user.userMetadata!['avatar_url'])
-                  : null,
-              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-              child: user.userMetadata?['avatar_url'] == null
-                  ? Text(
-                      user.userMetadata?['full_name']
-                              ?.toString()
-                              .substring(0, 1)
-                              .toUpperCase() ??
-                          user.email?.substring(0, 1).toUpperCase() ??
-                          'U',
-                      style: TextStyle(
-                        fontSize: 24,
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
+              backgroundImage:
+                  user.userMetadata?['avatar_url'] != null
+                      ? NetworkImage(user.userMetadata!['avatar_url'])
+                      : null,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.primary.withOpacity(0.2),
+              child:
+                  user.userMetadata?['avatar_url'] == null
+                      ? Text(
+                        user.userMetadata?['full_name']
+                                ?.toString()
+                                .substring(0, 1)
+                                .toUpperCase() ??
+                            user.email?.substring(0, 1).toUpperCase() ??
+                            'U',
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                      : null,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -289,7 +301,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     user.email ?? '',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
                 ],
@@ -318,13 +332,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           future: _getEventStatistics(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return const Center(child: CircularProgressIndicator());
             }
 
             final stats = snapshot.data!;
-            
+
             return GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),

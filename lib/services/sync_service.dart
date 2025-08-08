@@ -65,39 +65,39 @@ class SyncService {
   }
 
   // Obtener eventos (siempre desde almacenamiento local)
-  Future<List<Event>> getEvents() async {
-    final events = _localStorage.getAllEvents();
-    
-    // Si hay conexión y hay eventos no sincronizados, intentar sincronizar
-    if (_connectivity.isConnected && !_isSyncing) {
-      final unsyncedCount = _localStorage.getUnsyncedEvents().length;
-      if (unsyncedCount > 0) {
-        print('📊 Found $unsyncedCount unsynced events - triggering sync');
-        // No esperar la sincronización, hacerlo en background
-        syncWithServer();
-      }
-    }
-    
-    return events;
-  }
-
-  // Guardar evento (siempre localmente, sincronizar después si hay conexión)
-  Future<void> saveEvent(Event event) async {
-    // Marcar como pendiente de sincronización
-    final eventToSave = event.copyWith(
-      needsSync: true,
-      lastModified: DateTime.now(), // IMPORTANTE: Actualizar timestamp
-    );
-    
-    await _localStorage.saveEvent(eventToSave);
-    print('💾 Event saved locally with sync flag: ${eventToSave.title}');
-    
-    // Si hay conexión, intentar sincronizar inmediatamente
-    if (_connectivity.isConnected && !_isSyncing) {
-      // Sincronizar en background
+Future<List<Event>> getEvents() async {
+  final events = _localStorage.getAllEvents();
+  
+  // Si está autenticado y hay conexión, intentar sincronizar
+  if (_authService.isAuthenticated && _connectivity.isConnected && !_isSyncing) {
+    final unsyncedCount = _localStorage.getUnsyncedEvents().length;
+    if (unsyncedCount > 0) {
+      print('📊 Found $unsyncedCount unsynced events - triggering sync');
       syncWithServer();
     }
   }
+  
+  return events;
+}
+
+  // Guardar evento (siempre localmente, sincronizar después si hay conexión)
+Future<void> saveEvent(Event event) async {
+  // Determinar si necesita sincronización basado en autenticación
+  final needsSync = _authService.isAuthenticated && _connectivity.isConnected;
+  
+  final eventToSave = event.copyWith(
+    needsSync: needsSync,
+    lastModified: DateTime.now(),
+  );
+  
+  await _localStorage.saveEvent(eventToSave);
+  print('💾 Event saved locally: ${eventToSave.title} (needsSync: $needsSync)');
+  
+  // Solo intentar sincronizar si está autenticado
+  if (_authService.isAuthenticated && _connectivity.isConnected && !_isSyncing) {
+    syncWithServer();
+  }
+}
 
   // Eliminar evento
   Future<void> deleteEvent(String eventId) async {
@@ -151,26 +151,47 @@ class SyncService {
     }
   }
 
-  Future<void> _performSync() async {
-    final user = _authService.currentUser;
-    if (user == null) {
-      throw Exception('User not found during sync');
-    }
-
-    print('👤 Syncing for user: ${user.id}');
-
-    // 1. Subir eventos locales no sincronizados PRIMERO
-    await _uploadLocalEvents(user.id);
-    
-    // 2. Sincronizar eliminaciones
-    await _syncDeletions(user.id);
-    
-    // 3. Descargar eventos del servidor
-    await _downloadServerEvents(user.id);
-    
-    // 4. Limpiar eventos eliminados sincronizados
-    await _localStorage.cleanupSyncedDeletedEvents();
+Future<void> _performSync() async {
+  final user = _authService.currentUser;
+  if (user == null) {
+    throw Exception('User not found during sync');
   }
+
+  print('👤 Syncing for user: ${user.id}');
+
+  // NUEVO: Migrar eventos locales al usuario autenticado
+  await _migrateLocalEventsToUser(user.id);
+  
+  // Continuar con sincronización normal
+  await _uploadLocalEvents(user.id);
+  await _syncDeletions(user.id);
+  await _downloadServerEvents(user.id);
+  await _localStorage.cleanupSyncedDeletedEvents();
+}
+
+// 6. NUEVA función para migrar eventos locales
+Future<void> _migrateLocalEventsToUser(String userId) async {
+  final localEvents = _localStorage.getAllEvents()
+      .where((event) => event.userId == 'local_user')
+      .toList();
+  
+  if (localEvents.isNotEmpty) {
+    print('🔄 Migrating ${localEvents.length} local events to user $userId');
+    
+    for (final event in localEvents) {
+      final migratedEvent = event.copyWith(
+        userId: userId,
+        needsSync: true,
+        lastModified: DateTime.now(),
+      );
+      
+      await _localStorage.saveEvent(migratedEvent);
+    }
+    
+    print('✅ Migration completed');
+  }
+}
+
 
   Future<void> _uploadLocalEvents(String userId) async {
     final unsyncedEvents = _localStorage.getUnsyncedEvents()
