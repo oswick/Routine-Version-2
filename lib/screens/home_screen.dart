@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:myapp/services/auth_service.dart';
 import 'package:myapp/services/sync_service.dart';
 import 'package:myapp/utils/notification_service.dart';
-import 'package:myapp/widgets/connectivity_indicator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'day_screen.dart';
@@ -268,22 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          // Indicador de conectividad
-          const Padding(
-            padding: EdgeInsets.only(right: 8.0),
-            child: ConnectivityIndicator(),
-          ),
-          
-          // Botón de actualizar
-          IconButton(
-            icon: Icon(
-              Icons.refresh,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            onPressed: _refreshEvents,
-            tooltip: 'Refresh events',
-          ),
-          
+          // Indicador de conectividad 
           if (user != null) ...[
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
@@ -310,19 +294,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
-          IconButton(
-            icon: Icon(
-              user != null ? Icons.logout : Icons.login,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            onPressed: () async {
-              if (user != null) {
-                await _authService.signOut();
-              } else {
-                await _authService.signInWithGoogle();
-              }
-            },
-          ),
         ],
       ),
       body: RefreshIndicator(

@@ -80,7 +80,6 @@ class NotificationService {
       showBadge: true,
       enableLights: true,
       playSound: true,
-      sound: RawResourceAndroidNotificationSound('notification'),
     );
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
@@ -182,7 +181,6 @@ class NotificationService {
                   styleInformation: DefaultStyleInformation(true, true),
                   autoCancel: true,
                   playSound: true,
-                  sound: RawResourceAndroidNotificationSound('notification'),
                 ),
               ),
               uiLocalNotificationDateInterpretation:
