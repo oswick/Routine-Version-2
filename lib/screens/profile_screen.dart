@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:myapp/services/auth_service.dart';
 import 'package:myapp/services/sync_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/event.dart';
-import '../widgets/connectivity_indicator.dart'; // Asegúrate de importar el indicador
+import '../widgets/connectivity_indicator.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -94,20 +95,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Map<String, int> _getEventStatistics() {
-    int total = _events.length;
-    int completed = _events.where((e) => e.isCompleted).length;
-    int pending = total - completed;
+  // Función para verificar si un evento repetitivo está completo para hoy
+  Future<bool> _isRepetitiveEventCompletedToday(Event event) async {
+    if (event.repeatDays.isEmpty) {
+      return event.isCompleted;
+    }
 
+    final now = DateTime.now();
+    final dateKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final completionKey = 'event_${event.id}_completion_$dateKey';
+    
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(completionKey) ?? false;
+  }
+
+  // Función para verificar si un evento es para hoy
+  bool _isEventForToday(Event event) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    if (event.repeatDays.isNotEmpty) {
+      // Para eventos repetitivos, verificar si hoy es uno de los días
+      return event.repeatDays.contains(now.weekday);
+    } else {
+      // Para eventos únicos, verificar si es el mismo día
+      final eventDate = DateTime(
+        event.startTime.year,
+        event.startTime.month,
+        event.startTime.day,
+      );
+      return eventDate.isAtSameMomentAs(today);
+    }
+  }
+
+  Future<Map<String, int>> _getEventStatistics() async {
+    int total = _events.length;
+    int completed = 0;
+    int todayPending = 0;
+    int totalIncompleted = 0;
+
+    // Calcular eventos completados y incompletos
+    for (var event in _events) {
+      bool isCompleted = await _isRepetitiveEventCompletedToday(event);
+      
+      if (isCompleted) {
+        completed++;
+      } else {
+        totalIncompleted++;
+      }
+
+      // Para eventos del día de hoy que no están completados
+      if (_isEventForToday(event) && !isCompleted) {
+        todayPending++;
+      }
+    }
+
+    // Contar categorías
     Map<String, int> categories = {};
-    for (var e in _events) {
-      categories[e.category] = (categories[e.category] ?? 0) + 1;
+    for (var event in _events) {
+      categories[event.category] = (categories[event.category] ?? 0) + 1;
     }
 
     return {
       'total': total,
       'completed': completed,
-      'pending': pending,
+      'todayPending': todayPending,
+      'totalIncompleted': totalIncompleted,
       ...categories,
     };
   }
@@ -115,7 +168,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = _authService.currentUser;
-    final stats = _getEventStatistics();
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -137,31 +189,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child:
-                _isLoading
-                    ? SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    )
-                    : IconButton(
-                      icon: Icon(
-                        user != null
-                            ? Icons.logout_rounded
-                            : Icons.login_rounded,
-                        color:
-                            user != null
-                                ? Theme.of(context).colorScheme.error
-                                : Theme.of(context).colorScheme.primary,
-                      ),
-                      onPressed:
-                          user != null ? _showSignOutDialog : _handleAuthAction,
-                      tooltip:
-                          user != null ? 'Sign out' : 'Sign in with Google',
+            child: _isLoading
+                ? SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
+                  )
+                : IconButton(
+                    icon: Icon(
+                      user != null ? Icons.logout_rounded : Icons.login_rounded,
+                      color: user != null
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.primary,
+                    ),
+                    onPressed: user != null ? _showSignOutDialog : _handleAuthAction,
+                    tooltip: user != null ? 'Sign out' : 'Sign in with Google',
+                  ),
           ),
         ],
       ),
@@ -174,7 +220,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (user != null) ...[
                 _buildUserCard(user),
                 const SizedBox(height: 24),
-                if (_events.isNotEmpty) _buildStatisticsSection(stats),
+                if (_events.isNotEmpty) _buildStatisticsSection(),
               ] else ...[
                 Center(
                   child: Padding(
@@ -182,9 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Text(
                       'Sign in to view your profile and statistics',
                       style: TextStyle(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                       ),
                     ),
                   ),
@@ -208,29 +252,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundImage:
-                  user.userMetadata?['avatar_url'] != null
-                      ? NetworkImage(user.userMetadata!['avatar_url'])
-                      : null,
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.primary.withOpacity(0.2),
-              child:
-                  user.userMetadata?['avatar_url'] == null
-                      ? Text(
-                        user.userMetadata?['full_name']
-                                ?.toString()
-                                .substring(0, 1)
-                                .toUpperCase() ??
-                            user.email?.substring(0, 1).toUpperCase() ??
-                            'U',
-                        style: TextStyle(
-                          fontSize: 24,
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                      : null,
+              backgroundImage: user.userMetadata?['avatar_url'] != null
+                  ? NetworkImage(user.userMetadata!['avatar_url'])
+                  : null,
+              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              child: user.userMetadata?['avatar_url'] == null
+                  ? Text(
+                      user.userMetadata?['full_name']
+                              ?.toString()
+                              .substring(0, 1)
+                              .toUpperCase() ??
+                          user.email?.substring(0, 1).toUpperCase() ??
+                          'U',
+                      style: TextStyle(
+                        fontSize: 24,
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -249,9 +289,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     user.email ?? '',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
                 ],
@@ -263,7 +301,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildStatisticsSection(Map<String, int> stats) {
+  Widget _buildStatisticsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -276,42 +314,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 1.5,
-          children: [
-            _buildStatCard(
-              'Total Tasks',
-              stats['total'] ?? 0,
-              Icons.list_alt,
-              Theme.of(context).colorScheme.primary,
-            ),
-            _buildStatCard(
-              'Completed',
-              stats['completed'] ?? 0,
-              Icons.check_circle,
-              Colors.green,
-            ),
-            _buildStatCard(
-              'Pending',
-              stats['pending'] ?? 0,
-              Icons.pending_actions,
-              Colors.orange,
-            ),
-            _buildStatCard(
-              'Success Rate',
-              stats['total'] != 0
-                  ? ((stats['completed'] ?? 0) * 100 ~/ stats['total']!)
-                  : 0,
-              Icons.auto_graph,
-              Colors.blue,
-              isPercentage: true,
-            ),
-          ],
+        FutureBuilder<Map<String, int>>(
+          future: _getEventStatistics(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+
+            final stats = snapshot.data!;
+            
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 1.5,
+              children: [
+                _buildStatCard(
+                  'Total Tasks',
+                  stats['total'] ?? 0,
+                  Icons.list_alt,
+                  Theme.of(context).colorScheme.primary,
+                ),
+                _buildStatCard(
+                  'Completed',
+                  stats['completed'] ?? 0,
+                  Icons.check_circle,
+                  Colors.green,
+                ),
+                _buildStatCard(
+                  'Today Pending',
+                  stats['todayPending'] ?? 0,
+                  Icons.today,
+                  Colors.orange,
+                ),
+                _buildStatCard(
+                  'Incompleted',
+                  stats['totalIncompleted'] ?? 0,
+                  Icons.pending_actions,
+                  Colors.red,
+                ),
+                _buildStatCard(
+                  'Success Rate',
+                  stats['total'] != 0
+                      ? ((stats['completed'] ?? 0) * 100 ~/ stats['total']!)
+                      : 0,
+                  Icons.auto_graph,
+                  Colors.blue,
+                  isPercentage: true,
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -337,9 +394,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 8),
           Text(
             title,
+            textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 12,
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 4),
