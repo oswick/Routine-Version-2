@@ -1,4 +1,7 @@
+// lib/screens/day_screen.dart - Versión actualizada con Provider
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/screens/add_event_screen.dart';
 import '../models/event.dart';
 import '../widgets/event_card.dart';
@@ -28,53 +31,16 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
   bool _showAfternoonEvents = true;
   bool _showNightEvents = true;
 
-  // Mapa para mantener el estado de los eventos por su ID único
-  final Map<String, bool> _eventStates = {};
-
   @override
   bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeEventStates();
-  }
-
-  @override
-  void didUpdateWidget(DayScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Actualizar estados cuando cambien los eventos
-    if (oldWidget.events != widget.events) {
-      _initializeEventStates();
-    }
-  }
-
-  void _initializeEventStates() {
-    // Inicializar estados basados en los eventos actuales
-    for (var event in widget.events) {
-      if (!_eventStates.containsKey(event.id)) {
-        _eventStates[event.id] = event.isCompleted;
-      } else {
-        // Actualizar el estado si ha cambiado en Supabase
-        _eventStates[event.id] = event.isCompleted;
-      }
-    }
-    
-    // Limpiar estados de eventos que ya no existen
-    _eventStates.removeWhere((eventId, _) => 
-        !widget.events.any((event) => event.id == eventId));
-  }
 
   bool _isEventPast(Event event) {
     final now = DateTime.now();
     final selectedDay = DateTime(widget.day.year, widget.day.month, widget.day.day);
     final today = DateTime(now.year, now.month, now.day);
     
-    // Si es un evento repetitivo
     if (event.repeatDays.isNotEmpty) {
-      // Verificar si hoy es uno de los días de repetición
       if (widget.day.weekday == now.weekday && selectedDay.isAtSameMomentAs(today)) {
-        // Es hoy y es un día de repetición - verificar si la hora ya pasó
         if (event.endTime != null) {
           final todayEndTime = DateTime(now.year, now.month, now.day, 
               event.endTime!.hour, event.endTime!.minute);
@@ -82,28 +48,25 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
         } else {
           final todayStartTime = DateTime(now.year, now.month, now.day, 
               event.startTime.hour, event.startTime.minute);
-          return now.isAfter(todayStartTime.add(const Duration(hours: 1))); // Asumir 1 hora de duración
+          return now.isAfter(todayStartTime.add(const Duration(hours: 1)));
         }
       } else {
-        // Es un día pasado y es un día de repetición
         return selectedDay.isBefore(today) && event.repeatDays.contains(widget.day.weekday);
       }
     } else {
-      // Evento único - verificar si ya pasó completamente
       if (event.endTime != null) {
         return now.isAfter(event.endTime!);
       } else {
-        return now.isAfter(event.startTime.add(const Duration(hours: 1))); // Asumir 1 hora de duración
+        return now.isAfter(event.startTime.add(const Duration(hours: 1)));
       }
     }
-    
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    // Group events by time of day and separate past events
+    // Group events by time of day
     List<Event> morningEvents = [];
     List<Event> afternoonEvents = [];
     List<Event> nightEvents = [];
@@ -119,48 +82,86 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
       }
     }
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          if (morningEvents.isNotEmpty) ...[
-            _buildHeader('Morning', _showMorningEvents, () {
-              setState(() {
-                _showMorningEvents = !_showMorningEvents;
-              });
-            }),
-            if (_showMorningEvents)
-              ...morningEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event))),
-          ],
-          if (afternoonEvents.isNotEmpty) ...[
-            _buildHeader('Afternoon', _showAfternoonEvents, () {
-              setState(() {
-                _showAfternoonEvents = !_showAfternoonEvents;
-              });
-            }),
-            if (_showAfternoonEvents)
-              ...afternoonEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event))),
-          ],
-          if (nightEvents.isNotEmpty) ...[
-            _buildHeader('Night', _showNightEvents, () {
-              setState(() {
-                _showNightEvents = !_showNightEvents;
-              });
-            }),
-            if (_showNightEvents)
-              ...nightEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event))),
-          ],
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        onPressed: _showAddEventBottomSheet,
-        child: Icon(
-          Icons.add,
-          color: Theme.of(context).colorScheme.onPrimary,
-        ),
-      ),
+    return Consumer<EventProvider>(
+      builder: (context, eventProvider, child) {
+        return Scaffold(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          body: eventProvider.isLoading && widget.events.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : ListView(
+                  padding: const EdgeInsets.all(16.0),
+                  children: [
+                    if (morningEvents.isNotEmpty) ...[
+                      _buildHeader('Morning', _showMorningEvents, () {
+                        setState(() {
+                          _showMorningEvents = !_showMorningEvents;
+                        });
+                      }),
+                      if (_showMorningEvents)
+                        ...morningEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event), eventProvider)),
+                    ],
+                    if (afternoonEvents.isNotEmpty) ...[
+                      _buildHeader('Afternoon', _showAfternoonEvents, () {
+                        setState(() {
+                          _showAfternoonEvents = !_showAfternoonEvents;
+                        });
+                      }),
+                      if (_showAfternoonEvents)
+                        ...afternoonEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event), eventProvider)),
+                    ],
+                    if (nightEvents.isNotEmpty) ...[
+                      _buildHeader('Night', _showNightEvents, () {
+                        setState(() {
+                          _showNightEvents = !_showNightEvents;
+                        });
+                      }),
+                      if (_showNightEvents)
+                        ...nightEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event), eventProvider)),
+                    ],
+                    if (widget.events.isEmpty) ...[
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 50.0),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.event_busy,
+                                size: 64,
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No events for this day',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tap the + button to add your first event',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+          floatingActionButton: FloatingActionButton(
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            onPressed: _showAddEventBottomSheet,
+            child: Icon(
+              Icons.add,
+              color: Theme.of(context).colorScheme.onPrimary,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -190,7 +191,7 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
     );
   }
 
-  Widget _buildEventCard(Event event, int index) {
+  Widget _buildEventCard(Event event, int index, EventProvider eventProvider) {
     final isPastEvent = _isEventPast(event);
     
     return Padding(
@@ -205,29 +206,26 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
           child: const Icon(Icons.delete, color: Colors.white),
         ),
         confirmDismiss: (direction) async {
-          bool? result = await _showDeleteConfirmationDialog(context, index, event);
-          if (result == null || !result) {
-            setState(() {});
-          }
-          return result;
+          return await _showDeleteConfirmationDialog(context, event, eventProvider);
         },
         onDismissed: (direction) {},
         child: EventCard(
           key: ValueKey('${event.id}_${event.isCompleted}_${event.startTime.millisecondsSinceEpoch}'),
           event: event,
-          pastEvent: isPastEvent, // Pasar el flag de evento pasado
+          pastEvent: isPastEvent,
           onUpdateEvent: (updatedEvent) async {
-            setState(() {
-              _eventStates[event.id] = updatedEvent.isCompleted;
-            });
-            widget.onUpdateEvent(index, updatedEvent);
+            await eventProvider.updateEvent(updatedEvent);
           },
         ),
       ),
     );
   }
 
-  Future<bool?> _showDeleteConfirmationDialog(BuildContext context, int index, Event event) {
+  Future<bool?> _showDeleteConfirmationDialog(
+    BuildContext context, 
+    Event event, 
+    EventProvider eventProvider
+  ) {
     return showDialog<bool>(
       context: context,
       builder: (context) {
@@ -240,9 +238,8 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
           backgroundColor: Theme.of(context).colorScheme.surface,
           actions: [
             TextButton(
-              onPressed: () {
-                _eventStates.remove(event.id);
-                widget.onDeleteEvent(index, false);
+              onPressed: () async {
+                await eventProvider.deleteEvent(event.id, deleteAll: false);
                 Navigator.of(context).pop(true);
               },
               child: Text(
@@ -252,9 +249,8 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
             ),
             if (event.repeatDays.isNotEmpty)
               TextButton(
-                onPressed: () {
-                  _eventStates.remove(event.id);
-                  widget.onDeleteEvent(index, true);
+                onPressed: () async {
+                  await eventProvider.deleteEvent(event.id, deleteAll: true);
                   Navigator.of(context).pop(true);
                 },
                 child: Text(
@@ -286,19 +282,11 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
         ),
         child: AddEventBottomSheet(
           onAddEvent: (event) {
-            _eventStates[event.id] = event.isCompleted;
             widget.onAddEvent(event);
-            setState(() {});
           },
           day: widget.day,
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _eventStates.clear();
-    super.dispose();
   }
 }

@@ -1,21 +1,21 @@
+// lib/screens/calendar_screen.dart - Versión actualizada con Provider
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:myapp/providers/event_provider.dart';
 import '../models/event.dart';
 import '../widgets/event_card.dart';
 
 class MonthlyCalendarScreen extends StatefulWidget {
-  final List<Event> events;
-  final Function(Event) onAddEvent;
-  final Function(int, Event) onUpdateEvent;
-  final Function(int, bool) onDeleteEvent;
+  final bool fromHomeScreen;
 
   const MonthlyCalendarScreen({
     super.key,
-    required this.events,
-    required this.onAddEvent,
-    required this.onUpdateEvent,
-    required this.onDeleteEvent,
-    required bool fromHomeScreen,
+    required this.fromHomeScreen,
+    required Null Function(dynamic event) onAddEvent,
+    required Null Function(dynamic int, dynamic event) onUpdateEvent,
+    required List events,
+    required Null Function(dynamic int, dynamic bool) onDeleteEvent,
   });
 
   @override
@@ -33,252 +33,279 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     _selectedDay = DateTime.now();
   }
 
-  List<Event> _getEventsForDay(DateTime day) {
-    return widget.events.where((event) {
-      return isSameDay(event.startTime, day) || event.repeatDays.contains(day.weekday);
+  List<Event> _getEventsForDay(DateTime day, List<Event> allEvents) {
+    return allEvents.where((event) {
+      return isSameDay(event.startTime, day) ||
+          event.repeatDays.contains(day.weekday);
     }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final events = _selectedDay != null ? _getEventsForDay(_selectedDay!) : [];
-    events.sort((a, b) => a.startTime.compareTo(b.startTime));
+    return Consumer<EventProvider>(
+      builder: (context, eventProvider, child) {
+        final allEvents = eventProvider.events;
+        final events =
+            _selectedDay != null
+                ? _getEventsForDay(_selectedDay!, allEvents)
+                : [];
+        events.sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    final now = DateTime.now();
-    final pastEvents = events.where((e) => e.endTime != null && e.endTime!.isBefore(now)).toList();
-    final futureEvents = events.where((e) => e.endTime == null || e.endTime!.isAfter(now)).toList();
+        final now = DateTime.now();
+        final pastEvents =
+            events
+                .where((e) => e.endTime != null && e.endTime!.isBefore(now))
+                .toList();
+        final futureEvents =
+            events
+                .where((e) => e.endTime == null || e.endTime!.isAfter(now))
+                .toList();
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        elevation: 0,
-        title: Text(
-          'Calendar',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          TableCalendar(
-            headerStyle: HeaderStyle(
-              formatButtonVisible: false,
-              titleCentered: true,
-              titleTextStyle: TextStyle(
-                fontSize: 18,
+        return Scaffold(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          appBar: AppBar(
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            elevation: 0,
+            title: Text(
+              'Calendar',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
               ),
-              leftChevronIcon: Icon(
-                Icons.chevron_left,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              rightChevronIcon: Icon(
-                Icons.chevron_right,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            calendarStyle: CalendarStyle(
-              defaultTextStyle: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              weekendTextStyle: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              ),
-              selectedTextStyle: TextStyle(
-                color: Theme.of(context).colorScheme.onPrimary,
-              ),
-              todayDecoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              selectedDecoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-            ),
-            firstDay: DateTime.utc(2010, 10, 16),
-            lastDay: DateTime.utc(2030, 3, 14),
-            focusedDay: _focusedDay,
-            calendarFormat: _calendarFormat,
-            selectedDayPredicate: (day) {
-              return isSameDay(_selectedDay, day);
-            },
-            onDaySelected: (selectedDay, focusedDay) {
-              setState(() {
-                _selectedDay = selectedDay;
-                _focusedDay = focusedDay;
-              });
-            },
-            onFormatChanged: (format) {
-              if (_calendarFormat != format) {
-                setState(() {
-                  _calendarFormat = format;
-                });
-              }
-            },
-            onPageChanged: (focusedDay) {
-              _focusedDay = focusedDay;
-            },
-            eventLoader: (day) {
-              return _getEventsForDay(day);
-            },
-            calendarBuilders: CalendarBuilders(
-              markerBuilder: (context, date, events) {
-                if (events.isNotEmpty) {
-                  return Positioned(
-                    right: 1,
-                    bottom: 1,
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  );
-                }
-                return null;
-              },
             ),
           ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(8.0),
-              children: [
-                if (futureEvents.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      'Próximos Eventos',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  ...futureEvents.map((event) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Dismissible(
-                          key: Key(event.id),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            color: Colors.red,
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 20.0),
-                            child: const Icon(
-                              Icons.delete,
-                              color: Colors.white,
-                            ),
+          body:
+              eventProvider.isLoading && allEvents.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : Column(
+                    children: [
+                      TableCalendar(
+                        headerStyle: HeaderStyle(
+                          formatButtonVisible: false,
+                          titleCentered: true,
+                          titleTextStyle: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
-                          confirmDismiss: (direction) async {
-                            bool? result = await _showDeleteConfirmationDialog(
+                          leftChevronIcon: Icon(
+                            Icons.chevron_left,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          rightChevronIcon: Icon(
+                            Icons.chevron_right,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        calendarStyle: CalendarStyle(
+                          defaultTextStyle: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          weekendTextStyle: TextStyle(
+                            color: Theme.of(
                               context,
-                              event,
-                            );
-                            if (result == null || !result) {
-                              setState(() {});
-                            }
-                            return result;
-                          },
-                          onDismissed: (direction) {},
-                          child: EventCard(
-                            event: event,
-                            onUpdateEvent: (updatedEvent) {
-                              widget.onUpdateEvent(
-                                widget.events.indexOf(event),
-                                updatedEvent,
-                              );
-                              setState(() {});
-                            },
+                            ).colorScheme.onSurface.withOpacity(0.6),
                           ),
-                        ),
-                      )),
-                ],
-                if (pastEvents.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      'Eventos Pasados',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  ...pastEvents.map((event) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Dismissible(
-                          key: Key(event.id),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            color: Colors.red,
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 20.0),
-                            child: const Icon(
-                              Icons.delete,
-                              color: Colors.white,
-                            ),
+                          selectedTextStyle: TextStyle(
+                            color: Theme.of(context).colorScheme.onPrimary,
                           ),
-                          confirmDismiss: (direction) async {
-                            bool? result = await _showDeleteConfirmationDialog(
+                          todayDecoration: BoxDecoration(
+                            color: Theme.of(
                               context,
-                              event,
-                            );
-                            if (result == null || !result) {
-                              setState(() {});
-                            }
-                            return result;
-                          },
-                          onDismissed: (direction) {},
-                          child: EventCard(
-                            event: event,
-                            onUpdateEvent: (updatedEvent) {
-                              widget.onUpdateEvent(
-                                widget.events.indexOf(event),
-                                updatedEvent,
-                              );
-                              setState(() {});
-                            },
-                            // Cambios visuales para eventos pasados
-                            pastEvent: true,
+                            ).colorScheme.primary.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          selectedDecoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: BoxShape.circle,
                           ),
                         ),
-                      )),
-                ],
-                if (events.isEmpty) ...[
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 32.0),
-                      child: Text(
-                        'No hay eventos para este día',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                          fontSize: 16,
+                        firstDay: DateTime.utc(2010, 10, 16),
+                        lastDay: DateTime.utc(2030, 3, 14),
+                        focusedDay: _focusedDay,
+                        calendarFormat: _calendarFormat,
+                        selectedDayPredicate: (day) {
+                          return isSameDay(_selectedDay, day);
+                        },
+                        onDaySelected: (selectedDay, focusedDay) {
+                          setState(() {
+                            _selectedDay = selectedDay;
+                            _focusedDay = focusedDay;
+                          });
+                        },
+                        onFormatChanged: (format) {
+                          if (_calendarFormat != format) {
+                            setState(() {
+                              _calendarFormat = format;
+                            });
+                          }
+                        },
+                        onPageChanged: (focusedDay) {
+                          _focusedDay = focusedDay;
+                        },
+                        eventLoader: (day) {
+                          return _getEventsForDay(day, allEvents);
+                        },
+                        calendarBuilders: CalendarBuilders(
+                          markerBuilder: (context, date, events) {
+                            if (events.isNotEmpty) {
+                              return Positioned(
+                                right: 1,
+                                bottom: 1,
+                                child: Container(),
+                              );
+                            }
+                            return null;
+                          },
                         ),
                       ),
-                    ),
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: () => eventProvider.loadEvents(),
+                          child: ListView(
+                            padding: const EdgeInsets.all(8.0),
+                            children: [
+                              if (futureEvents.isNotEmpty) ...[
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0,
+                                  ),
+                                  child: Text(
+                                    'Próximos Eventos',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                                ...futureEvents.map(
+                                  (event) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4.0,
+                                    ),
+                                    child: Dismissible(
+                                      key: Key(event.id),
+                                      direction: DismissDirection.endToStart,
+                                      background: Container(
+                                        color: Colors.red,
+                                        alignment: Alignment.centerRight,
+                                        padding: const EdgeInsets.only(
+                                          right: 20.0,
+                                        ),
+                                        child: const Icon(
+                                          Icons.delete,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      confirmDismiss: (direction) async {
+                                        return await _showDeleteConfirmationDialog(
+                                          context,
+                                          event,
+                                          eventProvider,
+                                        );
+                                      },
+                                      onDismissed: (direction) {},
+                                      child: EventCard(
+                                        event: event,
+                                        onUpdateEvent: (updatedEvent) async {
+                                          await eventProvider.updateEvent(
+                                            updatedEvent,
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              if (pastEvents.isNotEmpty) ...[
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0,
+                                  ),
+                                  child: Text(
+                                    'Eventos Pasados',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                                ...pastEvents.map(
+                                  (event) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4.0,
+                                    ),
+                                    child: Dismissible(
+                                      key: Key(event.id),
+                                      direction: DismissDirection.endToStart,
+                                      background: Container(
+                                        color: Colors.red,
+                                        alignment: Alignment.centerRight,
+                                        padding: const EdgeInsets.only(
+                                          right: 20.0,
+                                        ),
+                                        child: const Icon(
+                                          Icons.delete,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      confirmDismiss: (direction) async {
+                                        return await _showDeleteConfirmationDialog(
+                                          context,
+                                          event,
+                                          eventProvider,
+                                        );
+                                      },
+                                      onDismissed: (direction) {},
+                                      child: EventCard(
+                                        event: event,
+                                        onUpdateEvent: (updatedEvent) async {
+                                          await eventProvider.updateEvent(
+                                            updatedEvent,
+                                          );
+                                        },
+                                        pastEvent: true,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              if (events.isEmpty) ...[
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 32.0),
+                                    child: Text(
+                                      'No hay eventos para este día',
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withOpacity(0.6),
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Future<bool?> _showDeleteConfirmationDialog(
     BuildContext context,
     Event event,
+    EventProvider eventProvider,
   ) {
-    final index = widget.events.indexOf(event);
     return showDialog<bool>(
       context: context,
       builder: (context) {
@@ -293,16 +320,16 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           backgroundColor: Theme.of(context).colorScheme.surface,
           actions: [
             TextButton(
-              onPressed: () {
-                widget.onDeleteEvent(index, false);
+              onPressed: () async {
+                await eventProvider.deleteEvent(event.id, deleteAll: false);
                 Navigator.of(context).pop(true);
               },
               child: Text('Delete', style: TextStyle(color: Colors.red)),
             ),
             if (event.repeatDays.isNotEmpty)
               TextButton(
-                onPressed: () {
-                  widget.onDeleteEvent(index, true);
+                onPressed: () async {
+                  await eventProvider.deleteEvent(event.id, deleteAll: true);
                   Navigator.of(context).pop(true);
                 },
                 child: Text('All Days', style: TextStyle(color: Colors.red)),

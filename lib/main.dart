@@ -1,5 +1,8 @@
+// lib/main.dart - Versión actualizada
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/screens/nav_screen.dart';
 import 'package:myapp/services/connectivity_service.dart';
 import 'package:myapp/services/local_stogare_service.dart';
@@ -65,6 +68,15 @@ Future<void> main() async {
     print('❌ Error initializing connectivity service: $e');
   }
 
+  // Initialize EventProvider
+  try {
+    print('📅 Initializing event provider...');
+    await EventProvider().init();
+    print('✅ Event provider initialized');
+  } catch (e) {
+    print('❌ Error initializing event provider: $e');
+  }
+
   runApp(const MyApp());
 
   // Initialize other services after app starts
@@ -112,27 +124,30 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DynamicColorBuilder(
-      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        return MaterialApp(
-          title: 'Routine',
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            typography: Typography.material2021(),
-            useMaterial3: true,
-            useSystemColors: true,
-            colorScheme: lightDynamic,
-          ),
-          darkTheme: ThemeData(
-            useMaterial3: true,
-            useSystemColors: true,
-            typography: Typography.material2021(),
-            colorScheme: darkDynamic,
-          ),
-          themeMode: ThemeMode.system,
-          home: MainHomeScreen(),
-        );
-      },
+    return ChangeNotifierProvider<EventProvider>.value(
+      value: EventProvider(),
+      child: DynamicColorBuilder(
+        builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+          return MaterialApp(
+            title: 'Routine',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              typography: Typography.material2021(),
+              useMaterial3: true,
+              useSystemColors: true,
+              colorScheme: lightDynamic,
+            ),
+            darkTheme: ThemeData(
+              useMaterial3: true,
+              useSystemColors: true,
+              typography: Typography.material2021(),
+              colorScheme: darkDynamic,
+            ),
+            themeMode: ThemeMode.system,
+            home: MainHomeScreen(),
+          );
+        },
+      ),
     );
   }
 }
