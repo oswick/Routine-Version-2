@@ -42,14 +42,14 @@ class _EventCardState extends State<EventCard> {
   @override
   void didUpdateWidget(EventCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Verificar si cambió el día
     final newDateKey = _getDateKey();
     if (_currentDateKey != newDateKey) {
       _currentDateKey = newDateKey;
       _loadCompletedStatus(); // Recargar el estado para el nuevo día
     }
-    
+
     if (oldWidget.event.endTime != widget.event.endTime ||
         oldWidget.event.startTime != widget.event.startTime) {
       _checkAndUpdateCompletedStatus();
@@ -81,7 +81,8 @@ class _EventCardState extends State<EventCard> {
       // Para eventos repetitivos, cargar el estado específico del día actual
       final prefs = await SharedPreferences.getInstance();
       final key = _getCompletionKey();
-      final completedStatus = prefs.getBool(key) ?? false; // Default false para nuevos días
+      final completedStatus =
+          prefs.getBool(key) ?? false; // Default false para nuevos días
       if (mounted) {
         setState(() {
           isCompleted = completedStatus;
@@ -116,7 +117,7 @@ class _EventCardState extends State<EventCard> {
       final prefs = await SharedPreferences.getInstance();
       final key = _getCompletionKey();
       await prefs.setBool(key, completed);
-      
+
       // Opcional: limpiar estados antiguos (más de 30 días)
       _cleanOldCompletionStates();
     } else {
@@ -132,20 +133,21 @@ class _EventCardState extends State<EventCard> {
       final keys = prefs.getKeys();
       final now = DateTime.now();
       final cutoffDate = now.subtract(const Duration(days: 30));
-      
-      final keysToRemove = keys.where((key) {
-        if (key.startsWith('event_${widget.event.id}_completion_')) {
-          final dateStr = key.split('_').last;
-          try {
-            final date = DateTime.parse(dateStr);
-            return date.isBefore(cutoffDate);
-          } catch (e) {
+
+      final keysToRemove =
+          keys.where((key) {
+            if (key.startsWith('event_${widget.event.id}_completion_')) {
+              final dateStr = key.split('_').last;
+              try {
+                final date = DateTime.parse(dateStr);
+                return date.isBefore(cutoffDate);
+              } catch (e) {
+                return false;
+              }
+            }
             return false;
-          }
-        }
-        return false;
-      }).toList();
-      
+          }).toList();
+
       for (String key in keysToRemove) {
         await prefs.remove(key);
       }
@@ -178,42 +180,54 @@ class _EventCardState extends State<EventCard> {
     if (!hasEndTime) {
       return false;
     }
-    
+
     if (_isRepetitiveEvent()) {
       // Para eventos repetitivos, verificar si hoy es uno de los días de repetición
       final today = now.weekday;
       if (!widget.event.repeatDays.contains(today)) {
         return false;
       }
-      
+
       // Crear las horas de inicio y fin para hoy
-      final todayStart = DateTime(now.year, now.month, now.day, 
-          widget.event.startTime.hour, widget.event.startTime.minute);
-      final todayEnd = DateTime(now.year, now.month, now.day, 
-          widget.event.endTime!.hour, widget.event.endTime!.minute);
-          
+      final todayStart = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        widget.event.startTime.hour,
+        widget.event.startTime.minute,
+      );
+      final todayEnd = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        widget.event.endTime!.hour,
+        widget.event.endTime!.minute,
+      );
+
       return now.isAfter(todayStart) && now.isBefore(todayEnd);
     } else {
-      return now.isAfter(widget.event.startTime) && now.isBefore(widget.event.endTime!);
+      return now.isAfter(widget.event.startTime) &&
+          now.isBefore(widget.event.endTime!);
     }
   }
 
   void _checkAndUpdateCompletedStatus() {
     final now = DateTime.now();
     final hasEndTime = widget.event.endTime != null;
-    
+
     if (_isRepetitiveEvent()) {
       // Para eventos repetitivos, no hacer cambios automáticos
       // El usuario debe marcarlos manualmente cada día
       return;
     }
-    
+
     // Para eventos únicos, mantener la lógica original
     if (hasEndTime) {
       final hasEnded = now.isAfter(widget.event.endTime!);
-      final isCurrentlyInProgress = now.isAfter(widget.event.startTime) &&
+      final isCurrentlyInProgress =
+          now.isAfter(widget.event.startTime) &&
           now.isBefore(widget.event.endTime!);
-      
+
       if (hasEnded && !isCompleted) {
         // Si no quieres marcar como hecho automáticamente, comenta la siguiente línea
         // _updateCompletedStatus(true);
@@ -228,7 +242,7 @@ class _EventCardState extends State<EventCard> {
       setState(() {
         isCompleted = value;
         _saveCompletedStatus(value);
-        
+
         // Solo actualizar el evento si no es repetitivo
         if (!_isRepetitiveEvent()) {
           final updatedEvent = widget.event.copyWith(isCompleted: value);
@@ -241,15 +255,14 @@ class _EventCardState extends State<EventCard> {
   Widget _buildCompletionIndicator() {
     if (_isRepetitiveEvent()) {
       return Tooltip(
-        message: isCompleted ? "Marcar como no realizado hoy" : "Marcar como realizado hoy",
+        message: isCompleted ? "Mark as incomplete" : "Mark as complete",
         child: Checkbox(
           shape: const CircleBorder(),
           value: isCompleted,
-          onChanged: widget.pastEvent
-              ? null
-              : (value) {
-                  _updateCompletedStatus(value!);
-                },
+          onChanged: (value) {
+            // Removido el condicional widget.pastEvent
+            _updateCompletedStatus(value!);
+          },
         ),
       );
     } else {
@@ -258,11 +271,10 @@ class _EventCardState extends State<EventCard> {
         child: Checkbox(
           shape: const CircleBorder(),
           value: isCompleted,
-          onChanged: widget.pastEvent
-              ? null
-              : (value) {
-                  _updateCompletedStatus(value!);
-                },
+          onChanged: (value) {
+            // Removido el condicional widget.pastEvent
+            _updateCompletedStatus(value!);
+          },
         ),
       );
     }
@@ -275,7 +287,10 @@ class _EventCardState extends State<EventCard> {
           children: [
             Icon(Icons.check_circle, color: Colors.green, size: 16),
             const SizedBox(width: 4),
-            Text('Realizado', style: TextStyle(color: Colors.green, fontSize: 12)),
+            Text(
+              'Realizado',
+              style: TextStyle(color: Colors.green, fontSize: 12),
+            ),
           ],
         );
       } else {
@@ -283,16 +298,23 @@ class _EventCardState extends State<EventCard> {
           children: [
             Icon(Icons.history, color: Colors.grey, size: 16),
             const SizedBox(width: 4),
-            Text('No realizado', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(
+              'No realizado',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
           ],
         );
       }
     }
-    
+
     if (_isRepetitiveEvent()) {
       return Row(
         children: [
-          Icon(Icons.repeat, color: Theme.of(context).colorScheme.primary, size: 16),
+          Icon(
+            Icons.repeat,
+            color: Theme.of(context).colorScheme.primary,
+            size: 16,
+          ),
           const SizedBox(width: 4),
           Text(
             _getRepeatDaysText(),
@@ -305,7 +327,7 @@ class _EventCardState extends State<EventCard> {
         ],
       );
     }
-    
+
     return const SizedBox.shrink();
   }
 
@@ -327,9 +349,7 @@ class _EventCardState extends State<EventCard> {
       child: Card(
         color: Theme.of(context).colorScheme.surfaceContainer,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Opacity(
           opacity: cardOpacity,
           child: Padding(
@@ -352,7 +372,9 @@ class _EventCardState extends State<EventCard> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -375,7 +397,8 @@ class _EventCardState extends State<EventCard> {
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
-                                    color: Theme.of(context).colorScheme.onSurface,
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                               ),
@@ -383,7 +406,9 @@ class _EventCardState extends State<EventCard> {
                                 formatTime(widget.event.startTime),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.6),
                                 ),
                               ),
                             ],
@@ -403,7 +428,9 @@ class _EventCardState extends State<EventCard> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => PomodoroScreen(event: widget.event),
+                              builder:
+                                  (context) =>
+                                      PomodoroScreen(event: widget.event),
                             ),
                           );
                         },
@@ -420,7 +447,8 @@ class _EventCardState extends State<EventCard> {
                           value: _calculateProgress(),
                           minHeight: 4,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.surfaceContainer,
                           valueColor: AlwaysStoppedAnimation<Color>(
                             Theme.of(context).colorScheme.primary,
                           ),
@@ -433,14 +461,18 @@ class _EventCardState extends State<EventCard> {
                               formatTime(widget.event.startTime),
                               style: TextStyle(
                                 fontSize: 10,
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.5),
                               ),
                             ),
                             Text(
                               formatTime(widget.event.endTime!),
                               style: TextStyle(
                                 fontSize: 10,
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.5),
                               ),
                             ),
                           ],
