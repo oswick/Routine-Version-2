@@ -1,6 +1,7 @@
 // lib/main.dart - Versión actualizada
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:myapp/config/app_config.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/screens/nav_screen.dart';
@@ -43,12 +44,11 @@ void alarmCallback() async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase
+ 
   await Supabase.initialize(
-    url: 'https://mjlurwscaotbziijzymq.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qbHVyd3NjYW90YnppaWp6eW1xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNjA1NTAsImV4cCI6MjA2MzkzNjU1MH0.2wnp7hupGpdcUiFxTagBvMkK3Ez-_5zqC4tJGineujk',
-  );
+  url: AppConfig.supabaseUrl,
+  anonKey: AppConfig.supabaseAnonKey,
+);
 
   // Initialize local storage first
   try {
