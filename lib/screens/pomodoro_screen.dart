@@ -1,14 +1,17 @@
+// lib/screens/pomodoro_screen.dart - Versión actualizada con Provider
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:myapp/providers/event_provider.dart';
 import '../models/event.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../utils/notification_service.dart';
 
 class PomodoroScreen extends StatefulWidget {
   final Event event;
-  final Function(bool)? onAmoledModeChanged; // Nuevo callback
+  final Function(bool)? onAmoledModeChanged;
 
   const PomodoroScreen({
     super.key,
@@ -26,29 +29,33 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   late Duration _timeLeft;
   bool _isRunning = false;
   bool _isAmoledMode = false;
+  bool _isCompleted = false;
 
   // Animation controllers
   late AnimationController _pulseController;
   late AnimationController _breathingController;
   late AnimationController _buttonController;
+  late AnimationController _completionController;
 
   // Animations
   late Animation<double> _pulseAnimation;
   late Animation<double> _breathingAnimation;
   late Animation<double> _buttonScaleAnimation;
+  late Animation<double> _completionAnimation;
 
   @override
   void initState() {
     super.initState();
+    _isCompleted = widget.event.isCompleted;
     _initializeAnimations();
     _initializeTimer();
 
-    if (_shouldAutoStart()) {
+    if (_shouldAutoStart() && !_isCompleted) {
       _startTimer();
       _isRunning = true;
     }
 
-    // Notificar el estado inicial del modo AMOLED después de que se complete el frame actual
+    // Notificar el estado inicial del modo AMOLED
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.onAmoledModeChanged != null) {
         widget.onAmoledModeChanged!(_isAmoledMode);
@@ -82,6 +89,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     );
     _buttonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _buttonController, curve: Curves.easeInOut),
+    );
+
+    // Completion animation
+    _completionController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _completionAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _completionController, curve: Curves.bounceOut),
     );
 
     _breathingController.repeat(reverse: true);
@@ -122,12 +138,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _pulseController.dispose();
     _breathingController.dispose();
     _buttonController.dispose();
+    _completionController.dispose();
 
     // Desactivar el modo AMOLED al salir de la pantalla
     if (_isAmoledMode) {
       WakelockPlus.disable();
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      // Notificar al padre que el modo AMOLED se ha desactivado
       if (widget.onAmoledModeChanged != null) {
         widget.onAmoledModeChanged!(false);
       }
@@ -137,6 +153,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   void _startTimer() {
+    if (_isCompleted) return;
+    
     _timer?.cancel();
     _pulseController.repeat(reverse: true);
 
@@ -169,9 +187,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     });
   }
 
-  void _onTimerComplete() {
+  void _onTimerComplete() async {
     _timer?.cancel();
     _pulseController.stop();
+    
+    // Marcar evento como completado automáticamente
+    if (!_isCompleted) {
+      await _toggleCompletion();
+    }
+    
     setState(() {
       _isRunning = false;
     });
@@ -183,6 +207,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
     HapticFeedback.heavyImpact();
 
+    // Mostrar dialog de finalización
+    if (mounted) {
+      _showCompletionDialog();
+    }
+
     NotificationService().scheduleNotification(
       widget.event.id.hashCode + 20000,
       "¡Evento Terminado!",
@@ -192,21 +221,92 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     );
   }
 
+  Future<void> _toggleCompletion() async {
+    try {
+      final eventProvider = Provider.of<EventProvider>(context, listen: false);
+      final updatedEvent = widget.event.copyWith(
+        isCompleted: !_isCompleted,
+        lastModified: DateTime.now(),
+      );
+      
+      await eventProvider.updateEvent(updatedEvent);
+      
+      setState(() {
+        _isCompleted = !_isCompleted;
+      });
+
+      // Animación de completion
+      if (_isCompleted) {
+        _completionController.forward();
+        HapticFeedback.mediumImpact();
+      } else {
+        _completionController.reverse();
+      }
+
+      // Mostrar feedback visual
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_isCompleted ? 'Task completed! 🎉' : 'Task marked as incomplete'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: _isCompleted ? Colors.green : Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating task: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showCompletionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.celebration, color: Colors.green, size: 28),
+            const SizedBox(width: 8),
+            const Text('¡Completado!'),
+          ],
+        ),
+        content: Text(
+          '¡Has completado "${widget.event.title}"! 🎉\n\n'
+          '¡Excelente trabajo manteniendo el foco!',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // Salir del Pomodoro
+            },
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _toggleAmoledMode() {
     setState(() {
       _isAmoledMode = !_isAmoledMode;
 
-      // Llamar al callback si está definido
       if (widget.onAmoledModeChanged != null) {
         widget.onAmoledModeChanged!(_isAmoledMode);
       }
 
-      // Activar/desactivar wakelock según el modo AMOLED
       if (_isAmoledMode) {
-        WakelockPlus.enable(); // Mantener pantalla encendida
+        WakelockPlus.enable();
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
       } else {
-        WakelockPlus.disable(); // Permitir que la pantalla se apague normalmente
+        WakelockPlus.disable();
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }
     });
@@ -236,6 +336,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Color get _primaryColor {
+    if (_isCompleted) return Colors.green;
     if (_isAmoledMode) return Colors.white;
     return Theme.of(context).colorScheme.primary;
   }
@@ -245,167 +346,254 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     return Theme.of(context).colorScheme.onSurface;
   }
 
-@override
-Widget build(BuildContext context) {
-  if (_isAmoledMode) {
-    return Scaffold(
-      backgroundColor: _backgroundColor,
-      body: Stack(
-        children: [
-          // Contenido principal centrado
-          Center(
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                setState(() {
-                  if (_isRunning) {
-                    _pauseTimer();
-                  } else {
-                    _startTimer();
-                    _isRunning = true;
-                  }
-                });
-              },
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    widget.event.title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w500,
-                      color: _textColor,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTimerWidget(),
-                  const SizedBox(height: 20),
-                  
-                ],
-              ),
-            ),
-          ),
-          // Botón para salir del modo AMOLED (en la esquina superior derecha)
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10,
-            right: 20,
-            child: GestureDetector(
-              onTap: _toggleAmoledMode,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.black.withOpacity(0.5),
-                ),
-                child: Icon(
-                  Icons.light_mode,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  } else {
-    // El diseño original
-    return Scaffold(
-      backgroundColor: _backgroundColor,
-      body: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
-        decoration: BoxDecoration(
-          gradient: _isAmoledMode
-              ? null
-              : LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [_backgroundColor, _backgroundColor.withOpacity(0.8)],
-                ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.event.title,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                          color: _textColor,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Stack(
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<EventProvider>(
+      builder: (context, eventProvider, child) {
+        // Actualizar el estado de completion si cambió desde otra pantalla
+        final currentEvent = eventProvider.events
+            .where((e) => e.id == widget.event.id)
+            .firstOrNull;
+        
+        if (currentEvent != null && currentEvent.isCompleted != _isCompleted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _isCompleted = currentEvent.isCompleted;
+              });
+            }
+          });
+        }
+
+        if (_isAmoledMode) {
+          return Scaffold(
+            backgroundColor: _backgroundColor,
+            body: Stack(
+              children: [
+                // Contenido principal centrado
+                Center(
+                  child: GestureDetector(
+                    onTap: _isCompleted ? null : () {
+                      HapticFeedback.lightImpact();
+                      setState(() {
+                        if (_isRunning) {
+                          _pauseTimer();
+                        } else {
+                          _startTimer();
+                          _isRunning = true;
+                        }
+                      });
+                    },
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        IconButton(
-                          onPressed: _toggleAmoledMode,
-                          icon: Icon(
-                            _isAmoledMode ? Icons.light_mode : Icons.dark_mode,
+                        Text(
+                          widget.event.title,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w500,
                             color: _textColor,
                           ),
                         ),
-                        // Indicador visual cuando wakelock está activo
-                        if (_isAmoledMode)
-                          Positioned(
-                            right: 8,
-                            top: 8,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                              ),
+                        const SizedBox(height: 20),
+                        _buildTimerWidget(),
+                        const SizedBox(height: 20),
+                        if (_isCompleted)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle, 
+                                     color: Colors.green, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Completado',
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
+                // Botón para salir del modo AMOLED
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 10,
+                  right: 20,
+                  child: GestureDetector(
+                    onTap: _toggleAmoledMode,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black.withOpacity(0.5),
+                      ),
+                      child: Icon(
+                        Icons.light_mode,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ),
+                // Botón de completar (esquina inferior derecha)
+                Positioned(
+                  bottom: MediaQuery.of(context).padding.bottom + 20,
+                  right: 20,
+                  child: GestureDetector(
+                    onTap: _toggleCompletion,
+                    child: AnimatedBuilder(
+                      animation: _completionAnimation,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: 1.0 + (_completionAnimation.value * 0.1),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _isCompleted 
+                                  ? Colors.green 
+                                  : Colors.white.withOpacity(0.2),
+                            ),
+                            child: Icon(
+                              _isCompleted ? Icons.check : Icons.check_circle_outline,
+                              color: _isCompleted ? Colors.white : Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else {
+          // El diseño original
+          return Scaffold(
+            backgroundColor: _backgroundColor,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              title: Text(
+                widget.event.title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: _textColor,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-              // Timer principal
-              Expanded(
-                child: Center(
-                  child: AnimatedBuilder(
-                    animation: _breathingAnimation,
+              actions: [
+                // Botón de completar
+                IconButton(
+                  onPressed: _toggleCompletion,
+                  icon: AnimatedBuilder(
+                    animation: _completionAnimation,
                     builder: (context, child) {
                       return Transform.scale(
-                        scale: _breathingAnimation.value,
-                        child: AnimatedBuilder(
-                          animation: _pulseAnimation,
-                          builder: (context, child) {
-                            return Transform.scale(
-                              scale: _isRunning ? _pulseAnimation.value : 1.0,
-                              child: _buildTimerWidget(),
-                            );
-                          },
+                        scale: 1.0 + (_completionAnimation.value * 0.1),
+                        child: Icon(
+                          _isCompleted ? Icons.check_circle : Icons.check_circle_outline,
+                          color: _isCompleted ? Colors.green : _textColor,
+                          size: 28,
                         ),
                       );
                     },
                   ),
+                  tooltip: _isCompleted ? 'Mark as incomplete' : 'Mark as complete',
+                ),
+                // Botón de modo AMOLED
+                Stack(
+                  children: [
+                    IconButton(
+                      onPressed: _toggleAmoledMode,
+                      icon: Icon(
+                        _isAmoledMode ? Icons.light_mode : Icons.dark_mode,
+                        color: _textColor,
+                      ),
+                    ),
+                    if (_isAmoledMode)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            body: AnimatedContainer(
+              duration: const Duration(milliseconds: 500),
+              decoration: BoxDecoration(
+                gradient: _isAmoledMode
+                    ? null
+                    : LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [_backgroundColor, _backgroundColor.withOpacity(0.8)],
+                      ),
+              ),
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    // Timer principal
+                    Expanded(
+                      child: Center(
+                        child: AnimatedBuilder(
+                          animation: _breathingAnimation,
+                          builder: (context, child) {
+                            return Transform.scale(
+                              scale: _breathingAnimation.value,
+                              child: AnimatedBuilder(
+                                animation: _pulseAnimation,
+                                builder: (context, child) {
+                                  return Transform.scale(
+                                    scale: _isRunning ? _pulseAnimation.value : 1.0,
+                                    child: _buildTimerWidget(),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    // Controles
+                    Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: _buildControls(),
+                    ),
+                  ],
                 ),
               ),
-              // Controles
-              Padding(
-                padding: const EdgeInsets.all(40),
-                child: _buildControls(),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
+          );
+        }
+      },
     );
   }
-}
 
   Widget _buildTimerWidget() {
     final size = MediaQuery.of(context).size.width * 0.75;
@@ -482,7 +670,11 @@ Widget build(BuildContext context) {
                   color: _primaryColor.withOpacity(0.1),
                 ),
                 child: Text(
-                  _isRunning ? 'En progreso' : 'Pausado',
+                  _isCompleted 
+                      ? 'Completado' 
+                      : _isRunning 
+                          ? 'En progreso' 
+                          : 'Pausado',
                   style: TextStyle(
                     fontSize: 14,
                     color: _primaryColor,
@@ -519,6 +711,35 @@ Widget build(BuildContext context) {
               ],
             ],
           ),
+
+          // Overlay de completado
+          if (_isCompleted)
+            AnimatedBuilder(
+              animation: _completionAnimation,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: _completionAnimation.value * 0.3,
+                  child: Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.green,
+                    ),
+                    child: Center(
+                      child: Transform.scale(
+                        scale: _completionAnimation.value,
+                        child: Icon(
+                          Icons.check,
+                          size: 60,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -533,7 +754,7 @@ Widget build(BuildContext context) {
           onTapDown: (_) => _buttonController.forward(),
           onTapUp: (_) => _buttonController.reverse(),
           onTapCancel: () => _buttonController.reverse(),
-          onTap: () {
+          onTap: _isCompleted ? null : () {
             HapticFeedback.lightImpact();
             setState(() {
               if (_isRunning) {
@@ -554,7 +775,9 @@ Widget build(BuildContext context) {
                   height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _primaryColor,
+                    color: _isCompleted 
+                        ? Colors.green 
+                        : _primaryColor,
                     boxShadow: _isAmoledMode
                         ? null
                         : [
@@ -566,7 +789,11 @@ Widget build(BuildContext context) {
                           ],
                   ),
                   child: Icon(
-                    _isRunning ? Icons.pause : Icons.play_arrow,
+                    _isCompleted 
+                        ? Icons.check
+                        : _isRunning 
+                            ? Icons.pause 
+                            : Icons.play_arrow,
                     size: 36,
                     color: _isAmoledMode ? Colors.black : Colors.white,
                   ),
@@ -580,7 +807,7 @@ Widget build(BuildContext context) {
 
         // Botón de reset
         GestureDetector(
-          onTap: () {
+          onTap: _isCompleted ? null : () {
             HapticFeedback.lightImpact();
             _resetTimer();
           },
@@ -597,7 +824,13 @@ Widget build(BuildContext context) {
                 width: 1,
               ),
             ),
-            child: Icon(Icons.restart_alt, size: 28, color: _primaryColor),
+            child: Icon(
+              Icons.restart_alt, 
+              size: 28, 
+              color: _isCompleted 
+                  ? _primaryColor.withOpacity(0.5)
+                  : _primaryColor
+            ),
           ),
         ),
       ],
