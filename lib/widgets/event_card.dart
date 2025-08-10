@@ -12,6 +12,7 @@ class EventCard extends StatefulWidget {
   final Event event;
   final Function(Event) onUpdateEvent;
   final bool pastEvent;
+  
 
   const EventCard({
     super.key,
@@ -446,6 +447,7 @@ class _EventCardState extends State<EventCard> {
                         LinearProgressIndicator(
                           value: _calculateProgress(),
                           minHeight: 4,
+                          borderRadius: BorderRadius.circular(2),
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           backgroundColor:
                               Theme.of(context).colorScheme.surfaceContainer,

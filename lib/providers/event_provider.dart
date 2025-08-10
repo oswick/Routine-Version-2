@@ -203,7 +203,7 @@ class EventProvider extends ChangeNotifier {
         NotificationService().scheduleNotification(
           event.id.hashCode + day,
           event.title,
-          event.description ?? 'New Task',
+          event.description,
           _calculateNotificationTime(day, event.startTime),
           null,
         );
@@ -212,7 +212,7 @@ class EventProvider extends ChangeNotifier {
           NotificationService().scheduleEndNotification(
             event.id.hashCode + day,
             event.title,
-            event.description ?? 'New Task',
+            event.description,
             _calculateEndNotificationTime(day, event.endTime!),
             null,
           );
@@ -222,7 +222,7 @@ class EventProvider extends ChangeNotifier {
       NotificationService().scheduleNotification(
         event.id.hashCode,
         event.title,
-        event.description ?? 'New Task',
+        event.description,
         event.startTime,
         null,
       );
@@ -231,7 +231,7 @@ class EventProvider extends ChangeNotifier {
         NotificationService().scheduleEndNotification(
           event.id.hashCode,
           event.title,
-          event.description ?? 'New Task',
+          event.description,
           event.endTime!,
           null,
         );
