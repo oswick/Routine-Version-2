@@ -1,4 +1,4 @@
-// lib/providers/event_provider.dart
+// lib/providers/event_provider.dart - Versión corregida
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -154,14 +154,39 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  // Obtener eventos para un día específico
+  // MÉTODO CORREGIDO: Obtener eventos para un día específico
   List<Event> getEventsForDay(DateTime day) {
     final Set<String> seenIds = {};
     return _events.where((event) {
-      final shouldInclude = _isSameDay(event.startTime, day) ||
-          event.repeatDays.contains(day.weekday);
+      // Evitar duplicados
+      if (seenIds.contains(event.id)) {
+        return false;
+      }
       
-      if (shouldInclude && !seenIds.contains(event.id)) {
+      bool shouldInclude = false;
+      
+      // Para eventos repetitivos
+      if (event.repeatDays.isNotEmpty) {
+        // Solo mostrar si:
+        // 1. El día consultado coincide con uno de los días de repetición
+        // 2. El día consultado es igual o posterior a la fecha de creación del evento
+        final eventCreationDate = DateTime(
+          event.startTime.year,
+          event.startTime.month,
+          event.startTime.day,
+        );
+        final queryDate = DateTime(day.year, day.month, day.day);
+        
+        shouldInclude = event.repeatDays.contains(day.weekday) && 
+                      (queryDate.isAtSameMomentAs(eventCreationDate) || 
+                       queryDate.isAfter(eventCreationDate));
+      } 
+      // Para eventos únicos (no repetitivos)
+      else {
+        shouldInclude = _isSameDay(event.startTime, day);
+      }
+      
+      if (shouldInclude) {
         seenIds.add(event.id);
         return true;
       }
@@ -203,7 +228,7 @@ class EventProvider extends ChangeNotifier {
         NotificationService().scheduleNotification(
           event.id.hashCode + day,
           event.title,
-          event.description,
+          event.description ?? 'new task',
           _calculateNotificationTime(day, event.startTime),
           null,
         );
@@ -212,7 +237,7 @@ class EventProvider extends ChangeNotifier {
           NotificationService().scheduleEndNotification(
             event.id.hashCode + day,
             event.title,
-            event.description,
+          event.description ?? 'new task',
             _calculateEndNotificationTime(day, event.endTime!),
             null,
           );
@@ -222,7 +247,7 @@ class EventProvider extends ChangeNotifier {
       NotificationService().scheduleNotification(
         event.id.hashCode,
         event.title,
-        event.description,
+          event.description ?? 'new task',
         event.startTime,
         null,
       );
@@ -231,7 +256,7 @@ class EventProvider extends ChangeNotifier {
         NotificationService().scheduleEndNotification(
           event.id.hashCode,
           event.title,
-          event.description,
+          event.description ?? 'new task',
           event.endTime!,
           null,
         );
