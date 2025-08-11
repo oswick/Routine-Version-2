@@ -82,9 +82,6 @@ class EventProvider extends ChangeNotifier {
       if (!newEvent.isCompleted) {
         _scheduleEventNotifications(newEvent);
       }
-      
-      // Recargar para obtener la versión final
-      await loadEvents();
     } catch (e) {
       // En caso de error, recargar para mantener consistencia
       await loadEvents();
@@ -93,7 +90,7 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  // Actualizar evento
+  // MÉTODO CORREGIDO: Actualizar evento sin recargar toda la lista
   Future<void> updateEvent(Event updatedEvent) async {
     try {
       final index = _events.indexWhere((e) => e.id == updatedEvent.id);
@@ -101,25 +98,28 @@ class EventProvider extends ChangeNotifier {
 
       final oldEvent = _events[index];
       
-      // Optimistic update
+      // Optimistic update - actualizar solo el evento específico
       _events[index] = updatedEvent;
       _notifyChanges();
 
-      // Guardar en el backend
-      await _syncService.saveEvent(updatedEvent);
+      // Guardar en el backend en el fondo
+      _syncService.saveEvent(updatedEvent).catchError((e) {
+        debugPrint('Error saving event to backend: $e');
+        // En caso de error, restaurar el evento anterior
+        if (mounted && index < _events.length) {
+          _events[index] = oldEvent;
+          _notifyChanges();
+        }
+      });
       
       // Actualizar notificaciones
       _cancelAllEventNotifications(oldEvent);
       if (!updatedEvent.isCompleted) {
         _scheduleEventNotifications(updatedEvent);
       }
-      
-      // Recargar para obtener la versión final
-      await loadEvents();
     } catch (e) {
-      await loadEvents();
       _error = e.toString();
-      rethrow;
+      debugPrint('Error updating event: $e');
     }
   }
 
@@ -144,9 +144,6 @@ class EventProvider extends ChangeNotifier {
       } else {
         await _syncService.deleteEvent(eventId);
       }
-      
-      // Recargar para mantener consistencia
-      await loadEvents();
     } catch (e) {
       await loadEvents();
       _error = e.toString();
@@ -154,7 +151,7 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  // MÉTODO CORREGIDO: Obtener eventos para un día específico
+  // Obtener eventos para un día específico
   List<Event> getEventsForDay(DateTime day) {
     final Set<String> seenIds = {};
     return _events.where((event) {
@@ -167,9 +164,6 @@ class EventProvider extends ChangeNotifier {
       
       // Para eventos repetitivos
       if (event.repeatDays.isNotEmpty) {
-        // Solo mostrar si:
-        // 1. El día consultado coincide con uno de los días de repetición
-        // 2. El día consultado es igual o posterior a la fecha de creación del evento
         final eventCreationDate = DateTime(
           event.startTime.year,
           event.startTime.month,
@@ -221,6 +215,9 @@ class EventProvider extends ChangeNotifier {
         date1.day == date2.day;
   }
 
+  // Helper para verificar si el provider está montado
+  bool get mounted => !_eventsController.isClosed;
+
   // Métodos de notificaciones
   void _scheduleEventNotifications(Event event) {
     if (event.repeatDays.isNotEmpty) {
@@ -237,7 +234,7 @@ class EventProvider extends ChangeNotifier {
           NotificationService().scheduleEndNotification(
             event.id.hashCode + day,
             event.title,
-          event.description ?? 'new task',
+            event.description ?? 'new task',
             _calculateEndNotificationTime(day, event.endTime!),
             null,
           );
@@ -247,7 +244,7 @@ class EventProvider extends ChangeNotifier {
       NotificationService().scheduleNotification(
         event.id.hashCode,
         event.title,
-          event.description ?? 'new task',
+        event.description ?? 'new task',
         event.startTime,
         null,
       );

@@ -1,4 +1,4 @@
-// lib/screens/day_screen.dart - Versión actualizada con Provider
+// lib/screens/day_screen.dart - Versión mejorada
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
@@ -98,7 +98,7 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
                         });
                       }),
                       if (_showMorningEvents)
-                        ...morningEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event), eventProvider)),
+                        ...morningEvents.map((event) => _buildEventCard(event, eventProvider)),
                     ],
                     if (afternoonEvents.isNotEmpty) ...[
                       _buildHeader('Afternoon', _showAfternoonEvents, () {
@@ -107,7 +107,7 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
                         });
                       }),
                       if (_showAfternoonEvents)
-                        ...afternoonEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event), eventProvider)),
+                        ...afternoonEvents.map((event) => _buildEventCard(event, eventProvider)),
                     ],
                     if (nightEvents.isNotEmpty) ...[
                       _buildHeader('Night', _showNightEvents, () {
@@ -116,7 +116,7 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
                         });
                       }),
                       if (_showNightEvents)
-                        ...nightEvents.map((event) => _buildEventCard(event, widget.events.indexOf(event), eventProvider)),
+                        ...nightEvents.map((event) => _buildEventCard(event, eventProvider)),
                     ],
                     if (widget.events.isEmpty) ...[
                       Center(
@@ -191,13 +191,17 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
     );
   }
 
-  Widget _buildEventCard(Event event, int index, EventProvider eventProvider) {
+  // MÉTODO CORREGIDO: Mejor gestión de keys para evitar reconstrucciones
+  Widget _buildEventCard(Event event, EventProvider eventProvider) {
     final isPastEvent = _isEventPast(event);
+    
+    // Crear una key estable que no cambie con cada actualización
+    final stableKey = ValueKey('event_${event.id}_${widget.day.millisecondsSinceEpoch}');
     
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Dismissible(
-        key: Key('${event.id}_${event.startTime.millisecondsSinceEpoch}'),
+        key: Key('dismissible_${event.id}_${event.startTime.millisecondsSinceEpoch}'),
         direction: DismissDirection.endToStart,
         background: Container(
           color: Colors.red,
@@ -210,10 +214,11 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
         },
         onDismissed: (direction) {},
         child: EventCard(
-          key: ValueKey('${event.id}_${event.isCompleted}_${event.startTime.millisecondsSinceEpoch}'),
+          key: stableKey, // Key estable
           event: event,
           pastEvent: isPastEvent,
           onUpdateEvent: (updatedEvent) async {
+            // Actualización optimista sin recargar
             await eventProvider.updateEvent(updatedEvent);
           },
         ),

@@ -28,7 +28,9 @@ class EventCard extends StatefulWidget {
 class _EventCardState extends State<EventCard> {
   late bool isCompleted;
   Timer? _timer;
+  Timer? _progressTimer; // Timer separado para el progreso
   String? _currentDateKey;
+  double _currentProgress = 0.0; // Cache del progreso actual
 
   @override
   void initState() {
@@ -37,7 +39,7 @@ class _EventCardState extends State<EventCard> {
     isCompleted = widget.event.isCompleted;
     _loadCompletedStatus();
     _checkAndUpdateCompletedStatus();
-    _startTimer();
+    _startTimers();
   }
 
   @override
@@ -51,19 +53,31 @@ class _EventCardState extends State<EventCard> {
       _loadCompletedStatus(); // Recargar el estado para el nuevo día
     }
 
-    if (oldWidget.event.endTime != widget.event.endTime ||
-        oldWidget.event.startTime != widget.event.startTime) {
+    // Solo actualizar si realmente cambió algo importante del evento
+    if (oldWidget.event.id != widget.event.id ||
+        oldWidget.event.endTime != widget.event.endTime ||
+        oldWidget.event.startTime != widget.event.startTime ||
+        oldWidget.event.isCompleted != widget.event.isCompleted) {
+      
+      // Actualizar estado de completado si cambió
+      if (oldWidget.event.isCompleted != widget.event.isCompleted) {
+        isCompleted = widget.event.isCompleted;
+      }
+      
       _checkAndUpdateCompletedStatus();
+      _updateProgressTimer(); // Reiniciar timer de progreso si cambiaron las horas
     }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _progressTimer?.cancel();
     super.dispose();
   }
 
-  void _startTimer() {
+  void _startTimers() {
+    // Timer principal para verificaciones cada minuto
     _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) {
         final newDateKey = _getDateKey();
@@ -75,6 +89,33 @@ class _EventCardState extends State<EventCard> {
         _checkAndUpdateCompletedStatus();
       }
     });
+
+    // Inicializar el timer de progreso
+    _updateProgressTimer();
+  }
+
+  void _updateProgressTimer() {
+    _progressTimer?.cancel();
+    
+    // Solo crear timer de progreso si debe mostrar el indicador
+    if (_shouldShowProgressIndicator()) {
+      _progressTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (mounted && _shouldShowProgressIndicator()) {
+          final newProgress = _calculateProgress();
+          if (newProgress != _currentProgress) {
+            setState(() {
+              _currentProgress = newProgress;
+            });
+          }
+        } else {
+          // Si ya no debe mostrar el progreso, cancelar el timer
+          timer.cancel();
+        }
+      });
+      
+      // Actualizar progreso inicial
+      _currentProgress = _calculateProgress();
+    }
   }
 
   Future<void> _loadCompletedStatus() async {
@@ -97,6 +138,9 @@ class _EventCardState extends State<EventCard> {
         });
       }
     }
+    
+    // Actualizar timer de progreso después de cargar el estado
+    _updateProgressTimer();
   }
 
   String _getDateKey() {
@@ -161,18 +205,57 @@ class _EventCardState extends State<EventCard> {
     if (widget.event.endTime == null) {
       return 0.0;
     }
+    
     final now = DateTime.now();
-    final startTime = widget.event.startTime;
-    final endTime = widget.event.endTime!;
-    if (now.isBefore(startTime)) {
-      return 0.0;
+    
+    if (_isRepetitiveEvent()) {
+      // Para eventos repetitivos, calcular el progreso para hoy
+      final today = now.weekday;
+      if (!widget.event.repeatDays.contains(today)) {
+        return 0.0;
+      }
+
+      final todayStart = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        widget.event.startTime.hour,
+        widget.event.startTime.minute,
+      );
+      final todayEnd = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        widget.event.endTime!.hour,
+        widget.event.endTime!.minute,
+      );
+
+      if (now.isBefore(todayStart)) {
+        return 0.0;
+      }
+      if (now.isAfter(todayEnd)) {
+        return 1.0;
+      }
+      
+      final totalDuration = todayEnd.difference(todayStart).inSeconds;
+      final elapsedDuration = now.difference(todayStart).inSeconds;
+      return elapsedDuration / totalDuration;
+    } else {
+      // Para eventos únicos, usar la lógica original
+      final startTime = widget.event.startTime;
+      final endTime = widget.event.endTime!;
+      
+      if (now.isBefore(startTime)) {
+        return 0.0;
+      }
+      if (now.isAfter(endTime)) {
+        return 1.0;
+      }
+      
+      final totalDuration = endTime.difference(startTime).inSeconds;
+      final elapsedDuration = now.difference(startTime).inSeconds;
+      return elapsedDuration / totalDuration;
     }
-    if (now.isAfter(endTime)) {
-      return 1.0;
-    }
-    final totalDuration = endTime.difference(startTime).inSeconds;
-    final elapsedDuration = now.difference(startTime).inSeconds;
-    return elapsedDuration / totalDuration;
   }
 
   bool _shouldShowProgressIndicator() {
@@ -250,6 +333,9 @@ class _EventCardState extends State<EventCard> {
           widget.onUpdateEvent(updatedEvent);
         }
       });
+      
+      // Actualizar timer de progreso cuando cambia el estado de completado
+      _updateProgressTimer();
     }
   }
 
@@ -445,7 +531,7 @@ class _EventCardState extends State<EventCard> {
                     child: Column(
                       children: [
                         LinearProgressIndicator(
-                          value: _calculateProgress(),
+                          value: _currentProgress, // Usar el progreso cacheado
                           minHeight: 4,
                           borderRadius: BorderRadius.circular(2),
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -460,7 +546,9 @@ class _EventCardState extends State<EventCard> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              formatTime(widget.event.startTime),
+                              _isRepetitiveEvent() 
+                                ? formatTime(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, widget.event.startTime.hour, widget.event.startTime.minute))
+                                : formatTime(widget.event.startTime),
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Theme.of(
@@ -469,7 +557,9 @@ class _EventCardState extends State<EventCard> {
                               ),
                             ),
                             Text(
-                              formatTime(widget.event.endTime!),
+                              _isRepetitiveEvent() 
+                                ? formatTime(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, widget.event.endTime!.hour, widget.event.endTime!.minute))
+                                : formatTime(widget.event.endTime!),
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Theme.of(
