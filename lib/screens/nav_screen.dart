@@ -1,5 +1,6 @@
 // lib/screens/nav_screen.dart - Versión actualizada con Provider
 import 'package:flutter/material.dart';
+import 'package:myapp/models/event.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/screens/calendar_screen.dart';
@@ -29,10 +30,17 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           HomeScreen(),
           MonthlyCalendarScreen(
             fromHomeScreen: true,
-            events: [],
-            onAddEvent: (event) {},
-            onUpdateEvent: (int, event) {},
-            onDeleteEvent: (int, bool) {},
+            events: eventProvider.events,
+            onAddEvent: (Event event) {
+              // Asegúrate de que estás esperando un objeto Event aquí
+              eventProvider.addEvent(event);
+            },
+            onUpdateEvent: (int index, Event event) {
+              eventProvider.updateEvent(event);
+            },
+            onDeleteEvent: (int index, bool deleteAll) {
+              eventProvider.deleteEvent(deleteAll as String);
+            },
           ),
           ProfileScreen(), //pantalla de perfil
         ];
@@ -68,24 +76,22 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                     icon: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color:
-                            _selectedIndex == 0
-                                ? Theme.of(
-                                  context,
-                                ).colorScheme.primary.withOpacity(0.1)
-                                : Colors.transparent,
+                        color: _selectedIndex == 0
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1)
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
                         _selectedIndex == 0
                             ? Icons.home_rounded
                             : Icons.home_outlined,
-                        color:
-                            _selectedIndex == 0
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.6),
+                        color: _selectedIndex == 0
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.6),
                         size: 24,
                       ),
                     ),
@@ -103,24 +109,22 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                     icon: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color:
-                            _selectedIndex == 1
-                                ? Theme.of(
-                                  context,
-                                ).colorScheme.primary.withOpacity(0.1)
-                                : Colors.transparent,
+                        color: _selectedIndex == 1
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1)
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
                         _selectedIndex == 1
                             ? Icons.calendar_month_rounded
                             : Icons.calendar_month_outlined,
-                        color:
-                            _selectedIndex == 1
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.6),
+                        color: _selectedIndex == 1
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.6),
                         size: 24,
                       ),
                     ),
@@ -138,24 +142,22 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                     icon: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color:
-                            _selectedIndex == 2
-                                ? Theme.of(
-                                  context,
-                                ).colorScheme.primary.withOpacity(0.1)
-                                : Colors.transparent,
+                        color: _selectedIndex == 2
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1)
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
                         _selectedIndex == 2
                             ? Icons.person
                             : Icons.person_outline,
-                        color:
-                            _selectedIndex == 2
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.6),
+                        color: _selectedIndex == 2
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.6),
                         size: 24,
                       ),
                     ),

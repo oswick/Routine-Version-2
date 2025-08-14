@@ -8,14 +8,18 @@ import '../widgets/event_card.dart';
 
 class MonthlyCalendarScreen extends StatefulWidget {
   final bool fromHomeScreen;
+  final Function(Event) onAddEvent;
+  final Function(int, Event) onUpdateEvent;
+  final List<Event> events;
+  final Function(int, bool) onDeleteEvent;
 
   const MonthlyCalendarScreen({
     super.key,
     required this.fromHomeScreen,
-    required Null Function(dynamic event) onAddEvent,
-    required Null Function(dynamic int, dynamic event) onUpdateEvent,
-    required List events,
-    required Null Function(dynamic int, dynamic bool) onDeleteEvent,
+    required this.onAddEvent,
+    required this.onUpdateEvent,
+    required this.events,
+    required this.onDeleteEvent,
   });
 
   @override
@@ -36,24 +40,17 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   // MÉTODO CORREGIDO: Filtrar eventos para un día específico
   List<Event> _getEventsForDay(DateTime day, List<Event> allEvents) {
     return allEvents.where((event) {
-      // Para eventos repetitivos
       if (event.repeatDays.isNotEmpty) {
-        // Solo mostrar si:
-        // 1. El día consultado coincide con uno de los días de repetición
-        // 2. El día consultado es igual o posterior a la fecha de creación del evento
         final eventCreationDate = DateTime(
           event.startTime.year,
           event.startTime.month,
           event.startTime.day,
         );
         final queryDate = DateTime(day.year, day.month, day.day);
-
         return event.repeatDays.contains(day.weekday) &&
             (queryDate.isAtSameMomentAs(eventCreationDate) ||
                 queryDate.isAfter(eventCreationDate));
-      }
-      // Para eventos únicos (no repetitivos)
-      else {
+      } else {
         return isSameDay(event.startTime, day);
       }
     }).toList();
@@ -80,7 +77,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
           appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             elevation: 0,
             title: Text(
               'Calendar',

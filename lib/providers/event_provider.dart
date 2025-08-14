@@ -16,15 +16,15 @@ class EventProvider extends ChangeNotifier {
   final SyncService _syncService = SyncService();
   final AuthService _authService = AuthService();
   final Uuid _uuid = const Uuid();
-  
+
   List<Event> _events = [];
   bool _isLoading = false;
   String? _error;
-  
+
   // Streams para actualizaciones en tiempo real
-  final StreamController<List<Event>> _eventsController = 
+  final StreamController<List<Event>> _eventsController =
       StreamController<List<Event>>.broadcast();
-  
+
   // Getters
   List<Event> get events => List.unmodifiable(_events);
   bool get isLoading => _isLoading;
@@ -35,7 +35,7 @@ class EventProvider extends ChangeNotifier {
   Future<void> init() async {
     await _syncService.init();
     await loadEvents();
-    
+
     // Escuchar cambios de autenticación
     _authService.authStateChanges.listen((state) {
       if (state.event == AuthChangeEvent.signedIn) {
@@ -46,7 +46,6 @@ class EventProvider extends ChangeNotifier {
     });
   }
 
-  // Cargar eventos desde el servicio
   Future<void> loadEvents() async {
     _setLoading(true);
     try {
@@ -58,6 +57,7 @@ class EventProvider extends ChangeNotifier {
       debugPrint('Error loading events: $e');
     } finally {
       _setLoading(false);
+      notifyListeners(); // Notificar a los oyentes
     }
   }
 
@@ -77,7 +77,7 @@ class EventProvider extends ChangeNotifier {
 
       // Guardar en el backend
       await _syncService.saveEvent(newEvent);
-      
+
       // Programar notificaciones
       if (!newEvent.isCompleted) {
         _scheduleEventNotifications(newEvent);
@@ -97,7 +97,7 @@ class EventProvider extends ChangeNotifier {
       if (index == -1) return;
 
       final oldEvent = _events[index];
-      
+
       // Optimistic update - actualizar solo el evento específico
       _events[index] = updatedEvent;
       _notifyChanges();
@@ -111,7 +111,7 @@ class EventProvider extends ChangeNotifier {
           _notifyChanges();
         }
       });
-      
+
       // Actualizar notificaciones
       _cancelAllEventNotifications(oldEvent);
       if (!updatedEvent.isCompleted) {
@@ -130,14 +130,14 @@ class EventProvider extends ChangeNotifier {
       if (eventIndex == -1) return;
 
       final event = _events[eventIndex];
-      
+
       // Optimistic update
       _events.removeAt(eventIndex);
       _notifyChanges();
 
       // Cancelar notificaciones
       _cancelAllEventNotifications(event);
-      
+
       // Eliminar del backend
       if (deleteAll) {
         await _syncService.deleteAllEventInstances(eventId);
@@ -159,9 +159,9 @@ class EventProvider extends ChangeNotifier {
       if (seenIds.contains(event.id)) {
         return false;
       }
-      
+
       bool shouldInclude = false;
-      
+
       // Para eventos repetitivos
       if (event.repeatDays.isNotEmpty) {
         final eventCreationDate = DateTime(
@@ -170,16 +170,17 @@ class EventProvider extends ChangeNotifier {
           event.startTime.day,
         );
         final queryDate = DateTime(day.year, day.month, day.day);
-        
-        shouldInclude = event.repeatDays.contains(day.weekday) && 
-                      (queryDate.isAtSameMomentAs(eventCreationDate) || 
-                       queryDate.isAfter(eventCreationDate));
-      } 
+
+        shouldInclude =
+            event.repeatDays.contains(day.weekday) &&
+            (queryDate.isAtSameMomentAs(eventCreationDate) ||
+                queryDate.isAfter(eventCreationDate));
+      }
       // Para eventos únicos (no repetitivos)
       else {
         shouldInclude = _isSameDay(event.startTime, day);
       }
-      
+
       if (shouldInclude) {
         seenIds.add(event.id);
         return true;

@@ -22,14 +22,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final eventProvider = Provider.of<EventProvider>(context, listen: false);
-      
+
       if (_authService.isAuthenticated) {
         await _authService.signOut();
         // Los eventos se limpiarán automáticamente por el Provider
       } else {
         await _authService.signInWithGoogle();
-        // Recargar eventos después del login
-        await eventProvider.loadEvents();
+        // Recargar eventos después del login, pero fuera del build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          eventProvider.loadEvents();
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -162,7 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
           appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             elevation: 0,
             title: Row(
               children: [
@@ -197,10 +199,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ? Theme.of(context).colorScheme.error
                               : Theme.of(context).colorScheme.primary,
                         ),
-                        onPressed:
-                            user != null ? _showSignOutDialog : _handleAuthAction,
-                        tooltip:
-                            user != null ? 'Sign out' : 'Sign in with Google',
+                        onPressed: user != null
+                            ? _showSignOutDialog
+                            : _handleAuthAction,
+                        tooltip: user != null
+                            ? 'Sign out'
+                            : 'Sign in with Google',
                       ),
               ),
             ],
@@ -217,7 +221,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     if (user != null) ...[
                       _buildUserCard(user),
                       const SizedBox(height: 24),
-                      if (eventProvider.isLoading && eventProvider.events.isEmpty)
+                      if (eventProvider.isLoading &&
+                          eventProvider.events.isEmpty)
                         const Center(
                           child: Padding(
                             padding: EdgeInsets.symmetric(vertical: 40),
@@ -235,20 +240,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Icon(
                                   Icons.event_note,
                                   size: 64,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withOpacity(0.3),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.3),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
                                   'No events yet',
                                   style: TextStyle(
                                     fontSize: 18,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withOpacity(0.6),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface.withOpacity(0.6),
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -257,10 +260,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withOpacity(0.4),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface.withOpacity(0.4),
                                   ),
                                 ),
                               ],
@@ -276,20 +278,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Icon(
                                 Icons.person_outline,
                                 size: 64,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withOpacity(0.3),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.3),
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 'Sign in to view your profile',
                                 style: TextStyle(
                                   fontSize: 18,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withOpacity(0.6),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.6),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -298,22 +298,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withOpacity(0.4),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.4),
                                 ),
                               ),
                               const SizedBox(height: 24),
                               ElevatedButton.icon(
-                                onPressed: _isLoading ? null : _handleAuthAction,
+                                onPressed: _isLoading
+                                    ? null
+                                    : _handleAuthAction,
                                 icon: const Icon(Icons.login),
                                 label: const Text('Sign in with Google'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      Theme.of(context).colorScheme.primary,
-                                  foregroundColor:
-                                      Theme.of(context).colorScheme.onPrimary,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.primary,
+                                  foregroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 24,
                                     vertical: 12,
@@ -349,7 +352,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundImage: user.userMetadata?['avatar_url'] != null
                   ? NetworkImage(user.userMetadata!['avatar_url'])
                   : null,
-              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.primary.withOpacity(0.2),
               child: user.userMetadata?['avatar_url'] == null
                   ? Text(
                       user.userMetadata?['full_name']
@@ -383,7 +388,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     user.email ?? '',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
                 ],
@@ -491,16 +498,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   int _getMostPopularCategoryCount(Map<String, int> stats) {
-    final categories = ['School', 'Home', 'Work', 'Shopping', 'Health', 'Personal'];
+    final categories = [
+      'School',
+      'Home',
+      'Work',
+      'Shopping',
+      'Health',
+      'Personal',
+    ];
     int maxCount = 0;
-    
+
     for (String category in categories) {
       final count = stats[category] ?? 0;
       if (count > maxCount) {
         maxCount = count;
       }
     }
-    
+
     return maxCount;
   }
 
@@ -516,10 +530,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.2), width: 1),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

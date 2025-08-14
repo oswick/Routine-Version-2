@@ -13,23 +13,30 @@ import 'utils/notification_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 
-// This function will be called periodically by the alarm manager
 @pragma('vm:entry-point')
 void alarmCallback() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar Supabase en este isolate
+  await Supabase.initialize(
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
+  );
+
   try {
     print('Alarm triggered at ${DateTime.now()}');
-    
-    // Initialize notification service
+
+    // Inicializar el servicio de notificaciones
     await NotificationService().init();
-    
-    // Check and reschedule notifications if needed
+
+    // Verificar y reprogramar notificaciones si es necesario
     await NotificationService().ensureScheduledNotificationsExist();
-    
-    // Initialize connectivity service for sync check
+
+    // Inicializar el servicio de conectividad
     final connectivityService = ConnectivityService();
     await connectivityService.initialize();
-    
-    // If online, try to sync in background
+
+    // Si está en línea, intentar sincronizar en segundo plano
     if (connectivityService.isConnected) {
       final syncService = SyncService();
       await syncService.init();
@@ -41,67 +48,43 @@ void alarmCallback() async {
   }
 }
 
+// En el método main, asegúrate de que los servicios estén completamente inicializados antes de correr la app.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
- 
   await Supabase.initialize(
-  url: AppConfig.supabaseUrl,
-  anonKey: AppConfig.supabaseAnonKey,
-);
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
+  );
 
-  // Initialize local storage first
-  try {
-    print('🚀 Initializing local storage...');
-    await LocalStorageService().init();
-    print('✅ Local storage initialized');
-  } catch (e) {
-    print('❌ Error initializing local storage: $e');
-  }
+  // Inicialización de servicios en paralelo para optimizar el tiempo de carga
+  await Future.wait([
+    LocalStorageService().init(),
+    ConnectivityService().initialize(),
+    EventProvider().init(),
+  ]);
 
-  // Initialize connectivity service
-  try {
-    print('🌐 Initializing connectivity service...');
-    await ConnectivityService().initialize();
-    print('✅ Connectivity service initialized');
-  } catch (e) {
-    print('❌ Error initializing connectivity service: $e');
-  }
+  // Inicializar servicios de notificaciones y permisos
+  await NotificationService().init();
+  await _requestPermissions();
 
-  // Initialize EventProvider
-  try {
-    print('📅 Initializing event provider...');
-    await EventProvider().init();
-    print('✅ Event provider initialized');
-  } catch (e) {
-    print('❌ Error initializing event provider: $e');
+  // Configurar AlarmManager para sincronización en segundo plano
+  final bool alarmInitialized = await AndroidAlarmManager.initialize();
+  print('Alarm Manager initialized: $alarmInitialized');
+  if (alarmInitialized) {
+    const int helloAlarmID = 0;
+    final bool alarmSet = await AndroidAlarmManager.periodic(
+      const Duration(minutes: 5),
+      helloAlarmID,
+      alarmCallback,
+      exact: true,
+      wakeup: true,
+      rescheduleOnReboot: true,
+    );
+    print('Alarm set: $alarmSet');
   }
 
   runApp(const MyApp());
-
-  // Initialize other services after app starts
-  try {
-    await NotificationService().init();
-    await _requestPermissions();
-
-    final bool alarmInitialized = await AndroidAlarmManager.initialize();
-    print('Alarm Manager initialized: $alarmInitialized');
-
-    if (alarmInitialized) {
-      const int helloAlarmID = 0;
-      final bool alarmSet = await AndroidAlarmManager.periodic(
-        const Duration(minutes: 15),
-        helloAlarmID,
-        alarmCallback,
-        exact: true,
-        wakeup: true,
-        rescheduleOnReboot: true,
-      );
-      print('Alarm set: $alarmSet');
-    }
-  } catch (e) {
-    print('Error initializing services: $e');
-  }
 }
 
 Future<void> _requestPermissions() async {

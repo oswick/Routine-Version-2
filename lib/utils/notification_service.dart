@@ -55,12 +55,14 @@ class NotificationService {
   Future<void> init() async {
     const AndroidInitializationSettings androidInitSettings =
         AndroidInitializationSettings('@mipmap/launcher_icon');
-    const InitializationSettings initSettings =
-        InitializationSettings(android: androidInitSettings);
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidInitSettings,
+    );
     await flutterLocalNotificationsPlugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        if (response.notificationResponseType == NotificationResponseType.selectedNotification &&
+        if (response.notificationResponseType ==
+                NotificationResponseType.selectedNotification &&
             response.payload != null) {
           // Handle notification tap logic here
         }
@@ -83,7 +85,8 @@ class NotificationService {
     );
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(channel);
   }
 
@@ -92,7 +95,8 @@ class NotificationService {
       if (Platform.isAndroid) {
         await flutterLocalNotificationsPlugin
             .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>()
+              AndroidFlutterLocalNotificationsPlugin
+            >()
             ?.requestNotificationsPermission();
       }
     } catch (e) {
@@ -100,10 +104,13 @@ class NotificationService {
     }
   }
 
-  Future<void> _saveNotificationData(ScheduledNotificationData notificationData) async {
+  Future<void> _saveNotificationData(
+    ScheduledNotificationData notificationData,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final notificationsJson = prefs.getStringList('scheduled_notifications') ?? [];
+      final notificationsJson =
+          prefs.getStringList('scheduled_notifications') ?? [];
 
       final existingIndex = notificationsJson.indexWhere((item) {
         final existing = ScheduledNotificationData.fromJson(jsonDecode(item));
@@ -111,7 +118,9 @@ class NotificationService {
       });
 
       if (existingIndex >= 0) {
-        notificationsJson[existingIndex] = jsonEncode(notificationData.toJson());
+        notificationsJson[existingIndex] = jsonEncode(
+          notificationData.toJson(),
+        );
       } else {
         notificationsJson.add(jsonEncode(notificationData.toJson()));
       }
@@ -125,23 +134,29 @@ class NotificationService {
   Future<void> _removeNotificationData(int id) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final notificationsJson = prefs.getStringList('scheduled_notifications') ?? [];
+      final notificationsJson =
+          prefs.getStringList('scheduled_notifications') ?? [];
 
       final filteredNotifications = notificationsJson.where((item) {
         final existing = ScheduledNotificationData.fromJson(jsonDecode(item));
         return existing.id != id;
       }).toList();
 
-      await prefs.setStringList('scheduled_notifications', filteredNotifications);
+      await prefs.setStringList(
+        'scheduled_notifications',
+        filteredNotifications,
+      );
     } catch (e) {
       debugPrint('Error removing notification data: $e');
     }
   }
 
-  Future<List<ScheduledNotificationData>> _getScheduledNotificationsData() async {
+  Future<List<ScheduledNotificationData>>
+  _getScheduledNotificationsData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final notificationsJson = prefs.getStringList('scheduled_notifications') ?? [];
+      final notificationsJson =
+          prefs.getStringList('scheduled_notifications') ?? [];
 
       return notificationsJson
           .map((item) => ScheduledNotificationData.fromJson(jsonDecode(item)))
@@ -155,15 +170,14 @@ class NotificationService {
   Future<void> ensureScheduledNotificationsExist() async {
     try {
       final notificationsData = await _getScheduledNotificationsData();
-
       final pendingNotifications = await getPendingNotifications();
       final pendingIds = pendingNotifications.map((n) => n.id).toSet();
-
       for (final notificationData in notificationsData) {
         if (notificationData.scheduledDate.isAfter(DateTime.now())) {
           if (!pendingIds.contains(notificationData.id)) {
-            print('Rescheduling notification ${notificationData.id} from background');
-
+            print(
+              'Rescheduling notification ${notificationData.id} from background',
+            );
             await flutterLocalNotificationsPlugin.zonedSchedule(
               notificationData.id,
               notificationData.title,
@@ -232,12 +246,14 @@ class NotificationService {
           payload: id.toString(),
         );
 
-        await _saveNotificationData(ScheduledNotificationData(
-          id: id,
-          title: title,
-          body: body,
-          scheduledDate: scheduledDate,
-        ));
+        await _saveNotificationData(
+          ScheduledNotificationData(
+            id: id,
+            title: title,
+            body: body,
+            scheduledDate: scheduledDate,
+          ),
+        );
 
         debugPrint('📅 Scheduled notification ($id) for $scheduledDate');
       }
@@ -287,15 +303,19 @@ class NotificationService {
           payload: id.toString(),
         );
 
-        await _saveNotificationData(ScheduledNotificationData(
-          id: endNotificationId,
-          title: "Event finished: $title",
-          body: "The event $title has ended",
-          scheduledDate: scheduledDate,
-          isEndNotification: true,
-        ));
+        await _saveNotificationData(
+          ScheduledNotificationData(
+            id: endNotificationId,
+            title: "Event finished: $title",
+            body: "The event $title has ended",
+            scheduledDate: scheduledDate,
+            isEndNotification: true,
+          ),
+        );
 
-        debugPrint('📅 Scheduled end notification ($endNotificationId) for $scheduledDate');
+        debugPrint(
+          '📅 Scheduled end notification ($endNotificationId) for $scheduledDate',
+        );
       }
     } catch (e) {
       debugPrint('Error scheduling end notification: $e');

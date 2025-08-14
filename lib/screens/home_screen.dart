@@ -24,11 +24,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isSyncing = false;
   final ConnectivityService _connectivity = ConnectivityService();
 
-  @override
-  void initState() {
-    super.initState();
-    _initConnectivity();
-  }
+@override
+void initState() {
+  super.initState();
+  _initConnectivity();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _refreshEvents();
+  });
+}
 
   Color _getConnectivityBorderColor() {
     if (!_isOnline) return Colors.grey;
@@ -79,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
           appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             elevation: 0,
             title: Padding(
               padding: const EdgeInsets.only(top: 8.0),
@@ -122,28 +125,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     child: CircleAvatar(
                       radius: 18,
-                      backgroundImage:
-                          user.userMetadata?['avatar_url'] != null
-                              ? NetworkImage(user.userMetadata!['avatar_url'])
-                              : null,
+                      backgroundImage: user.userMetadata?['avatar_url'] != null
+                          ? NetworkImage(user.userMetadata!['avatar_url'])
+                          : null,
                       backgroundColor: Theme.of(
                         context,
                       ).colorScheme.primary.withOpacity(0.2),
-                      child:
-                          user.userMetadata?['avatar_url'] == null
-                              ? Text(
-                                user.userMetadata?['full_name']
-                                        ?.toString()
-                                        .substring(0, 1)
-                                        .toUpperCase() ??
-                                    user.email?.substring(0, 1).toUpperCase() ??
-                                    'U',
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                              : null,
+                      child: user.userMetadata?['avatar_url'] == null
+                          ? Text(
+                              user.userMetadata?['full_name']
+                                      ?.toString()
+                                      .substring(0, 1)
+                                      .toUpperCase() ??
+                                  user.email?.substring(0, 1).toUpperCase() ??
+                                  'U',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
                     ),
                   ),
                 ),
@@ -167,8 +168,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (index >= 0 && index < dailyEvents.length) {
                         final event = dailyEvents[index];
                         await eventProvider.deleteEvent(
-                          event.id, 
-                          deleteAll: allDays
+                          event.id,
+                          deleteAll: allDays,
                         );
                       }
                     },
