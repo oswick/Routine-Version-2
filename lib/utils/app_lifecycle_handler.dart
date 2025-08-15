@@ -28,7 +28,7 @@ class AppLifecycleHandler extends WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     
-    print('🔄 App lifecycle changed: $state');
+    print('🔄 AppLifecycle: App lifecycle changed: $state');
     
     switch (state) {
       case AppLifecycleState.resumed:
@@ -49,7 +49,7 @@ class AppLifecycleHandler extends WidgetsBindingObserver {
   }
 
   void _onAppResumed() async {
-    print('📱 App resumed - checking notifications...');
+    print('📱 AppLifecycle: App resumed - checking notifications...');
     
     if (_context != null) {
       try {
@@ -71,12 +71,12 @@ class AppLifecycleHandler extends WidgetsBindingObserver {
   }
 
   void _onAppPaused() {
-    print('📱 App paused');
-    // Aquí podrías guardar el estado si es necesario
+    print('📱 AppLifecycle: App paused');
+    // Solo manejo de notificaciones, no auth (eso lo maneja NavScreen)
   }
 
   void _onAppDetached() {
-    print('📱 App detached');
+    print('📱 AppLifecycle: App detached');
     // Cleanup si es necesario
   }
 

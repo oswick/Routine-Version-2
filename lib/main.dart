@@ -3,7 +3,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:myapp/config/app_config.dart';
 import 'package:myapp/providers/auth_provider.dart';
-import 'package:myapp/screens/auth_gate_screen.dart';
+import 'package:myapp/screens/nav_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/providers/theme_provider.dart';
@@ -107,7 +107,7 @@ class _MyAppState extends State<MyApp> {
             colorScheme: darkDynamic,
           ),
           themeMode: themeProvider.themeMode,
-          home: const AuthGate(), // Added const for better performance
+          home: const MainHomeScreen(), // Added const for better performance
         );
       },
     );
