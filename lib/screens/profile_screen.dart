@@ -1,10 +1,25 @@
-// lib/screens/profile_screen.dart - Versión actualizada con Provider
 import 'package:flutter/material.dart';
+import 'package:myapp/screens/settings_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/event.dart';
+
+// Clase para manejar el estado del tema
+class ThemeProvider with ChangeNotifier {
+  ThemeMode _themeMode;
+
+  ThemeProvider({ThemeMode themeMode = ThemeMode.system})
+    : _themeMode = themeMode;
+
+  ThemeMode get themeMode => _themeMode;
+
+  void setThemeMode(ThemeMode themeMode) {
+    _themeMode = themeMode;
+    notifyListeners();
+  }
+}
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -19,16 +34,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _handleAuthAction() async {
     setState(() => _isLoading = true);
-
     try {
       final eventProvider = Provider.of<EventProvider>(context, listen: false);
-
       if (_authService.isAuthenticated) {
         await _authService.signOut();
-        // Los eventos se limpiarán automáticamente por el Provider
       } else {
         await _authService.signInWithGoogle();
-        // Recargar eventos después del login, pero fuera del build
         WidgetsBinding.instance.addPostFrameCallback((_) {
           eventProvider.loadEvents();
         });
@@ -84,31 +95,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Función para verificar si un evento repetitivo está completo para hoy
   Future<bool> _isRepetitiveEventCompletedToday(Event event) async {
     if (event.repeatDays.isEmpty) {
       return event.isCompleted;
     }
-
     final now = DateTime.now();
     final dateKey =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final completionKey = 'event_${event.id}_completion_$dateKey';
-
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(completionKey) ?? false;
   }
 
-  // Función para verificar si un evento es para hoy
   bool _isEventForToday(Event event) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-
     if (event.repeatDays.isNotEmpty) {
-      // Para eventos repetitivos, verificar si hoy es uno de los días
       return event.repeatDays.contains(now.weekday);
     } else {
-      // Para eventos únicos, verificar si es el mismo día
       final eventDate = DateTime(
         event.startTime.year,
         event.startTime.month,
@@ -124,28 +128,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     int todayPending = 0;
     int totalIncompleted = 0;
 
-    // Calcular eventos completados y incompletos
     for (var event in events) {
       bool isCompleted = await _isRepetitiveEventCompletedToday(event);
-
       if (isCompleted) {
         completed++;
       } else {
         totalIncompleted++;
       }
-
-      // Para eventos del día de hoy que no están completados
       if (_isEventForToday(event) && !isCompleted) {
         todayPending++;
       }
     }
 
-    // Contar categorías
     Map<String, int> categories = {};
     for (var event in events) {
       categories[event.category] = (categories[event.category] ?? 0) + 1;
     }
-
     return {
       'total': total,
       'completed': completed,
@@ -158,7 +156,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = _authService.currentUser;
-
     return Consumer<EventProvider>(
       builder: (context, eventProvider, child) {
         return Scaffold(
@@ -179,6 +176,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
             actions: [
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'settings') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => SettingsScreen()),
+                    );
+                  } else if (value == 'signout') {
+                    _showSignOutDialog();
+                  }
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'settings',
+                    child: ListTile(
+                      leading: Icon(Icons.settings),
+                      title: Text('Settings'),
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'signout',
+                    child: ListTile(
+                      leading: Icon(Icons.logout),
+                      title: Text('Sign Out'),
+                    ),
+                  ),
+                ],
+              ),
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: _isLoading
@@ -190,22 +215,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       )
-                    : IconButton(
-                        icon: Icon(
-                          user != null
-                              ? Icons.logout_rounded
-                              : Icons.login_rounded,
-                          color: user != null
-                              ? Theme.of(context).colorScheme.error
-                              : Theme.of(context).colorScheme.primary,
-                        ),
-                        onPressed: user != null
-                            ? _showSignOutDialog
-                            : _handleAuthAction,
-                        tooltip: user != null
-                            ? 'Sign out'
-                            : 'Sign in with Google',
-                      ),
+                    : Container(),
               ),
             ],
           ),
@@ -438,9 +448,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               );
             }
-
             final stats = snapshot.data!;
-
             return GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -482,7 +490,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Colors.blue,
                   isPercentage: true,
                 ),
-                // Nueva tarjeta para mostrar categorías más populares
                 _buildStatCard(
                   'Categories',
                   _getMostPopularCategoryCount(stats),
@@ -507,14 +514,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Personal',
     ];
     int maxCount = 0;
-
     for (String category in categories) {
       final count = stats[category] ?? 0;
       if (count > maxCount) {
         maxCount = count;
       }
     }
-
     return maxCount;
   }
 
