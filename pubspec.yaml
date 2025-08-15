@@ -47,6 +47,8 @@ dependencies:
   google_fonts: ^6.2.1
   android_alarm_manager_plus: ^4.0.7
 
+  workmanager: ^0.9.0+2
+
   supabase_flutter: ^2.9.1
   google_sign_in: ^6.2.1
   connectivity_plus: ^5.0.2

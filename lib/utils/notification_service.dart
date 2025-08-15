@@ -1,3 +1,4 @@
+// lib/utils/notification_service.dart - Versión mejorada
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -172,12 +173,14 @@ class NotificationService {
       final notificationsData = await _getScheduledNotificationsData();
       final pendingNotifications = await getPendingNotifications();
       final pendingIds = pendingNotifications.map((n) => n.id).toSet();
+      
+      int rescheduledCount = 0;
+      
       for (final notificationData in notificationsData) {
         if (notificationData.scheduledDate.isAfter(DateTime.now())) {
           if (!pendingIds.contains(notificationData.id)) {
-            print(
-              'Rescheduling notification ${notificationData.id} from background',
-            );
+            print('🔔 Rescheduling notification ${notificationData.id} from background');
+            
             await flutterLocalNotificationsPlugin.zonedSchedule(
               notificationData.id,
               notificationData.title,
@@ -195,6 +198,10 @@ class NotificationService {
                   styleInformation: DefaultStyleInformation(true, true),
                   autoCancel: true,
                   playSound: true,
+                  // NUEVOS parámetros para mejor persistencia
+                  fullScreenIntent: true,
+                  category: AndroidNotificationCategory.alarm,
+                  visibility: NotificationVisibility.public,
                 ),
               ),
               uiLocalNotificationDateInterpretation:
@@ -202,10 +209,15 @@ class NotificationService {
               androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
               payload: notificationData.id.toString(),
             );
+            rescheduledCount++;
           }
         } else {
           await _removeNotificationData(notificationData.id);
         }
+      }
+      
+      if (rescheduledCount > 0) {
+        print('✅ Rescheduled $rescheduledCount notifications');
       }
     } catch (e) {
       debugPrint('Error ensuring scheduled notifications: $e');
@@ -238,6 +250,11 @@ class NotificationService {
               styleInformation: DefaultStyleInformation(true, true),
               autoCancel: true,
               fullScreenIntent: true,
+              // MEJORAR persistencia de notificaciones
+              category: AndroidNotificationCategory.alarm,
+              visibility: NotificationVisibility.public,
+              showWhen: true,
+              when: null, // Se usará scheduledDate automáticamente
             ),
           ),
           uiLocalNotificationDateInterpretation:
@@ -295,6 +312,8 @@ class NotificationService {
               styleInformation: DefaultStyleInformation(true, true),
               autoCancel: true,
               fullScreenIntent: true,
+              category: AndroidNotificationCategory.alarm,
+              visibility: NotificationVisibility.public,
             ),
           ),
           uiLocalNotificationDateInterpretation:
@@ -349,5 +368,21 @@ class NotificationService {
     await prefs.remove('scheduled_notifications');
 
     scheduledNotifications.clear();
+  }
+
+  // NUEVO: Método para verificar el estado de las notificaciones
+  Future<Map<String, dynamic>> getNotificationStatus() async {
+    final scheduled = await _getScheduledNotificationsData();
+    final pending = await getPendingNotifications();
+    final now = DateTime.now();
+    
+    final upcomingScheduled = scheduled.where((n) => n.scheduledDate.isAfter(now)).length;
+    final pendingCount = pending.length;
+    
+    return {
+      'scheduled_count': upcomingScheduled,
+      'pending_count': pendingCount,
+      'sync_needed': upcomingScheduled != pendingCount,
+    };
   }
 }

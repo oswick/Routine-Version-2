@@ -220,61 +220,99 @@ class EventProvider extends ChangeNotifier {
   bool get mounted => !_eventsController.isClosed;
 
   // Métodos de notificaciones
-  void _scheduleEventNotifications(Event event) {
+  // Métodos de notificaciones - VERSIÓN MEJORADA
+  void _scheduleEventNotifications(Event event) async {
+    // Cancelar notificaciones existentes primero
+    _cancelAllEventNotifications(event);
+    
     if (event.repeatDays.isNotEmpty) {
+      // Para eventos repetitivos, programar para cada día de la semana
       for (int day in event.repeatDays) {
-        NotificationService().scheduleNotification(
-          event.id.hashCode + day,
-          event.title,
-          event.description ?? 'new task',
-          _calculateNotificationTime(day, event.startTime),
-          null,
-        );
-
-        if (event.endTime != null) {
-          NotificationService().scheduleEndNotification(
-            event.id.hashCode + day,
-            event.title,
-            event.description ?? 'new task',
-            _calculateEndNotificationTime(day, event.endTime!),
-            null,
-          );
-        }
+        await _scheduleNotificationForDay(event, day);
       }
     } else {
-      NotificationService().scheduleNotification(
+      // Para eventos únicos
+      await _scheduleSingleEventNotification(event);
+    }
+  }
+
+  Future<void> _scheduleSingleEventNotification(Event event) async {
+    final now = DateTime.now();
+    
+    // Solo programar si el evento es en el futuro
+    if (event.startTime.isAfter(now)) {
+      await NotificationService().scheduleNotification(
         event.id.hashCode,
         event.title,
-        event.description ?? 'new task',
+        event.description ?? 'Recordatorio de evento',
         event.startTime,
         null,
       );
 
-      if (event.endTime != null) {
-        NotificationService().scheduleEndNotification(
+      // Programar notificación de fin si existe
+      if (event.endTime != null && event.endTime!.isAfter(now)) {
+        await NotificationService().scheduleEndNotification(
           event.id.hashCode,
           event.title,
-          event.description ?? 'new task',
+          event.description ?? 'Evento terminado',
           event.endTime!,
           null,
         );
       }
+      
     }
   }
 
-  void _cancelAllEventNotifications(Event event) {
+   Future<void> _scheduleNotificationForDay(Event event, int day) async {
+    final now = DateTime.now();
+    final nextNotificationTime = _calculateNotificationTime(day, event.startTime);
+    
+    // Solo programar si es en el futuro
+    if (nextNotificationTime.isAfter(now)) {
+      final notificationId = event.id.hashCode + day;
+      
+      await NotificationService().scheduleNotification(
+        notificationId,
+        event.title,
+        event.description ?? 'Recordatorio de evento',
+        nextNotificationTime,
+        null,
+      );
+
+      // Programar notificación de fin si existe
+      if (event.endTime != null) {
+        final nextEndTime = _calculateEndNotificationTime(day, event.endTime!);
+        if (nextEndTime.isAfter(now)) {
+          await NotificationService().scheduleEndNotification(
+            notificationId,
+            event.title,
+            event.description ?? 'Evento terminado',
+            nextEndTime,
+            null,
+          );
+        }
+      }
+      
+    }
+  }
+void _cancelAllEventNotifications(Event event) {
+    // Cancelar notificación principal
     NotificationService().flutterLocalNotificationsPlugin.cancel(
       event.id.hashCode,
     );
+    // Cancelar notificación de fin
     NotificationService().flutterLocalNotificationsPlugin.cancel(
       event.id.hashCode + 10000,
     );
 
+    // Para eventos repetitivos, cancelar todas las notificaciones de cada día
     if (event.repeatDays.isNotEmpty) {
       for (int day in event.repeatDays) {
+        // Notificación de inicio
         NotificationService().flutterLocalNotificationsPlugin.cancel(
           event.id.hashCode + day,
         );
+        // Notificación de fin
         NotificationService().flutterLocalNotificationsPlugin.cancel(
           event.id.hashCode + day + 10000,
         );
@@ -282,9 +320,28 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  DateTime _calculateNotificationTime(int day, DateTime startTime) {
+ DateTime _calculateNotificationTime(int day, DateTime startTime) {
     DateTime now = DateTime.now();
     int daysUntilNext = (day - now.weekday + 7) % 7;
+    
+    // Si es hoy, verificar si ya pasó la hora
+    if (daysUntilNext == 0) {
+      final todayAtEventTime = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        startTime.hour,
+        startTime.minute,
+      );
+      
+      if (todayAtEventTime.isAfter(now)) {
+        return todayAtEventTime;
+      } else {
+        // Si ya pasó hoy, programar para la próxima semana
+        daysUntilNext = 7;
+      }
+    }
+    
     DateTime nextNotificationDate = now.add(Duration(days: daysUntilNext));
     return DateTime(
       nextNotificationDate.year,
@@ -298,6 +355,25 @@ class EventProvider extends ChangeNotifier {
   DateTime _calculateEndNotificationTime(int day, DateTime endTime) {
     DateTime now = DateTime.now();
     int daysUntilNext = (day - now.weekday + 7) % 7;
+    
+    // Si es hoy, verificar si ya pasó la hora
+    if (daysUntilNext == 0) {
+      final todayAtEventTime = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        endTime.hour,
+        endTime.minute,
+      );
+      
+      if (todayAtEventTime.isAfter(now)) {
+        return todayAtEventTime;
+      } else {
+        // Si ya pasó hoy, programar para la próxima semana
+        daysUntilNext = 7;
+      }
+    }
+    
     DateTime nextNotificationDate = now.add(Duration(days: daysUntilNext));
     return DateTime(
       nextNotificationDate.year,
@@ -308,6 +384,19 @@ class EventProvider extends ChangeNotifier {
     );
   }
 
+ // NUEVO método para reprogramar todas las notificaciones
+  Future<void> rescheduleAllNotifications() async {
+    print('🔄 Reprogramando todas las notificaciones...');
+    
+    for (final event in _events) {
+      if (!event.isCompleted && !event.isDeleted) {
+        _scheduleEventNotifications(event);
+      }
+    }
+    
+    print('✅ Notificaciones reprogramadas');
+  }
+  
   @override
   void dispose() {
     _eventsController.close();
