@@ -6,7 +6,6 @@ import 'package:myapp/providers/auth_provider.dart';
 import 'package:myapp/screens/nav_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
-import 'package:myapp/providers/theme_provider.dart';
 import 'package:myapp/services/connectivity_service.dart';
 import 'package:myapp/services/local_stogare_service.dart';
 import 'package:myapp/services/background_service.dart';
@@ -17,6 +16,9 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await BackgroundService.initWorkManager();
+  await BackgroundService.registerRescheduleTask();
+  
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
@@ -28,12 +30,10 @@ void main() async {
   ]);
   await NotificationService().init();
   await _requestPermissions();
-  await BackgroundService.initWorkManager();
-  await BackgroundService.registerRescheduleTask();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => EventProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
@@ -87,8 +87,6 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
         return MaterialApp(
@@ -106,7 +104,7 @@ class _MyAppState extends State<MyApp> {
             typography: Typography.material2021(),
             colorScheme: darkDynamic,
           ),
-          themeMode: themeProvider.themeMode,
+          themeMode: ThemeMode.system,
           home: const MainHomeScreen(), // Added const for better performance
         );
       },
