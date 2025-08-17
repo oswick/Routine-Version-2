@@ -1,4 +1,4 @@
-// lib/providers/auth_provider.dart
+// lib/providers/auth_provider.dart - VERSIÓN CORREGIDA
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,7 +8,6 @@ class AuthProvider with ChangeNotifier {
   static const _authTimeoutKey = 'auth_timeout_minutes';
   static const _immediateTimeoutKey = 'immediate_timeout_enabled';
   static const _appStateKey = 'app_authenticated_state';
-  static const _appPausedTimeKey = 'app_paused_time';
   
   // Valores por defecto
   static const _defaultTimeoutMinutes = 5;
@@ -52,14 +51,6 @@ class AuthProvider with ChangeNotifier {
     // Al cargar, siempre requerir autenticación si está habilitada
     _isCurrentlyAuthenticated = false;
     
-    // Debug: mostrar valores actuales
-    final lastAuthTime = prefs.getInt(_lastAuthTimeKey);
-    final appState = prefs.getBool(_appStateKey) ?? false;
-    
-    print('🔐 AuthProvider: Last auth time = $lastAuthTime');
-    print('🔐 AuthProvider: App state = $appState');
-    print('🔐 AuthProvider: Currently authenticated = $_isCurrentlyAuthenticated');
-    
     notifyListeners();
   }
 
@@ -79,7 +70,6 @@ class AuthProvider with ChangeNotifier {
       _immediateTimeoutEnabled = _defaultImmediateTimeout;
       await prefs.remove(_authTimeoutKey);
       await prefs.remove(_immediateTimeoutKey);
-      await prefs.remove(_appPausedTimeKey);
     }
     
     notifyListeners();
@@ -90,17 +80,6 @@ class AuthProvider with ChangeNotifier {
     _authTimeoutMinutes = minutes;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_authTimeoutKey, minutes);
-    
-    // Si hay una sesión activa, podría necesitar re-autenticación
-    // dependiendo del nuevo timeout
-    if (_isCurrentlyAuthenticated && _immediateTimeoutEnabled) {
-      final needsAuth = await needsAuthAgain();
-      if (needsAuth) {
-        _isCurrentlyAuthenticated = false;
-        await prefs.setBool(_appStateKey, false);
-      }
-    }
-    
     notifyListeners();
   }
 
@@ -109,10 +88,6 @@ class AuthProvider with ChangeNotifier {
     _immediateTimeoutEnabled = enabled;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_immediateTimeoutKey, enabled);
-    
-    // NO cambiar el estado de autenticación actual cuando se configura
-    // Solo afecta el comportamiento futuro cuando la app se pause/resume
-    
     notifyListeners();
   }
 
@@ -121,10 +96,7 @@ class AuthProvider with ChangeNotifier {
     print('🔐 AuthProvider: Setting last auth time = $now');
     
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(
-      _lastAuthTimeKey,
-      now.millisecondsSinceEpoch,
-    );
+    await prefs.setInt(_lastAuthTimeKey, now.millisecondsSinceEpoch);
     
     // Marcar como autenticado
     _isCurrentlyAuthenticated = true;
@@ -142,78 +114,36 @@ class AuthProvider with ChangeNotifier {
       print('🔐 AuthProvider: Biometric not enabled, no auth needed');
       return false;
     }
-    
-    print('🔐 AuthProvider: Biometric IS enabled');
-    
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Si está habilitado el timeout inmediato, verificar si la app fue pausada
-    if (_immediateTimeoutEnabled) {
-      final appState = prefs.getBool(_appStateKey) ?? false;
-      if (!appState) {
-        print('🔐 AuthProvider: Immediate timeout enabled and app was paused, auth needed');
-        return true;
-      } else {
-        print('🔐 AuthProvider: Immediate timeout enabled but app not paused, no auth needed yet');
-        return false;
-      }
-    }
-    
-    // Para timeout regular, verificar el tiempo transcurrido
-    final pausedTime = prefs.getInt(_appPausedTimeKey);
-    final lastAuthTime = prefs.getInt(_lastAuthTimeKey);
-    final wasAuthenticated = prefs.getBool(_appStateKey) ?? false;
-    
-    print('🔐 AuthProvider: Paused time = $pausedTime');
-    print('🔐 AuthProvider: Last auth time = $lastAuthTime');
-    print('🔐 AuthProvider: Was authenticated = $wasAuthenticated');
-    print('🔐 AuthProvider: Current time = ${DateTime.now().millisecondsSinceEpoch}');
 
+    final prefs = await SharedPreferences.getInstance();
+    final lastAuthTime = prefs.getInt(_lastAuthTimeKey);
+    
     // Si nunca se ha autenticado, necesita auth
-    if (lastAuthTime == null || !wasAuthenticated) {
-      print('🔐 AuthProvider: Never authenticated or not marked as authenticated, auth needed');
+    if (lastAuthTime == null) {
+      print('🔐 AuthProvider: Never authenticated, auth needed');
       return true;
     }
 
-    // Calcular el tiempo transcurrido
-    DateTime timeReference;
-    
-    if (pausedTime != null) {
-      // Si hay tiempo de pausa, calcular desde cuando se pausó hasta cuando se autenticó
-      timeReference = DateTime.fromMillisecondsSinceEpoch(pausedTime);
-      print('🔐 AuthProvider: Using paused time as reference: $timeReference');
-    } else {
-      // Si no hay tiempo de pausa, usar tiempo actual (fallback)
-      timeReference = DateTime.now();
-      print('🔐 AuthProvider: No paused time found, using current time: $timeReference');
-    }
-    
-    final lastAuth = DateTime.fromMillisecondsSinceEpoch(lastAuthTime);
-    final diff = timeReference.difference(lastAuth);
-    final timeoutSeconds = _authTimeoutMinutes * 60;
-    final needsAuth = diff.inSeconds >= timeoutSeconds;
-    
-    print('🔐 AuthProvider: Time reference: $timeReference');
-    print('🔐 AuthProvider: Last auth: $lastAuth');
-    print('🔐 AuthProvider: Time difference: ${diff.inSeconds} seconds');
-    print('🔐 AuthProvider: Timeout threshold: $timeoutSeconds seconds ($_authTimeoutMinutes minutes)');
-    print('🔐 AuthProvider: Needs auth: $needsAuth');
-    
-    if (needsAuth) {
-      _isCurrentlyAuthenticated = false;
-      await prefs.setBool(_appStateKey, false);
-      await prefs.remove(_appPausedTimeKey); // Limpiar tiempo de pausa
-      print('🔐 AuthProvider: Timeout reached, marked as unauthenticated');
-      notifyListeners();
-    } else {
-      // Si no necesita auth, marcar como autenticado y limpiar tiempo de pausa
-      _isCurrentlyAuthenticated = true;
-      await prefs.setBool(_appStateKey, true);
-      await prefs.remove(_appPausedTimeKey);
-      print('🔐 AuthProvider: Still within timeout, marked as authenticated');
-      notifyListeners();
+    // Si está habilitado el timeout inmediato, siempre necesita auth después de pausa
+    if (_immediateTimeoutEnabled) {
+      print('🔐 AuthProvider: Immediate timeout enabled, auth needed');
+      return true;
     }
 
+    // Para timeout regular, verificar el tiempo transcurrido desde la última autenticación
+    final lastAuth = DateTime.fromMillisecondsSinceEpoch(lastAuthTime);
+    final now = DateTime.now();
+    final timeDifference = now.difference(lastAuth);
+    final timeoutDuration = Duration(minutes: _authTimeoutMinutes);
+    
+    print('🔐 AuthProvider: Last auth: $lastAuth');
+    print('🔐 AuthProvider: Current time: $now');
+    print('🔐 AuthProvider: Time difference: ${timeDifference.inMinutes} minutes ${timeDifference.inSeconds % 60} seconds');
+    print('🔐 AuthProvider: Timeout threshold: $_authTimeoutMinutes minutes');
+    
+    final needsAuth = timeDifference >= timeoutDuration;
+    print('🔐 AuthProvider: Needs auth: $needsAuth');
+    
     return needsAuth;
   }
 
@@ -227,19 +157,12 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> onAppPaused() async {
     print('🔐 AuthProvider: App paused');
-    if (_isBiometricAuthEnabled) {
+    if (_isBiometricAuthEnabled && _immediateTimeoutEnabled) {
+      print('🔐 AuthProvider: Immediate timeout enabled, marking as unauthenticated');
+      _isCurrentlyAuthenticated = false;
       final prefs = await SharedPreferences.getInstance();
-      
-      if (_immediateTimeoutEnabled) {
-        print('🔐 AuthProvider: Immediate timeout enabled, marking as unauthenticated');
-        _isCurrentlyAuthenticated = false;
-        await prefs.setBool(_appStateKey, false);
-        notifyListeners();
-      } else {
-        print('🔐 AuthProvider: Regular timeout mode - recording pause time');
-        // Guardar el tiempo cuando se pausó la app para calcular después
-        await prefs.setInt(_appPausedTimeKey, DateTime.now().millisecondsSinceEpoch);
-      }
+      await prefs.setBool(_appStateKey, false);
+      notifyListeners();
     }
   }
 
@@ -250,40 +173,50 @@ class AuthProvider with ChangeNotifier {
     
     if (!_isBiometricAuthEnabled) {
       print('🔐 AuthProvider: Biometric not enabled, no auth needed');
+      _isCurrentlyAuthenticated = true;
+      notifyListeners();
       return false; // No necesita auth
     }
     
     print('🔐 AuthProvider: Biometric IS enabled, checking timeout...');
-    
-    // Imprimir estado actual antes de verificar
-    print('🔐 AuthProvider: Current state before check:');
-    print('  - Currently authenticated: $_isCurrentlyAuthenticated');
-    print('  - Immediate timeout: $_immediateTimeoutEnabled');
-    print('  - Timeout minutes: $_authTimeoutMinutes');
     
     final needsAuth = await needsAuthAgain();
     
     if (needsAuth) {
       print('🔐 AuthProvider: ✋ AUTH REQUIRED - User needs to authenticate');
       _isCurrentlyAuthenticated = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_appStateKey, false);
       notifyListeners();
       return true;
     } else {
       print('🔐 AuthProvider: ✅ NO AUTH NEEDED - User can continue');
       _isCurrentlyAuthenticated = true;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_appStateKey, true);
       notifyListeners();
       return false;
     }
   }
+
   Future<void> printDebugInfo() async {
     final prefs = await SharedPreferences.getInstance();
+    final lastAuthTime = prefs.getInt(_lastAuthTimeKey);
+    final lastAuthDateTime = lastAuthTime != null 
+        ? DateTime.fromMillisecondsSinceEpoch(lastAuthTime)
+        : null;
+    
     print('🔐 DEBUG INFO:');
     print('  - Biometric enabled: $_isBiometricAuthEnabled');
     print('  - Currently authenticated: $_isCurrentlyAuthenticated');
     print('  - Auth timeout minutes: $_authTimeoutMinutes');
     print('  - Immediate timeout: $_immediateTimeoutEnabled');
-    print('  - Last auth time: ${prefs.getInt(_lastAuthTimeKey)}');
-    print('  - App paused time: ${prefs.getInt(_appPausedTimeKey)}');
+    print('  - Last auth time: $lastAuthDateTime');
     print('  - App state: ${prefs.getBool(_appStateKey)}');
+    
+    if (lastAuthDateTime != null) {
+      final timeSinceAuth = DateTime.now().difference(lastAuthDateTime);
+      print('  - Time since last auth: ${timeSinceAuth.inMinutes} minutes ${timeSinceAuth.inSeconds % 60} seconds');
+    }
   }
 }
