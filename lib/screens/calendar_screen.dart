@@ -190,7 +190,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                   vertical: 8.0,
                                 ),
                                 child: Text(
-                                  'Próximos Eventos',
+                                  'Next Events',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Theme.of(
@@ -245,7 +245,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                   vertical: 8.0,
                                 ),
                                 child: Text(
-                                  'Eventos Pasados',
+                                  'Past Events',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.grey,
@@ -298,7 +298,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                 child: Padding(
                                   padding: const EdgeInsets.only(top: 32.0),
                                   child: Text(
-                                    'No hay eventos para este día',
+                                    'No Events',
                                     style: TextStyle(
                                       color: Theme.of(
                                         context,

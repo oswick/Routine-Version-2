@@ -1,6 +1,7 @@
-// lib/providers/auth_provider.dart - VERSIÓN CORREGIDA
+// lib/providers/auth_provider.dart - VERSIÓN CON CONFIGURACIÓN DE FUENTE
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AuthProvider with ChangeNotifier {
   static const _biometricKey = 'biometric_auth_enabled';
@@ -8,27 +9,66 @@ class AuthProvider with ChangeNotifier {
   static const _authTimeoutKey = 'auth_timeout_minutes';
   static const _immediateTimeoutKey = 'immediate_timeout_enabled';
   static const _appStateKey = 'app_authenticated_state';
+  static const _fontFamilyKey = 'selected_font_family';
   
   // Valores por defecto
   static const _defaultTimeoutMinutes = 5;
   static const _defaultImmediateTimeout = false;
+  static const _defaultFontFamily = 'System';
 
   bool _isBiometricAuthEnabled = false;
   bool _isCurrentlyAuthenticated = false;
   int _authTimeoutMinutes = _defaultTimeoutMinutes;
   bool _immediateTimeoutEnabled = _defaultImmediateTimeout;
+  String _selectedFontFamily = _defaultFontFamily;
 
   bool get isBiometricAuthEnabled => _isBiometricAuthEnabled;
   bool get isCurrentlyAuthenticated => _isCurrentlyAuthenticated;
   int get authTimeoutMinutes => _authTimeoutMinutes;
   bool get immediateTimeoutEnabled => _immediateTimeoutEnabled;
+  String get selectedFontFamily => _selectedFontFamily;
 
   // Opciones disponibles para timeout
   static const List<int> timeoutOptions = [1, 2, 5, 10, 30];
   
-  // Obtener texto descriptivo para cada opción
+  // Opciones de fuentes disponibles
+  static const List<Map<String, dynamic>> fontOptions = [
+    {'name': 'System', 'displayName': 'System Default'},
+    {'name': 'Roboto', 'displayName': 'Roboto'},
+    {'name': 'RobotoMono', 'displayName': 'Roboto Mono'},
+    {'name': 'Poppins', 'displayName': 'Poppins'},
+    {'name': 'Orbitron', 'displayName': 'Orbitron'},
+  ];
+  
+  // Obtener texto descriptivo para cada opción de timeout
   static String getTimeoutText(int minutes) {
     return '$minutes ${minutes == 1 ? 'minute' : 'minutes'}';
+  }
+
+  // Obtener el TextTheme para la fuente seleccionada
+  TextTheme getTextTheme(TextTheme baseTheme) {
+    switch (_selectedFontFamily) {
+      case 'Roboto':
+        return GoogleFonts.robotoTextTheme(baseTheme);
+      case 'RobotoMono':
+        return GoogleFonts.robotoMonoTextTheme(baseTheme);
+      case 'Poppins':
+        return GoogleFonts.poppinsTextTheme(baseTheme);
+      case 'Orbitron':
+        return GoogleFonts.orbitronTextTheme(baseTheme);
+      case 'System':
+      default:
+        return baseTheme;
+    }
+  }
+
+  // Obtener el nombre de la fuente para mostrar
+  String getFontDisplayName(String fontName) {
+    final fontOption = fontOptions.firstWhere(
+      (font) => font['name'] == fontName,
+      orElse: () => {'displayName': 'System Default'},
+    );
+    return fontOption['displayName'];
   }
 
   AuthProvider() {
@@ -43,10 +83,12 @@ class AuthProvider with ChangeNotifier {
     _isBiometricAuthEnabled = prefs.getBool(_biometricKey) ?? false;
     _authTimeoutMinutes = prefs.getInt(_authTimeoutKey) ?? _defaultTimeoutMinutes;
     _immediateTimeoutEnabled = prefs.getBool(_immediateTimeoutKey) ?? _defaultImmediateTimeout;
+    _selectedFontFamily = prefs.getString(_fontFamilyKey) ?? _defaultFontFamily;
     
     print('🔐 AuthProvider: Biometric enabled = $_isBiometricAuthEnabled');
     print('🔐 AuthProvider: Timeout minutes = $_authTimeoutMinutes');
     print('🔐 AuthProvider: Immediate timeout = $_immediateTimeoutEnabled');
+    print('🔐 AuthProvider: Selected font = $_selectedFontFamily');
     
     // Al cargar, siempre requerir autenticación si está habilitada
     _isCurrentlyAuthenticated = false;
@@ -88,6 +130,14 @@ class AuthProvider with ChangeNotifier {
     _immediateTimeoutEnabled = enabled;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_immediateTimeoutKey, enabled);
+    notifyListeners();
+  }
+
+  Future<void> setFontFamily(String fontFamily) async {
+    print('🔐 AuthProvider: Setting font family = $fontFamily');
+    _selectedFontFamily = fontFamily;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_fontFamilyKey, fontFamily);
     notifyListeners();
   }
 
@@ -211,6 +261,7 @@ class AuthProvider with ChangeNotifier {
     print('  - Currently authenticated: $_isCurrentlyAuthenticated');
     print('  - Auth timeout minutes: $_authTimeoutMinutes');
     print('  - Immediate timeout: $_immediateTimeoutEnabled');
+    print('  - Selected font: $_selectedFontFamily');
     print('  - Last auth time: $lastAuthDateTime');
     print('  - App state: ${prefs.getBool(_appStateKey)}');
     
