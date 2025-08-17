@@ -51,12 +51,56 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
     
     if (state == AppLifecycleState.resumed) {
       // Cuando la app vuelve del background, verificar auth
-      _checkBiometricAuth();
+      _onAppResumed();
     } else if (state == AppLifecycleState.paused) {
-      // Cuando la app va a background, marcar como no autenticado
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      authProvider.onAppPaused();
+      // Cuando la app va a background, notificar al provider
+      _onAppPaused();
     }
+  }
+
+  Future<void> _onAppResumed() async {
+    print('🏠 NavScreen: ===============================================');
+    print('🏠 NavScreen: APP RESUMED - CHECKING AUTHENTICATION');
+    print('🏠 NavScreen: ===============================================');
+    
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    // Usar el nuevo método que verifica si necesita auth
+    bool needsAuth = await authProvider.checkAuthOnResume();
+    
+    if (needsAuth) {
+      print('🏠 NavScreen: 🔒 SHOWING AUTH SCREEN - Authentication required');
+      setState(() {
+        _isAuthenticated = false;
+        _authenticationRequired = true;
+        _isCheckingAuth = false;
+      });
+    } else {
+      print('🏠 NavScreen: ✅ CONTINUING TO APP - No authentication required');
+      setState(() {
+        _isAuthenticated = true;
+        _authenticationRequired = false;
+        _isCheckingAuth = false;
+      });
+    }
+    
+    print('🏠 NavScreen: Current UI state:');
+    print('  - _isAuthenticated: $_isAuthenticated');
+    print('  - _authenticationRequired: $_authenticationRequired');
+    print('  - _isCheckingAuth: $_isCheckingAuth');
+    print('🏠 NavScreen: ===============================================');
+  }
+
+  Future<void> _onAppPaused() async {
+    print('🏠 NavScreen: ===============================================');
+    print('🏠 NavScreen: APP PAUSED - NOTIFYING AUTH PROVIDER');
+    print('🏠 NavScreen: ===============================================');
+    
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.onAppPaused();
+    
+    print('🏠 NavScreen: App pause notification sent to AuthProvider');
+    print('🏠 NavScreen: ===============================================');
   }
 
   Future<void> _checkBiometricAuth() async {
@@ -87,8 +131,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
 
       print('🏠 NavScreen: Biometric is enabled, checking if auth needed');
       
-      // Si está habilitada, verificar si necesita autenticación
-      bool needsAuth = await authProvider.needsAuthAgain();
+      // Usar el nuevo método que verifica correctamente el tiempo
+      bool needsAuth = await authProvider.checkAuthOnResume();
       
       print('🏠 NavScreen: Needs auth = $needsAuth');
       
