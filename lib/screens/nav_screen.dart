@@ -313,6 +313,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
         ];
 
         return Scaffold(
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           body: PageView(
             controller: _pageController,
             onPageChanged: (index) {
