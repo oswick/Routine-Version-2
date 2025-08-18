@@ -1,6 +1,10 @@
 dev_dependencies:
-  flutter_launcher_icons: "^0.13.1"
+  flutter_launcher_icons: "^0.14.4"
 
 flutter_launcher_icons:
-  android: "launcher_icon"
-  image_path: "assets/launcher_icon.png"
+  android: true
+  image_path: "assets/icons/launcher_icon.png"  # Ícono principal (1024x1024)
+  android_foreground: "assets/foreground.png"  # Solo la parte frontal (432x432)
+  android_background: "#FFFFFF"  # O una imagen de fondo si prefieres
+  adaptive_icon_background: "#FFFFFF"  # Para Android adaptive icons
+  adaptive_icon_foreground: "assets/foreground.png"
