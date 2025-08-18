@@ -18,7 +18,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await BackgroundService.initWorkManager();
   await BackgroundService.registerRescheduleTask();
-  
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
@@ -87,6 +86,7 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         return DynamicColorBuilder(
@@ -116,6 +116,29 @@ class _MyAppState extends State<MyApp> {
               home: const MainHomeScreen(),
             );
           },
+=======
+    return DynamicColorBuilder(
+      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+        return MaterialApp(
+          title: 'Routine',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            useMaterial3: true,
+            useSystemColors: true,
+            typography: Typography.material2021(),
+            brightness: Brightness.light,
+            colorScheme: lightDynamic,
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            useSystemColors: true,
+            typography: Typography.material2021(),
+            brightness: Brightness.dark,
+            colorScheme: darkDynamic,
+          ),
+          themeMode: ThemeMode.system,
+          home: const MainHomeScreen(), // Added const for better performance
+>>>>>>> a2b2912 (cambios en los logos, ahora muestra el logo en las notificaciones)
         );
       },
     );

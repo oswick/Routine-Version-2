@@ -37,6 +37,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     _selectedDay = DateTime.now();
   }
 
+
   // MÉTODO CORREGIDO: Filtrar eventos para un día específico
   List<Event> _getEventsForDay(DateTime day, List<Event> allEvents) {
     return allEvents.where((event) {
@@ -53,6 +54,14 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       } else {
         return isSameDay(event.startTime, day);
       }
+    }).toList();
+  }
+
+  // MÉTODO NUEVO: Filtrar solo eventos únicos (no repetitivos) para mostrar indicadores
+  List<Event> _getSingleEventsForDay(DateTime day, List<Event> allEvents) {
+    return allEvents.where((event) {
+      // Solo eventos únicos (sin repeatDays)
+      return event.repeatDays.isEmpty && isSameDay(event.startTime, day);
     }).toList();
   }
 
@@ -155,9 +164,9 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                       onPageChanged: (focusedDay) {
                         _focusedDay = focusedDay;
                       },
-                      eventLoader: (day) {
-                        return _getEventsForDay(day, allEvents);
-                      },
+                    eventLoader: (day) {
+  return _getSingleEventsForDay(day, allEvents);
+},
                       calendarBuilders: CalendarBuilders(
                         markerBuilder: (context, date, events) {
                           if (events.isNotEmpty) {
@@ -365,3 +374,4 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     );
   }
 }
+
