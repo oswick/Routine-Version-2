@@ -188,61 +188,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _showFontSelectionDialog(AuthProvider authProvider) async {
-    final result = await showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Select Font'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: AuthProvider.fontOptions.map((fontOption) {
-              return RadioListTile<String>(
-                title: Text(
-                  fontOption['displayName'],
-                  style: TextStyle(
-                    fontFamily: fontOption['name'] == 'System' 
-                        ? null 
-                        : fontOption['name'] == 'RobotoMono' 
-                            ? 'Roboto Mono' 
-                            : fontOption['name'],
-                  ),
-                ),
-                value: fontOption['name'],
-                groupValue: authProvider.selectedFontFamily,
-                onChanged: (value) {
-                  Navigator.of(context).pop(value);
-                },
-              );
-            }).toList(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (result != null && result != authProvider.selectedFontFamily) {
-      await authProvider.setFontFamily(result);
-      
-      if (mounted) {
-        final selectedFont = AuthProvider.fontOptions
-            .firstWhere((font) => font['name'] == result);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Font changed to ${selectedFont['displayName']}'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
-
   Widget _buildBiometricSettings(AuthProvider authProvider) {
     if (_isCheckingBiometric) {
       return const ListTile(
@@ -255,7 +200,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     }
-
     return Column(
       children: [
         SwitchListTile(
@@ -359,35 +303,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildAppearanceSettings(AuthProvider authProvider) {
-    return Column(
-      children: [
-        ListTile(
-          leading: Icon(
-            Icons.font_download,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          title: const Text(
-            'Font Family',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          subtitle: Text(
-            'Currently using ${AuthProvider.fontOptions.firstWhere((font) => font['name'] == authProvider.selectedFontFamily)['displayName']}',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              fontSize: 12,
-            ),
-          ),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          onTap: () => _showFontSelectionDialog(authProvider),
-        ),
-      ],
-    );
-  }
-
+ 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -428,79 +344,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
           const SizedBox(height: 24),
-
-          // Appearance Section
-          Text(
-            'Appearance',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-            ),
-          ),
-          const SizedBox(height: 12),
-          
-          Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: _buildAppearanceSettings(authProvider),
-          ),
-
-          // Font Preview Section
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.preview,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Font Preview',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'This is how your text will look',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Sample text in the selected font family',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '0123456789 • !@#\$%^&*()',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
-              ],
-            ),
-          ),
 
           // Warning message for non-available biometric
           if (!_isBiometricAvailable && !_isCheckingBiometric) ...[
