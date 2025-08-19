@@ -86,37 +86,6 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        return DynamicColorBuilder(
-          builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-            return MaterialApp(
-              title: 'Routine',
-              debugShowCheckedModeBanner: false,
-              theme: ThemeData(
-                useMaterial3: true,
-                useSystemColors: true,
-                brightness: Brightness.light,
-                colorScheme: lightDynamic,
-                textTheme: authProvider.getTextTheme(
-                  ThemeData.light().textTheme,
-                ),
-              ),
-              darkTheme: ThemeData(
-                useMaterial3: true,
-                useSystemColors: true,
-                brightness: Brightness.dark,
-                colorScheme: darkDynamic,
-                textTheme: authProvider.getTextTheme(
-                  ThemeData.dark().textTheme,
-                ),
-              ),
-              themeMode: ThemeMode.system,
-              home: const MainHomeScreen(),
-            );
-          },
-=======
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
         return MaterialApp(
@@ -138,7 +107,6 @@ class _MyAppState extends State<MyApp> {
           ),
           themeMode: ThemeMode.system,
           home: const MainHomeScreen(), // Added const for better performance
->>>>>>> a2b2912 (cambios en los logos, ahora muestra el logo en las notificaciones)
         );
       },
     );
