@@ -112,14 +112,12 @@ class _MyAppState extends State<MyApp> {
           theme: ThemeData(
             useMaterial3: true,
             useSystemColors: true,
-            typography: Typography.material2021(),
             brightness: Brightness.light,
             colorScheme: lightDynamic,
           ),
           darkTheme: ThemeData(
             useMaterial3: true,
             useSystemColors: true,
-            typography: Typography.material2021(),
             brightness: Brightness.dark,
             colorScheme: darkDynamic,
           ),
