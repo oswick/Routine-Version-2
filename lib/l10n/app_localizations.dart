@@ -487,6 +487,438 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error'**
   String get error;
+
+  /// No description provided for @morning.
+  ///
+  /// In en, this message translates to:
+  /// **'Morning'**
+  String get morning;
+
+  /// No description provided for @afternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Afternoon'**
+  String get afternoon;
+
+  /// No description provided for @night.
+  ///
+  /// In en, this message translates to:
+  /// **'Night'**
+  String get night;
+
+  /// No description provided for @noEventsForThisDay.
+  ///
+  /// In en, this message translates to:
+  /// **'No events for this day'**
+  String get noEventsForThisDay;
+
+  /// No description provided for @tapPlusButtonToAddEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the + button to add your first event'**
+  String get tapPlusButtonToAddEvent;
+
+  /// No description provided for @deleteAllDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete All Days'**
+  String get deleteAllDays;
+
+  /// No description provided for @profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profile;
+
+  /// No description provided for @settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settings;
+
+  /// No description provided for @signInToViewProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to view your profile'**
+  String get signInToViewProfile;
+
+  /// No description provided for @accessStatisticsAndSync.
+  ///
+  /// In en, this message translates to:
+  /// **'Access your statistics and sync your events across devices'**
+  String get accessStatisticsAndSync;
+
+  /// No description provided for @noEventsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No events yet'**
+  String get noEventsYet;
+
+  /// No description provided for @startByCreatingFirstEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Start by creating your first event in the Home tab'**
+  String get startByCreatingFirstEvent;
+
+  /// No description provided for @areYouSureSignOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to sign out?'**
+  String get areYouSureSignOut;
+
+  /// No description provided for @statistics.
+  ///
+  /// In en, this message translates to:
+  /// **'Statistics'**
+  String get statistics;
+
+  /// No description provided for @events.
+  ///
+  /// In en, this message translates to:
+  /// **'events'**
+  String get events;
+
+  /// No description provided for @totalTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Tasks'**
+  String get totalTasks;
+
+  /// No description provided for @todayPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Today Pending'**
+  String get todayPending;
+
+  /// No description provided for @incompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Incompleted'**
+  String get incompleted;
+
+  /// No description provided for @successRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Success Rate'**
+  String get successRate;
+
+  /// No description provided for @categories.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories'**
+  String get categories;
+
+  /// No description provided for @security.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get security;
+
+  /// No description provided for @enableBiometricAuthentication.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Biometric Authentication'**
+  String get enableBiometricAuthentication;
+
+  /// No description provided for @biometricNotAvailableDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric authentication is not available on this device'**
+  String get biometricNotAvailableDevice;
+
+  /// No description provided for @appWillRequireBiometric.
+  ///
+  /// In en, this message translates to:
+  /// **'App will require biometric authentication on startup'**
+  String get appWillRequireBiometric;
+
+  /// No description provided for @biometricEnabledSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric authentication enabled successfully!'**
+  String get biometricEnabledSuccessfully;
+
+  /// No description provided for @authenticationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication failed.'**
+  String get authenticationFailed;
+
+  /// No description provided for @biometricDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric authentication disabled.'**
+  String get biometricDisabled;
+
+  /// No description provided for @authRequiredToChangeSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication required to change this setting.'**
+  String get authRequiredToChangeSettings;
+
+  /// No description provided for @autoLockTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-lock Timeout'**
+  String get autoLockTimeout;
+
+  /// No description provided for @currentlySetTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently set to'**
+  String get currentlySetTo;
+
+  /// No description provided for @overriddenByImmediateLock.
+  ///
+  /// In en, this message translates to:
+  /// **'(overridden by immediate lock)'**
+  String get overriddenByImmediateLock;
+
+  /// No description provided for @immediateLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Immediate Lock'**
+  String get immediateLock;
+
+  /// No description provided for @appLocksImmediately.
+  ///
+  /// In en, this message translates to:
+  /// **'App locks immediately when sent to background'**
+  String get appLocksImmediately;
+
+  /// No description provided for @appUsesTimeoutSetting.
+  ///
+  /// In en, this message translates to:
+  /// **'App uses timeout setting when sent to background'**
+  String get appUsesTimeoutSetting;
+
+  /// No description provided for @autoLockTimeoutSetTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-lock timeout set to'**
+  String get autoLockTimeoutSetTo;
+
+  /// No description provided for @immediateEnabledMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Immediate lock enabled - app will lock when sent to background'**
+  String get immediateEnabledMessage;
+
+  /// No description provided for @immediateDisabledMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Immediate lock disabled - timeout will be used instead'**
+  String get immediateDisabledMessage;
+
+  /// No description provided for @securityOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Security Options'**
+  String get securityOptions;
+
+  /// No description provided for @securityOptionsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'• Auto-lock Timeout: Sets how long the app stays unlocked after being sent to background\n• Immediate Lock: App locks immediately when minimized, regardless of timeout setting'**
+  String get securityOptionsDescription;
+
+  /// No description provided for @biometricSetupMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'To use biometric authentication, please ensure your device supports it and you have enrolled biometric credentials in your device settings.'**
+  String get biometricSetupMessage;
+
+  /// No description provided for @immediately.
+  ///
+  /// In en, this message translates to:
+  /// **'Immediately'**
+  String get immediately;
+
+  /// No description provided for @after1Minute.
+  ///
+  /// In en, this message translates to:
+  /// **'After 1 minute'**
+  String get after1Minute;
+
+  /// No description provided for @after5Minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'After 5 minutes'**
+  String get after5Minutes;
+
+  /// No description provided for @after15Minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'After 15 minutes'**
+  String get after15Minutes;
+
+  /// No description provided for @after30Minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'After 30 minutes'**
+  String get after30Minutes;
+
+  /// No description provided for @after1Hour.
+  ///
+  /// In en, this message translates to:
+  /// **'After 1 hour'**
+  String get after1Hour;
+
+  /// No description provided for @never.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get never;
+
+  /// No description provided for @authenticationRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication Required'**
+  String get authenticationRequired;
+
+  /// No description provided for @authenticating.
+  ///
+  /// In en, this message translates to:
+  /// **'Authenticating...'**
+  String get authenticating;
+
+  /// No description provided for @authSuccessful.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication successful'**
+  String get authSuccessful;
+
+  /// No description provided for @authErrorOccurred.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication error occurred'**
+  String get authErrorOccurred;
+
+  /// No description provided for @newEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'New Event'**
+  String get newEvent;
+
+  /// No description provided for @eventTitleRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Event Title *'**
+  String get eventTitleRequired;
+
+  /// No description provided for @whatNeedsToBeDone.
+  ///
+  /// In en, this message translates to:
+  /// **'What needs to be done?'**
+  String get whatNeedsToBeDone;
+
+  /// No description provided for @description.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get description;
+
+  /// No description provided for @addSomeDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Add some details...'**
+  String get addSomeDetails;
+
+  /// No description provided for @time.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get time;
+
+  /// No description provided for @start.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get start;
+
+  /// No description provided for @end.
+  ///
+  /// In en, this message translates to:
+  /// **'End'**
+  String get end;
+
+  /// No description provided for @notSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get notSet;
+
+  /// No description provided for @date.
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get date;
+
+  /// No description provided for @selectedDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected Date'**
+  String get selectedDate;
+
+  /// No description provided for @options.
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get options;
+
+  /// No description provided for @repeat.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat'**
+  String get repeat;
+
+  /// No description provided for @priority.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority'**
+  String get priority;
+
+  /// No description provided for @createEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Event'**
+  String get createEvent;
+
+  /// No description provided for @updateEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Event'**
+  String get updateEvent;
+
+  /// No description provided for @pleaseEnterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a title for the event'**
+  String get pleaseEnterTitle;
+
+  /// No description provided for @endTimeAfterStart.
+  ///
+  /// In en, this message translates to:
+  /// **'End time must be after start time'**
+  String get endTimeAfterStart;
+
+  /// No description provided for @errorSavingEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Error saving event'**
+  String get errorSavingEvent;
+
+  /// No description provided for @done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
+
+  /// No description provided for @priorityLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority Level'**
+  String get priorityLevel;
 }
 
 class _AppLocalizationsDelegate

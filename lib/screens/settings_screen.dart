@@ -1,5 +1,6 @@
 // lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
+import 'package:myapp/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/auth_provider.dart';
 import 'package:myapp/services/biometric_service.dart';
@@ -33,7 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _toggleBiometricAuth(bool value) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     if (value) {
       // Trying to enable biometric auth
       AuthResult result = await BiometricService.authenticateWithResult();
@@ -42,7 +43,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Biometric authentication enabled successfully!'),
+              content: const Text(
+                'Biometric authentication enabled successfully!',
+              ),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
             ),
@@ -78,7 +81,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Authentication required to change this setting. ${result.errorMessage ?? ''}'),
+              content: Text(
+                'Authentication required to change this setting. ${result.errorMessage ?? ''}',
+              ),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 4),
@@ -94,7 +99,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Auto-lock Timeout'),
+  title: Text(AppLocalizations.of(context).autoLockTimeout),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: AuthProvider.timeoutOptions.map((minutes) {
@@ -111,7 +116,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+      child: Text(AppLocalizations.of(context).cancel),
             ),
           ],
         );
@@ -123,14 +128,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       AuthResult authResult = await BiometricService.authenticateWithResult();
       if (authResult.success) {
         await authProvider.setAuthTimeout(result);
-        
+
         // Asegurar que el usuario permanece autenticado después del cambio
         await authProvider.setLastAuthTime();
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Auto-lock timeout set to ${AuthProvider.getTimeoutText(result)}'),
+              content: Text(
+                'Auto-lock timeout set to ${AuthProvider.getTimeoutText(result)}',
+              ),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
             ),
@@ -140,7 +147,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Authentication required to change this setting. ${authResult.errorMessage ?? ''}'),
+              content: Text(
+                'Authentication required to change this setting. ${authResult.errorMessage ?? ''}',
+              ),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 4),
@@ -153,21 +162,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _toggleImmediateTimeout(bool value) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     // Require authentication to change this setting
     AuthResult result = await BiometricService.authenticateWithResult();
     if (result.success) {
       await authProvider.setImmediateTimeout(value);
-      
+
       // Asegurar que el usuario permanece autenticado después del cambio
       await authProvider.setLastAuthTime();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(value 
-              ? 'Immediate lock enabled - app will lock when sent to background' 
-              : 'Immediate lock disabled - timeout will be used instead'),
+            content: Text(
+              value
+                  ? 'Immediate lock enabled - app will lock when sent to background'
+                  : 'Immediate lock disabled - timeout will be used instead',
+            ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 3),
@@ -178,7 +189,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Authentication required to change this setting. ${result.errorMessage ?? ''}'),
+            content: Text(
+              'Authentication required to change this setting. ${result.errorMessage ?? ''}',
+            ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 4),
@@ -204,7 +217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         SwitchListTile(
           title: Text(
-            'Enable Biometric Authentication',
+            AppLocalizations.of(context).enableBiometricAuthentication,
             style: TextStyle(
               color: _isBiometricAvailable
                   ? Theme.of(context).colorScheme.onSurface
@@ -215,21 +228,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           subtitle: !_isBiometricAvailable
               ? Text(
-                  'Biometric authentication is not available on this device',
+                  AppLocalizations.of(context).biometricNotAvailableDevice,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.error,
                     fontSize: 12,
                   ),
                 )
               : authProvider.isBiometricAuthEnabled
-                  ? Text(
-                      'App will require biometric authentication on startup',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        fontSize: 12,
-                      ),
-                    )
-                  : null,
+              ? Text(
+                  AppLocalizations.of(context).appWillRequireBiometric,
+                  style: TextStyle(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.6),
+                    fontSize: 12,
+                  ),
+                )
+              : null,
           value: authProvider.isBiometricAuthEnabled,
           onChanged: _isBiometricAvailable ? _toggleBiometricAuth : null,
           secondary: Icon(
@@ -243,7 +258,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // Advanced biometric options (only shown when biometric is enabled)
         if (authProvider.isBiometricAuthEnabled && _isBiometricAvailable) ...[
           const Divider(height: 1),
-          
+
           ListTile(
             leading: Icon(
               Icons.timer,
@@ -251,10 +266,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             title: const Text(
               'Auto-lock Timeout',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
             subtitle: Text(
               'Currently set to ${AuthProvider.getTimeoutText(authProvider.authTimeoutMinutes)}${authProvider.immediateTimeoutEnabled ? ' (overridden by immediate lock)' : ''}',
@@ -264,8 +276,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: authProvider.immediateTimeoutEnabled 
-                ? null 
+            onTap: authProvider.immediateTimeoutEnabled
+                ? null
                 : () => _showTimeoutOptionsDialog(authProvider),
             enabled: !authProvider.immediateTimeoutEnabled,
           ),
@@ -275,10 +287,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SwitchListTile(
             title: const Text(
               'Immediate Lock',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
             subtitle: Text(
               authProvider.immediateTimeoutEnabled
@@ -292,8 +301,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: authProvider.immediateTimeoutEnabled,
             onChanged: _toggleImmediateTimeout,
             secondary: Icon(
-              authProvider.immediateTimeoutEnabled 
-                  ? Icons.lock 
+              authProvider.immediateTimeoutEnabled
+                  ? Icons.lock
                   : Icons.lock_open,
               color: Theme.of(context).colorScheme.primary,
             ),
@@ -303,7 +312,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
- 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -311,22 +319,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 0,
         title: Text(
-          'Settings',
+          AppLocalizations.of(context).settings,
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.bold,
           ),
         ),
       ),
+
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           // Security Section
           Text(
-            'Security',
+            AppLocalizations.of(context).security,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -334,10 +341,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          
+
           Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+              color: Theme.of(
+                context,
+              ).colorScheme.surfaceVariant.withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
             ),
             child: _buildBiometricSettings(authProvider),
@@ -382,7 +391,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -411,7 +422,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           '• Auto-lock Timeout: Sets how long the app stays unlocked after being sent to background\n'
                           '• Immediate Lock: App locks immediately when minimized, regardless of timeout setting',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.8),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withOpacity(0.8),
                             fontSize: 12,
                             height: 1.4,
                           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/screens/settings_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
@@ -161,13 +162,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
           appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            elevation: 0,
             title: Row(
               children: [
                 const SizedBox(width: 12),
                 Text(
-                  'Profile',
+                  AppLocalizations.of(context).profile,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
@@ -188,18 +187,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   }
                 },
                 itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'settings',
                     child: ListTile(
                       leading: Icon(Icons.settings),
-                      title: Text('Settings'),
+                      title: Text(AppLocalizations.of(context).settings),
                     ),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'signout',
                     child: ListTile(
                       leading: Icon(Icons.logout),
-                      title: Text('Sign Out'),
+                      title: Text(AppLocalizations.of(context).signOut),
                     ),
                   ),
                 ],
@@ -256,7 +255,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  'No events yet',
+                                  AppLocalizations.of(context).noEventsYet,
                                   style: TextStyle(
                                     fontSize: 18,
                                     color: Theme.of(
@@ -266,7 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Start by creating your first event in the Home tab',
+                                  AppLocalizations.of(context).startByCreatingFirstEvent,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 14,
@@ -294,7 +293,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'Sign in to view your profile',
+                                AppLocalizations.of(
+                                  context,
+                                ).signInToViewProfile,
                                 style: TextStyle(
                                   fontSize: 18,
                                   color: Theme.of(
@@ -302,9 +303,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ).colorScheme.onSurface.withOpacity(0.6),
                                 ),
                               ),
-                              const SizedBox(height: 8),
+
                               Text(
-                                'Access your statistics and sync your events across devices',
+                                AppLocalizations.of(
+                                  context,
+                                ).accessStatisticsAndSync,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 14,
@@ -319,7 +322,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ? null
                                     : _handleAuthAction,
                                 icon: const Icon(Icons.login),
-                                label: const Text('Sign in with Google'),
+                                label: Text(
+                                  AppLocalizations.of(context).signInWithGoogle,
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Theme.of(
                                     context,
@@ -420,15 +425,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Statistics',
+              AppLocalizations.of(context).statistics,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
+
             Text(
-              '${events.length} events',
+              '${events.length} ${AppLocalizations.of(context).events}',
               style: TextStyle(
                 fontSize: 14,
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
@@ -458,31 +464,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
               childAspectRatio: 1.5,
               children: [
                 _buildStatCard(
-                  'Total Tasks',
+                  AppLocalizations.of(context).totalTasks,
                   stats['total'] ?? 0,
                   Icons.list_alt,
                   Theme.of(context).colorScheme.primary,
                 ),
                 _buildStatCard(
-                  'Completed',
+                  AppLocalizations.of(context).completed,
                   stats['completed'] ?? 0,
                   Icons.check_circle,
                   Colors.green,
                 ),
                 _buildStatCard(
-                  'Today Pending',
+                  AppLocalizations.of(context).todayPending,
                   stats['todayPending'] ?? 0,
                   Icons.today,
                   Colors.orange,
                 ),
                 _buildStatCard(
-                  'Incompleted',
+                  AppLocalizations.of(context).incompleted,
                   stats['totalIncompleted'] ?? 0,
                   Icons.pending_actions,
                   Colors.red,
                 ),
                 _buildStatCard(
-                  'Success Rate',
+                  AppLocalizations.of(context).successRate,
                   stats['total'] != 0
                       ? ((stats['completed'] ?? 0) * 100 ~/ stats['total']!)
                       : 0,
@@ -491,7 +497,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   isPercentage: true,
                 ),
                 _buildStatCard(
-                  'Categories',
+                  AppLocalizations.of(context).categories,
                   _getMostPopularCategoryCount(stats),
                   Icons.category,
                   Colors.purple,
@@ -506,12 +512,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   int _getMostPopularCategoryCount(Map<String, int> stats) {
     final categories = [
-      'School',
-      'Home',
-      'Work',
-      'Shopping',
-      'Health',
-      'Personal',
+      AppLocalizations.of(context).school,
+      AppLocalizations.of(context).home,
+      AppLocalizations.of(context).work,
+      AppLocalizations.of(context).shopping,
+      AppLocalizations.of(context).health,
+      AppLocalizations.of(context).health,
     ];
     int maxCount = 0;
     for (String category in categories) {

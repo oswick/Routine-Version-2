@@ -141,7 +141,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             backgroundColor: Theme.of(context).colorScheme.surface,
             elevation: 0,
             title: Text(
-              l10n.calendar, // TRADUCIDO
+              AppLocalizations.of(context).calendar, // TRADUCIDO
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.bold,

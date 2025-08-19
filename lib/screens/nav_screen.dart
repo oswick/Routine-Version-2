@@ -1,5 +1,6 @@
 // lib/screens/nav_screen.dart
 import 'package:flutter/material.dart';
+import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/models/event.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
@@ -16,10 +17,11 @@ class MainHomeScreen extends StatefulWidget {
   _MainHomeScreenState createState() => _MainHomeScreenState();
 }
 
-class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObserver {
+class _MainHomeScreenState extends State<MainHomeScreen>
+    with WidgetsBindingObserver {
   int _selectedIndex = 0;
   final PageController _pageController = PageController();
-  
+
   // Estados para la autenticación biométrica
   bool _isCheckingAuth = false;
   bool _isAuthenticated = false;
@@ -30,7 +32,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
     super.initState();
     print('🏠 NavScreen: initState called');
     WidgetsBinding.instance.addObserver(this);
-    
+
     // Verificar autenticación al iniciar
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkBiometricAuth();
@@ -48,7 +50,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     print('🏠 NavScreen: App lifecycle changed to $state');
-    
+
     if (state == AppLifecycleState.resumed) {
       // Cuando la app vuelve del background, verificar auth
       _onAppResumed();
@@ -62,12 +64,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
     print('🏠 NavScreen: ===============================================');
     print('🏠 NavScreen: APP RESUMED - CHECKING AUTHENTICATION');
     print('🏠 NavScreen: ===============================================');
-    
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     // Usar el nuevo método que verifica si necesita auth
     bool needsAuth = await authProvider.checkAuthOnResume();
-    
+
     if (needsAuth) {
       print('🏠 NavScreen: 🔒 SHOWING AUTH SCREEN - Authentication required');
       setState(() {
@@ -83,7 +85,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
         _isCheckingAuth = false;
       });
     }
-    
+
     print('🏠 NavScreen: Current UI state:');
     print('  - _isAuthenticated: $_isAuthenticated');
     print('  - _authenticationRequired: $_authenticationRequired');
@@ -95,26 +97,26 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
     print('🏠 NavScreen: ===============================================');
     print('🏠 NavScreen: APP PAUSED - NOTIFYING AUTH PROVIDER');
     print('🏠 NavScreen: ===============================================');
-    
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.onAppPaused();
-    
+
     print('🏠 NavScreen: App pause notification sent to AuthProvider');
     print('🏠 NavScreen: ===============================================');
   }
 
   Future<void> _checkBiometricAuth() async {
     if (!mounted) return;
-    
+
     print('🏠 NavScreen: Checking biometric auth...');
-    
+
     setState(() {
       _isCheckingAuth = true;
     });
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
+
       // Debug info
       await authProvider.printDebugInfo();
 
@@ -130,12 +132,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
       }
 
       print('🏠 NavScreen: Biometric is enabled, checking if auth needed');
-      
+
       // Usar el nuevo método que verifica correctamente el tiempo
       bool needsAuth = await authProvider.checkAuthOnResume();
-      
+
       print('🏠 NavScreen: Needs auth = $needsAuth');
-      
+
       if (needsAuth) {
         setState(() {
           _authenticationRequired = true;
@@ -162,7 +164,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
 
   Future<void> _performBiometricAuth() async {
     print('🏠 NavScreen: Performing biometric authentication...');
-    
+
     setState(() {
       _isCheckingAuth = true;
     });
@@ -170,30 +172,35 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
     try {
       // Intentar autenticación biométrica
       AuthResult authResult = await BiometricService.authenticateWithResult();
-      
+
       print('🏠 NavScreen: Biometric auth result = ${authResult.success}');
-      
+
       if (authResult.success) {
         print('🏠 NavScreen: Authentication successful');
         // Autenticación exitosa
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         await authProvider.setLastAuthTime();
-        
+
         setState(() {
           _isAuthenticated = true;
           _authenticationRequired = false;
           _isCheckingAuth = false;
         });
       } else {
-        print('🏠 NavScreen: Authentication failed: ${authResult.errorMessage}');
+        print(
+          '🏠 NavScreen: Authentication failed: ${authResult.errorMessage}',
+        );
         setState(() {
           _isCheckingAuth = false;
         });
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(authResult.errorMessage ?? 'Authentication failed'),
+              content: Text(
+                authResult.errorMessage ??
+                    AppLocalizations.of(context).authenticationFailed,
+              ), // Usar traducción
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 4),
             ),
@@ -205,11 +212,11 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
       setState(() {
         _isCheckingAuth = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Authentication error: ${e.toString()}'),
+            content: Text(' ${e.toString()}'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
@@ -234,12 +241,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
               ),
               const SizedBox(height: 16),
               Text(
-                'Authenticating...',
+                AppLocalizations.of(
+                  context,
+                ).authenticating, // 'Authenticating...' / 'Autenticando...'
                 style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withOpacity(0.7),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.7),
                   fontSize: 16,
                 ),
               ),
@@ -251,7 +259,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
               ),
               const SizedBox(height: 16),
               Text(
-                'Authentication Required',
+                AppLocalizations.of(
+                  context,
+                ).authenticationRequired, // 'Authentication Required' / 'Autenticación Requerida'
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 24,
@@ -260,13 +270,14 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
               ),
               const SizedBox(height: 8),
               Text(
-                'Please authenticate to access the app',
+                AppLocalizations.of(
+                  context,
+                ).authenticateToAccess, // 'Please authenticate to access the app' / 'Autentícate para acceder a la aplicación'
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withOpacity(0.7),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.7),
                   fontSize: 16,
                 ),
               ),
@@ -274,7 +285,11 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
               ElevatedButton.icon(
                 onPressed: _performBiometricAuth,
                 icon: const Icon(Icons.fingerprint),
-                label: const Text('Authenticate'),
+                label: Text(
+                  AppLocalizations.of(
+                    context,
+                  ).authenticateToAccess.replaceAll(' to access the app', ''),
+                ), // Solo "Authenticate" / "Autentícate"
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 32,
@@ -332,25 +347,34 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
               child: NavigationBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                indicatorColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withOpacity(0.12),
                 selectedIndex: _selectedIndex,
                 onDestinationSelected: _onItemTapped,
-                labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+                labelBehavior:
+                    NavigationDestinationLabelBehavior.onlyShowSelected,
                 destinations: [
                   NavigationDestination(
                     icon: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: _selectedIndex == 0
-                            ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
-                        _selectedIndex == 0 ? Icons.home_rounded : Icons.home_outlined,
+                        _selectedIndex == 0
+                            ? Icons.home_rounded
+                            : Icons.home_outlined,
                         color: _selectedIndex == 0
                             ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                            : Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.6),
                         size: 24,
                       ),
                     ),
@@ -362,14 +386,18 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
                         size: 24,
                       ),
                     ),
-                    label: 'Home',
+                    label: AppLocalizations.of(
+                      context,
+                    ).home, // 'Home' / 'Inicio'
                   ),
                   NavigationDestination(
                     icon: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: _selectedIndex == 1
-                            ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -379,7 +407,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
                             : Icons.calendar_month_outlined,
                         color: _selectedIndex == 1
                             ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                            : Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.6),
                         size: 24,
                       ),
                     ),
@@ -391,22 +421,30 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
                         size: 24,
                       ),
                     ),
-                    label: 'Calendar',
+                    label: AppLocalizations.of(
+                      context,
+                    ).calendar, // 'Calendar' / 'Calendario'
                   ),
                   NavigationDestination(
                     icon: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: _selectedIndex == 2
-                            ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
-                        _selectedIndex == 2 ? Icons.person : Icons.person_outline,
+                        _selectedIndex == 2
+                            ? Icons.person
+                            : Icons.person_outline,
                         color: _selectedIndex == 2
                             ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                            : Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.6),
                         size: 24,
                       ),
                     ),
@@ -418,7 +456,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
                         size: 24,
                       ),
                     ),
-                    label: 'Profile',
+                    label: AppLocalizations.of(
+                      context,
+                    ).profile, // 'Profile' / 'Perfil'
                   ),
                 ],
               ),
@@ -442,24 +482,24 @@ class _MainHomeScreenState extends State<MainHomeScreen> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
-    print('🏠 NavScreen: Building - isChecking=$_isCheckingAuth, isAuth=$_isAuthenticated, reqAuth=$_authenticationRequired');
-    
+    print(
+      '🏠 NavScreen: Building - isChecking=$_isCheckingAuth, isAuth=$_isAuthenticated, reqAuth=$_authenticationRequired',
+    );
+
     // Si se está verificando la autenticación o es requerida, mostrar pantalla de auth
     if (_isCheckingAuth || _authenticationRequired) {
       return _buildAuthRequiredScreen();
     }
-    
+
     // Si está autenticado o no se requiere, mostrar la app principal
     if (_isAuthenticated) {
       return _buildMainScreen();
     }
-    
+
     // Estado de carga por defecto
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: const Center(
-        child: CircularProgressIndicator(),
-      ),
+      body: const Center(child: CircularProgressIndicator()),
     );
   }
 }

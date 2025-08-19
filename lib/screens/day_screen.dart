@@ -1,5 +1,6 @@
 // lib/screens/day_screen.dart - Versión mejorada
 import 'package:flutter/material.dart';
+import 'package:myapp/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/screens/add_event_screen.dart';
@@ -26,7 +27,8 @@ class DayScreen extends StatefulWidget {
   _DayScreenState createState() => _DayScreenState();
 }
 
-class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixin {
+class _DayScreenState extends State<DayScreen>
+    with AutomaticKeepAliveClientMixin {
   bool _showMorningEvents = true;
   bool _showAfternoonEvents = true;
   bool _showNightEvents = true;
@@ -36,22 +38,38 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
 
   bool _isEventPast(Event event) {
     final now = DateTime.now();
-    final selectedDay = DateTime(widget.day.year, widget.day.month, widget.day.day);
+    final selectedDay = DateTime(
+      widget.day.year,
+      widget.day.month,
+      widget.day.day,
+    );
     final today = DateTime(now.year, now.month, now.day);
-    
+
     if (event.repeatDays.isNotEmpty) {
-      if (widget.day.weekday == now.weekday && selectedDay.isAtSameMomentAs(today)) {
+      if (widget.day.weekday == now.weekday &&
+          selectedDay.isAtSameMomentAs(today)) {
         if (event.endTime != null) {
-          final todayEndTime = DateTime(now.year, now.month, now.day, 
-              event.endTime!.hour, event.endTime!.minute);
+          final todayEndTime = DateTime(
+            now.year,
+            now.month,
+            now.day,
+            event.endTime!.hour,
+            event.endTime!.minute,
+          );
           return now.isAfter(todayEndTime);
         } else {
-          final todayStartTime = DateTime(now.year, now.month, now.day, 
-              event.startTime.hour, event.startTime.minute);
+          final todayStartTime = DateTime(
+            now.year,
+            now.month,
+            now.day,
+            event.startTime.hour,
+            event.startTime.minute,
+          );
           return now.isAfter(todayStartTime.add(const Duration(hours: 1)));
         }
       } else {
-        return selectedDay.isBefore(today) && event.repeatDays.contains(widget.day.weekday);
+        return selectedDay.isBefore(today) &&
+            event.repeatDays.contains(widget.day.weekday);
       }
     } else {
       if (event.endTime != null) {
@@ -92,31 +110,49 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
                   padding: const EdgeInsets.all(16.0),
                   children: [
                     if (morningEvents.isNotEmpty) ...[
-                      _buildHeader('Morning', _showMorningEvents, () {
-                        setState(() {
-                          _showMorningEvents = !_showMorningEvents;
-                        });
-                      }),
+                      _buildHeader(
+                        AppLocalizations.of(context).morning,
+                        _showMorningEvents,
+                        () {
+                          setState(() {
+                            _showMorningEvents = !_showMorningEvents;
+                          });
+                        },
+                      ),
                       if (_showMorningEvents)
-                        ...morningEvents.map((event) => _buildEventCard(event, eventProvider)),
+                        ...morningEvents.map(
+                          (event) => _buildEventCard(event, eventProvider),
+                        ),
                     ],
                     if (afternoonEvents.isNotEmpty) ...[
-                      _buildHeader('Afternoon', _showAfternoonEvents, () {
-                        setState(() {
-                          _showAfternoonEvents = !_showAfternoonEvents;
-                        });
-                      }),
+                      _buildHeader(
+                        AppLocalizations.of(context).afternoon,
+                        _showAfternoonEvents,
+                        () {
+                          setState(() {
+                            _showAfternoonEvents = !_showAfternoonEvents;
+                          });
+                        },
+                      ),
                       if (_showAfternoonEvents)
-                        ...afternoonEvents.map((event) => _buildEventCard(event, eventProvider)),
+                        ...afternoonEvents.map(
+                          (event) => _buildEventCard(event, eventProvider),
+                        ),
                     ],
                     if (nightEvents.isNotEmpty) ...[
-                      _buildHeader('Night', _showNightEvents, () {
-                        setState(() {
-                          _showNightEvents = !_showNightEvents;
-                        });
-                      }),
+                      _buildHeader(
+                        AppLocalizations.of(context).night,
+                        _showNightEvents,
+                        () {
+                          setState(() {
+                            _showNightEvents = !_showNightEvents;
+                          });
+                        },
+                      ),
                       if (_showNightEvents)
-                        ...nightEvents.map((event) => _buildEventCard(event, eventProvider)),
+                        ...nightEvents.map(
+                          (event) => _buildEventCard(event, eventProvider),
+                        ),
                     ],
                     if (widget.events.isEmpty) ...[
                       Center(
@@ -127,21 +163,29 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
                               Icon(
                                 Icons.event_busy,
                                 size: 64,
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.3),
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'No events for this day',
+                                AppLocalizations.of(context).noEventsForThisDay,
                                 style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.6),
                                   fontSize: 18,
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Tap the + button to add your first event',
+                                AppLocalizations.of(
+                                  context,
+                                ).tapPlusButtonToAddEvent,
                                 style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.4),
                                   fontSize: 14,
                                 ),
                               ),
@@ -194,14 +238,18 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
   // MÉTODO CORREGIDO: Mejor gestión de keys para evitar reconstrucciones
   Widget _buildEventCard(Event event, EventProvider eventProvider) {
     final isPastEvent = _isEventPast(event);
-    
+
     // Crear una key estable que no cambie con cada actualización
-    final stableKey = ValueKey('event_${event.id}_${widget.day.millisecondsSinceEpoch}');
-    
+    final stableKey = ValueKey(
+      'event_${event.id}_${widget.day.millisecondsSinceEpoch}',
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Dismissible(
-        key: Key('dismissible_${event.id}_${event.startTime.millisecondsSinceEpoch}'),
+        key: Key(
+          'dismissible_${event.id}_${event.startTime.millisecondsSinceEpoch}',
+        ),
         direction: DismissDirection.endToStart,
         background: Container(
           color: Colors.red,
@@ -210,7 +258,11 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
           child: const Icon(Icons.delete, color: Colors.white),
         ),
         confirmDismiss: (direction) async {
-          return await _showDeleteConfirmationDialog(context, event, eventProvider);
+          return await _showDeleteConfirmationDialog(
+            context,
+            event,
+            eventProvider,
+          );
         },
         onDismissed: (direction) {},
         child: EventCard(
@@ -227,20 +279,18 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
   }
 
   Future<bool?> _showDeleteConfirmationDialog(
-    BuildContext context, 
-    Event event, 
-    EventProvider eventProvider
+    BuildContext context,
+    Event event,
+    EventProvider eventProvider,
   ) {
     return showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+          title: Text(AppLocalizations.of(context).deleteConfirmationTitle),
+          content: Text(
+            '${AppLocalizations.of(context).deleteConfirmation} "${event.title}"?',
           ),
-          title: Text('Delete Event'),
-          content: Text('Do you want to delete "${event.title}"?'),
-          backgroundColor: Theme.of(context).colorScheme.surface,
           actions: [
             TextButton(
               onPressed: () async {
@@ -248,7 +298,7 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
                 Navigator.of(context).pop(true);
               },
               child: Text(
-                'Delete',
+                AppLocalizations.of(context).delete,
                 style: TextStyle(color: Colors.red),
               ),
             ),
@@ -259,7 +309,7 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
                   Navigator.of(context).pop(true);
                 },
                 child: Text(
-                  'Delete All Days',
+                  AppLocalizations.of(context).deleteAllDays,
                   style: TextStyle(color: Colors.red),
                 ),
               ),
@@ -267,7 +317,7 @@ class _DayScreenState extends State<DayScreen> with AutomaticKeepAliveClientMixi
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
-              child: Text('Cancel'),
+              child: Text(AppLocalizations.of(context).cancel),
             ),
           ],
         );

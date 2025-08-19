@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:myapp/l10n/app_localizations.dart';
 import '../models/event.dart';
 import '../utils/event_utils.dart';
 
@@ -228,7 +229,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             ),
             const SizedBox(width: 16),
             Text(
-              isEditing ? 'Edit Event' : 'New Event',
+              isEditing ? AppLocalizations.of(context).editEvent : AppLocalizations.of(context).newEvent,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -241,8 +242,8 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
         // Campo de título
         _buildTextField(
           controller: _titleController,
-          label: 'Event Title',
-          hint: 'What needs to be done?',
+          label: AppLocalizations.of(context).eventTitle,
+          hint: AppLocalizations.of(context).whatNeedsToBeDone,
           icon: Icons.title_rounded,
           isRequired: true,
         ),
@@ -251,8 +252,8 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
         // Campo de descripción
         _buildTextField(
           controller: _descriptionController,
-          label: 'Description',
-          hint: 'Add some details...',
+          label: AppLocalizations.of(context).description,
+          hint: AppLocalizations.of(context).addSomeDetails,
           icon: Icons.description_outlined,
           maxLines: 3,
         ),
@@ -321,7 +322,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Time',
+          AppLocalizations.of(context).time,
           style: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -331,7 +332,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           children: [
             Expanded(
               child: _buildTimeCard(
-                title: 'Start',
+                title: AppLocalizations.of(context).start,
                 time: _startTime,
                 icon: Icons.play_circle_outline,
                 onTap: () => _selectTime(true),
@@ -340,7 +341,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             const SizedBox(width: 12),
             Expanded(
               child: _buildTimeCard(
-                title: 'End',
+                title: AppLocalizations.of(context).end,
                 time: _endTime,
                 icon: Icons.stop_circle_outlined,
                 onTap: () => _selectTime(false),
@@ -420,7 +421,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             ),
             const SizedBox(height: 8),
             Text(
-              time != null ? formatTime(time) : 'Not set',
+              time != null ? formatTime(time) : AppLocalizations.of(context).notSet,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -440,7 +441,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Date',
+          AppLocalizations.of(context).date,
           style: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -483,7 +484,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Selected Date',
+                      AppLocalizations.of(context).selectedDate,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -516,7 +517,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Options',
+          AppLocalizations.of(context).options,
           style: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -535,7 +536,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             children: [
               _buildOptionButton(
                 icon: Icons.repeat,
-                label: 'Repeat',
+                label: AppLocalizations.of(context).repeat,
                 isActive: _repeatDays.isNotEmpty,
                 onPressed: () => _showRepeatDaysDialog(context),
                 badge: _repeatDays.isNotEmpty
@@ -544,7 +545,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               ),
               _buildOptionButton(
                 icon: Icons.flag_outlined,
-                label: 'Priority',
+                label: AppLocalizations.of(context).priority,
                 isActive: _importance != 0,
                 color: _importance != 0
                     ? getImportanceColor(_importance)
@@ -553,7 +554,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               ),
               _buildOptionButton(
                 icon: getCategoryIcon(_category),
-                label: 'Category',
+                label: AppLocalizations.of(context).category,
                 isActive: _category.isNotEmpty,
                 onPressed: () => _showCategoryDialog(context),
               ),
@@ -656,7 +657,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               ),
             ),
             child: Text(
-              'Cancel',
+              AppLocalizations.of(context).cancel,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -680,7 +681,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               ),
             ),
             child: Text(
-              isEditing ? 'Update Event' : 'Create Event',
+              isEditing ? AppLocalizations.of(context).updateEvent :AppLocalizations.of(context).createEvent,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
@@ -755,12 +756,13 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
 
   void _saveEvent() {
     if (_titleController.text.trim().isEmpty) {
-      _showErrorSnackBar('Please enter a title for the event');
+      _showErrorSnackBar(AppLocalizations.of(context).pleaseEnterTitle);
       return;
     }
 
     if (_endTime != null && _endTime!.isBefore(_startTime)) {
-      _showErrorSnackBar('End time must be after start time');
+      _showErrorSnackBar(AppLocalizations.of(context).endTime
+      );
       return;
     }
 
@@ -812,8 +814,8 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              title: const Text(
-                'Repeat Days',
+              title: Text(
+                AppLocalizations.of(context).repeatDays,
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
               backgroundColor: Theme.of(context).colorScheme.surface,
@@ -866,7 +868,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: Text(AppLocalizations.of(context).cancel,),
                 ),
                 FilledButton(
                   onPressed: () {
@@ -875,7 +877,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                     });
                     Navigator.pop(context);
                   },
-                  child: const Text('Done'),
+                  child: Text(AppLocalizations.of(context).done,),
                 ),
               ],
             );
@@ -893,18 +895,18 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text(
-            'Priority Level',
+          title: Text(
+            AppLocalizations.of(context).priority,
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
           backgroundColor: Theme.of(context).colorScheme.surface,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildPriorityOption('Low', 1, Colors.green),
-              _buildPriorityOption('Moderate', 2, Colors.yellow),
-              _buildPriorityOption('Important', 3, Colors.orange),
-              _buildPriorityOption('Very Important', 4, Colors.red),
+              _buildPriorityOption(AppLocalizations.of(context).low, 1, Colors.green),
+              _buildPriorityOption(AppLocalizations.of(context).moderate, 2, Colors.yellow),
+              _buildPriorityOption(AppLocalizations.of(context).important, 3, Colors.orange),
+              _buildPriorityOption(AppLocalizations.of(context).veryImportant, 4, Colors.red),
             ],
           ),
         );
@@ -949,12 +951,12 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
 
   void _showCategoryDialog(BuildContext context) {
     final categories = [
-      {'name': 'School', 'icon': Icons.school},
-      {'name': 'Home', 'icon': Icons.home},
-      {'name': 'Work', 'icon': Icons.work},
-      {'name': 'Shopping', 'icon': Icons.shopping_cart},
-      {'name': 'Health', 'icon': Icons.health_and_safety},
-      {'name': 'Personal', 'icon': Icons.person},
+      {'name': AppLocalizations.of(context).school, 'icon': Icons.school},
+      {'name': AppLocalizations.of(context).home, 'icon': Icons.home},
+      {'name': AppLocalizations.of(context).work, 'icon': Icons.work},
+      {'name': AppLocalizations.of(context).shopping, 'icon': Icons.shopping_cart},
+      {'name': AppLocalizations.of(context).health, 'icon': Icons.health_and_safety},
+      {'name': AppLocalizations.of(context).personal, 'icon': Icons.person},
     ];
 
     showDialog(
@@ -965,7 +967,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             borderRadius: BorderRadius.circular(20),
           ),
           title: Text(
-            'Category',
+            AppLocalizations.of(context).category,
             style: TextStyle(
               fontWeight: FontWeight.w600,
               color: Theme.of(context).colorScheme.onSurface,
@@ -1021,7 +1023,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                   ),
                   child: const Icon(Icons.clear, color: Colors.grey),
                 ),
-                title: const Text('None'),
+                title: Text(AppLocalizations.of(context).none),
                 trailing: _category.isEmpty
                     ? Icon(
                         Icons.check,
@@ -1045,19 +1047,19 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   String getDayName(int dayOfWeek) {
     switch (dayOfWeek) {
       case 1:
-        return 'Monday';
+        return AppLocalizations.of(context).monday;
       case 2:
-        return 'Tuesday';
+        return AppLocalizations.of(context).tuesday;
       case 3:
-        return 'Wednesday';
+        return AppLocalizations.of(context).wednesday;
       case 4:
-        return 'Thursday';
+        return AppLocalizations.of(context).thursday;
       case 5:
-        return 'Friday';
+        return AppLocalizations.of(context).friday;
       case 6:
-        return 'Saturday';
+        return AppLocalizations.of(context).saturday;
       case 7:
-        return 'Sunday';
+        return AppLocalizations.of(context).sunday;
       default:
         return '';
     }

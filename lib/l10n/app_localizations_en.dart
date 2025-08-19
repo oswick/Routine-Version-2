@@ -206,4 +206,233 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get error => 'Error';
+
+  @override
+  String get morning => 'Morning';
+
+  @override
+  String get afternoon => 'Afternoon';
+
+  @override
+  String get night => 'Night';
+
+  @override
+  String get noEventsForThisDay => 'No events for this day';
+
+  @override
+  String get tapPlusButtonToAddEvent =>
+      'Tap the + button to add your first event';
+
+  @override
+  String get deleteAllDays => 'Delete All Days';
+
+  @override
+  String get profile => 'Profile';
+
+  @override
+  String get settings => 'Settings';
+
+  @override
+  String get signInToViewProfile => 'Sign in to view your profile';
+
+  @override
+  String get accessStatisticsAndSync =>
+      'Access your statistics and sync your events across devices';
+
+  @override
+  String get noEventsYet => 'No events yet';
+
+  @override
+  String get startByCreatingFirstEvent =>
+      'Start by creating your first event in the Home tab';
+
+  @override
+  String get areYouSureSignOut => 'Are you sure you want to sign out?';
+
+  @override
+  String get statistics => 'Statistics';
+
+  @override
+  String get events => 'events';
+
+  @override
+  String get totalTasks => 'Total Tasks';
+
+  @override
+  String get todayPending => 'Today Pending';
+
+  @override
+  String get incompleted => 'Incompleted';
+
+  @override
+  String get successRate => 'Success Rate';
+
+  @override
+  String get categories => 'Categories';
+
+  @override
+  String get security => 'Security';
+
+  @override
+  String get enableBiometricAuthentication => 'Enable Biometric Authentication';
+
+  @override
+  String get biometricNotAvailableDevice =>
+      'Biometric authentication is not available on this device';
+
+  @override
+  String get appWillRequireBiometric =>
+      'App will require biometric authentication on startup';
+
+  @override
+  String get biometricEnabledSuccessfully =>
+      'Biometric authentication enabled successfully!';
+
+  @override
+  String get authenticationFailed => 'Authentication failed.';
+
+  @override
+  String get biometricDisabled => 'Biometric authentication disabled.';
+
+  @override
+  String get authRequiredToChangeSettings =>
+      'Authentication required to change this setting.';
+
+  @override
+  String get autoLockTimeout => 'Auto-lock Timeout';
+
+  @override
+  String get currentlySetTo => 'Currently set to';
+
+  @override
+  String get overriddenByImmediateLock => '(overridden by immediate lock)';
+
+  @override
+  String get immediateLock => 'Immediate Lock';
+
+  @override
+  String get appLocksImmediately =>
+      'App locks immediately when sent to background';
+
+  @override
+  String get appUsesTimeoutSetting =>
+      'App uses timeout setting when sent to background';
+
+  @override
+  String get autoLockTimeoutSetTo => 'Auto-lock timeout set to';
+
+  @override
+  String get immediateEnabledMessage =>
+      'Immediate lock enabled - app will lock when sent to background';
+
+  @override
+  String get immediateDisabledMessage =>
+      'Immediate lock disabled - timeout will be used instead';
+
+  @override
+  String get securityOptions => 'Security Options';
+
+  @override
+  String get securityOptionsDescription =>
+      '• Auto-lock Timeout: Sets how long the app stays unlocked after being sent to background\n• Immediate Lock: App locks immediately when minimized, regardless of timeout setting';
+
+  @override
+  String get biometricSetupMessage =>
+      'To use biometric authentication, please ensure your device supports it and you have enrolled biometric credentials in your device settings.';
+
+  @override
+  String get immediately => 'Immediately';
+
+  @override
+  String get after1Minute => 'After 1 minute';
+
+  @override
+  String get after5Minutes => 'After 5 minutes';
+
+  @override
+  String get after15Minutes => 'After 15 minutes';
+
+  @override
+  String get after30Minutes => 'After 30 minutes';
+
+  @override
+  String get after1Hour => 'After 1 hour';
+
+  @override
+  String get never => 'Never';
+
+  @override
+  String get authenticationRequired => 'Authentication Required';
+
+  @override
+  String get authenticating => 'Authenticating...';
+
+  @override
+  String get authSuccessful => 'Authentication successful';
+
+  @override
+  String get authErrorOccurred => 'Authentication error occurred';
+
+  @override
+  String get newEvent => 'New Event';
+
+  @override
+  String get eventTitleRequired => 'Event Title *';
+
+  @override
+  String get whatNeedsToBeDone => 'What needs to be done?';
+
+  @override
+  String get description => 'Description';
+
+  @override
+  String get addSomeDetails => 'Add some details...';
+
+  @override
+  String get time => 'Time';
+
+  @override
+  String get start => 'Start';
+
+  @override
+  String get end => 'End';
+
+  @override
+  String get notSet => 'Not set';
+
+  @override
+  String get date => 'Date';
+
+  @override
+  String get selectedDate => 'Selected Date';
+
+  @override
+  String get options => 'Options';
+
+  @override
+  String get repeat => 'Repeat';
+
+  @override
+  String get priority => 'Priority';
+
+  @override
+  String get createEvent => 'Create Event';
+
+  @override
+  String get updateEvent => 'Update Event';
+
+  @override
+  String get pleaseEnterTitle => 'Please enter a title for the event';
+
+  @override
+  String get endTimeAfterStart => 'End time must be after start time';
+
+  @override
+  String get errorSavingEvent => 'Error saving event';
+
+  @override
+  String get done => 'Done';
+
+  @override
+  String get priorityLevel => 'Priority Level';
 }

@@ -1,5 +1,6 @@
 // lib/screens/home_screen.dart - Versión actualizada con Provider
 import 'package:flutter/material.dart';
+import 'package:myapp/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/services/auth_service.dart';
@@ -24,14 +25,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isSyncing = false;
   final ConnectivityService _connectivity = ConnectivityService();
 
-@override
-void initState() {
-  super.initState();
-  _initConnectivity();
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    _refreshEvents();
-  });
-}
+  @override
+  void initState() {
+    super.initState();
+    _initConnectivity();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshEvents();
+    });
+  }
 
   Color _getConnectivityBorderColor() {
     if (!_isOnline) return Colors.grey;
@@ -180,22 +181,25 @@ void initState() {
     );
   }
 
+  // Reemplaza el método getDayName en home_screen.dart con este:
+
   String getDayName(int dayOfWeek) {
+    final localizations = AppLocalizations.of(context);
     switch (dayOfWeek) {
       case 1:
-        return 'Monday';
+        return localizations.monday;
       case 2:
-        return 'Tuesday';
+        return localizations.tuesday;
       case 3:
-        return 'Wednesday';
+        return localizations.wednesday;
       case 4:
-        return 'Thursday';
+        return localizations.thursday;
       case 5:
-        return 'Friday';
+        return localizations.friday;
       case 6:
-        return 'Saturday';
+        return localizations.saturday;
       case 7:
-        return 'Sunday';
+        return localizations.sunday;
       default:
         return '';
     }
