@@ -1,5 +1,6 @@
-// lib/screens/calendar_screen.dart - Versión corregida
+// lib/screens/calendar_screen.dart - Ejemplo de uso de traducciones
 import 'package:flutter/material.dart';
+import 'package:myapp/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:myapp/providers/event_provider.dart';
@@ -37,8 +38,8 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     _selectedDay = DateTime.now();
   }
 
+  // ... métodos anteriores sin cambios ...
 
-  // MÉTODO CORREGIDO: Filtrar eventos para un día específico
   List<Event> _getEventsForDay(DateTime day, List<Event> allEvents) {
     return allEvents.where((event) {
       if (event.repeatDays.isNotEmpty) {
@@ -57,16 +58,54 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     }).toList();
   }
 
-  // MÉTODO NUEVO: Filtrar solo eventos únicos (no repetitivos) para mostrar indicadores
-  List<Event> _getSingleEventsForDay(DateTime day, List<Event> allEvents) {
+  List<Event> _getEventsForMarker(DateTime day, List<Event> allEvents) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dayToCheck = DateTime(day.year, day.month, day.day);
+    
+    if (dayToCheck.isBefore(today)) {
+      return [];
+    }
+    
     return allEvents.where((event) {
-      // Solo eventos únicos (sin repeatDays)
-      return event.repeatDays.isEmpty && isSameDay(event.startTime, day);
+      if (event.repeatDays.isNotEmpty) {
+        return false;
+      }
+      return isSameDay(event.startTime, day);
     }).toList();
+  }
+
+  String _getDayType(DateTime selectedDay) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selected = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+    
+    if (selected.isBefore(today)) {
+      return 'past';
+    } else if (selected.isAtSameMomentAs(today)) {
+      return 'today';
+    } else {
+      return 'future';
+    }
+  }
+
+  // ACTUALIZADO: Usar traducciones para los títulos de sección
+  String _getSectionTitle(BuildContext context, String dayType, bool isPast) {
+    final l10n = AppLocalizations.of(context);
+    
+    if (dayType == 'today') {
+      return isPast ? l10n.earlierToday : l10n.todaysEvents;
+    } else if (dayType == 'past') {
+      return isPast ? l10n.pastEvents : l10n.pastEvents;
+    } else {
+      return isPast ? l10n.pastEvents : l10n.upcomingEvents;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context); // Obtener traducciones
+    
     return Consumer<EventProvider>(
       builder: (context, eventProvider, child) {
         final allEvents = eventProvider.events;
@@ -76,12 +115,25 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         events.sort((a, b) => a.startTime.compareTo(b.startTime));
 
         final now = DateTime.now();
-        final pastEvents = events
-            .where((e) => e.endTime != null && e.endTime!.isBefore(now))
-            .toList();
-        final futureEvents = events
-            .where((e) => e.endTime == null || e.endTime!.isAfter(now))
-            .toList();
+        final dayType = _selectedDay != null ? _getDayType(_selectedDay!) : 'today';
+        
+        List<Event>? pastEvents = [];
+        List<Event>? currentOrFutureEvents = [];
+        
+        if (dayType == 'today') {
+          pastEvents = events
+              .where((e) => e.endTime != null && e.endTime!.isBefore(now)).cast<Event>()
+              .toList();
+          currentOrFutureEvents = events
+              .where((e) => e.endTime == null || e.endTime!.isAfter(now)).cast<Event>()
+              .toList();
+        } else if (dayType == 'past') {
+          pastEvents = events.cast<Event>();
+          currentOrFutureEvents = [];
+        } else {
+          pastEvents = [];
+          currentOrFutureEvents = events.cast<Event>();
+        }
 
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
@@ -89,7 +141,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             backgroundColor: Theme.of(context).colorScheme.surface,
             elevation: 0,
             title: Text(
-              'Calendar',
+              l10n.calendar, // TRADUCIDO
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
@@ -164,9 +216,9 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                       onPageChanged: (focusedDay) {
                         _focusedDay = focusedDay;
                       },
-                    eventLoader: (day) {
-  return _getSingleEventsForDay(day, allEvents);
-},
+                      eventLoader: (day) {
+                        return _getEventsForMarker(day, allEvents);
+                      },
                       calendarBuilders: CalendarBuilders(
                         markerBuilder: (context, date, events) {
                           if (events.isNotEmpty) {
@@ -193,13 +245,13 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                         child: ListView(
                           padding: const EdgeInsets.all(8.0),
                           children: [
-                            if (futureEvents.isNotEmpty) ...[
+                            if (currentOrFutureEvents.isNotEmpty) ...[
                               Padding(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 8.0,
                                 ),
                                 child: Text(
-                                  'Next Events',
+                                  _getSectionTitle(context, dayType, false), // TRADUCIDO
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Theme.of(
@@ -209,7 +261,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                   ),
                                 ),
                               ),
-                              ...futureEvents.map(
+                              ...currentOrFutureEvents.map(
                                 (event) => Padding(
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 4.0,
@@ -254,7 +306,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                   vertical: 8.0,
                                 ),
                                 child: Text(
-                                  'Past Events',
+                                  _getSectionTitle(context, dayType, true), // TRADUCIDO
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.grey,
@@ -307,7 +359,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                 child: Padding(
                                   padding: const EdgeInsets.only(top: 32.0),
                                   child: Text(
-                                    'No Events',
+                                    l10n.noEvents, // TRADUCIDO
                                     style: TextStyle(
                                       color: Theme.of(
                                         context,
@@ -334,6 +386,8 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     Event event,
     EventProvider eventProvider,
   ) {
+    final l10n = AppLocalizations.of(context); // Obtener traducciones
+    
     return showDialog<bool>(
       context: context,
       builder: (context) {
@@ -341,10 +395,8 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text('Delete Event'),
-          content: const Text(
-            'Do you want to delete this event? This action cannot be undone.',
-          ),
+          title: Text(l10n.deleteConfirmationTitle), // TRADUCIDO
+          content: Text(l10n.deleteConfirmation), // TRADUCIDO
           backgroundColor: Theme.of(context).colorScheme.surface,
           actions: [
             TextButton(
@@ -352,7 +404,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 await eventProvider.deleteEvent(event.id, deleteAll: false);
                 Navigator.of(context).pop(true);
               },
-              child: Text('Delete', style: TextStyle(color: Colors.red)),
+              child: Text(l10n.delete, style: TextStyle(color: Colors.red)), // TRADUCIDO
             ),
             if (event.repeatDays.isNotEmpty)
               TextButton(
@@ -360,13 +412,13 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   await eventProvider.deleteEvent(event.id, deleteAll: true);
                   Navigator.of(context).pop(true);
                 },
-                child: Text('All Days', style: TextStyle(color: Colors.red)),
+                child: Text(l10n.deleteAll, style: TextStyle(color: Colors.red)), // TRADUCIDO
               ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel), // TRADUCIDO
             ),
           ],
         );
@@ -374,4 +426,3 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     );
   }
 }
-

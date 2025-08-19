@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/screens/pomodoro_screen.dart';
@@ -510,9 +509,8 @@ class _EventCardState extends State<EventCard> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder:
-                                  (context) =>
-                                      PomodoroScreen(event: widget.event),
+                              builder: (context) =>
+                                  PomodoroScreen(event: widget.event),
                             ),
                           );
                         },

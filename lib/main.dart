@@ -1,7 +1,9 @@
-// lib/main.dart - Con soporte para fuentes personalizadas
+// lib/main.dart - Actualizado con soporte para internacionalización
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:myapp/config/app_config.dart';
+import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/providers/auth_provider.dart';
 import 'package:myapp/screens/nav_screen.dart';
 import 'package:provider/provider.dart';
@@ -91,6 +93,22 @@ class _MyAppState extends State<MyApp> {
         return MaterialApp(
           title: 'Routine',
           debugShowCheckedModeBanner: false,
+          
+          // CONFIGURACIÓN DE LOCALIZACIÓN
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en'), // Inglés
+            Locale('es'), // Español
+          ],
+          // El idioma se detectará automáticamente del sistema
+          // También puedes forzar un idioma específico:
+          // locale: Locale('es'), // Forzar español
+          
           theme: ThemeData(
             useMaterial3: true,
             useSystemColors: true,
@@ -106,7 +124,7 @@ class _MyAppState extends State<MyApp> {
             colorScheme: darkDynamic,
           ),
           themeMode: ThemeMode.system,
-          home: const MainHomeScreen(), // Added const for better performance
+          home: const MainHomeScreen(),
         );
       },
     );
