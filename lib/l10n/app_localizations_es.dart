@@ -438,4 +438,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get priorityLevel => 'Nivel de Prioridad';
+
+  @override
+  String get accomplished => 'Realizado';
+
+  @override
+  String get notAccomplished => 'No realizado';
 }

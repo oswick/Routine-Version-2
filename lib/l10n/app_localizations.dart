@@ -919,6 +919,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Priority Level'**
   String get priorityLevel;
+
+  /// No description provided for @accomplished.
+  ///
+  /// In en, this message translates to:
+  /// **'Accomplished'**
+  String get accomplished;
+
+  /// No description provided for @notAccomplished.
+  ///
+  /// In en, this message translates to:
+  /// **'Not Accomplished'**
+  String get notAccomplished;
 }
 
 class _AppLocalizationsDelegate

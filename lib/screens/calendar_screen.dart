@@ -62,11 +62,11 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final dayToCheck = DateTime(day.year, day.month, day.day);
-    
+
     if (dayToCheck.isBefore(today)) {
       return [];
     }
-    
+
     return allEvents.where((event) {
       if (event.repeatDays.isNotEmpty) {
         return false;
@@ -78,8 +78,12 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   String _getDayType(DateTime selectedDay) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final selected = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
-    
+    final selected = DateTime(
+      selectedDay.year,
+      selectedDay.month,
+      selectedDay.day,
+    );
+
     if (selected.isBefore(today)) {
       return 'past';
     } else if (selected.isAtSameMomentAs(today)) {
@@ -92,7 +96,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   // ACTUALIZADO: Usar traducciones para los títulos de sección
   String _getSectionTitle(BuildContext context, String dayType, bool isPast) {
     final l10n = AppLocalizations.of(context);
-    
+
     if (dayType == 'today') {
       return isPast ? l10n.earlierToday : l10n.todaysEvents;
     } else if (dayType == 'past') {
@@ -105,7 +109,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context); // Obtener traducciones
-    
+
     return Consumer<EventProvider>(
       builder: (context, eventProvider, child) {
         final allEvents = eventProvider.events;
@@ -115,17 +119,21 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         events.sort((a, b) => a.startTime.compareTo(b.startTime));
 
         final now = DateTime.now();
-        final dayType = _selectedDay != null ? _getDayType(_selectedDay!) : 'today';
-        
+        final dayType = _selectedDay != null
+            ? _getDayType(_selectedDay!)
+            : 'today';
+
         List<Event>? pastEvents = [];
         List<Event>? currentOrFutureEvents = [];
-        
+
         if (dayType == 'today') {
           pastEvents = events
-              .where((e) => e.endTime != null && e.endTime!.isBefore(now)).cast<Event>()
+              .where((e) => e.endTime != null && e.endTime!.isBefore(now))
+              .cast<Event>()
               .toList();
           currentOrFutureEvents = events
-              .where((e) => e.endTime == null || e.endTime!.isAfter(now)).cast<Event>()
+              .where((e) => e.endTime == null || e.endTime!.isAfter(now))
+              .cast<Event>()
               .toList();
         } else if (dayType == 'past') {
           pastEvents = events.cast<Event>();
@@ -153,6 +161,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               : Column(
                   children: [
                     TableCalendar(
+                      locale: Localizations.localeOf(context).toLanguageTag(),
                       headerStyle: HeaderStyle(
                         formatButtonVisible: false,
                         titleCentered: true,
@@ -251,7 +260,11 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                   vertical: 8.0,
                                 ),
                                 child: Text(
-                                  _getSectionTitle(context, dayType, false), // TRADUCIDO
+                                  _getSectionTitle(
+                                    context,
+                                    dayType,
+                                    false,
+                                  ), // TRADUCIDO
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Theme.of(
@@ -306,7 +319,11 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                   vertical: 8.0,
                                 ),
                                 child: Text(
-                                  _getSectionTitle(context, dayType, true), // TRADUCIDO
+                                  _getSectionTitle(
+                                    context,
+                                    dayType,
+                                    true,
+                                  ), // TRADUCIDO
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.grey,
@@ -387,7 +404,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     EventProvider eventProvider,
   ) {
     final l10n = AppLocalizations.of(context); // Obtener traducciones
-    
+
     return showDialog<bool>(
       context: context,
       builder: (context) {
@@ -404,7 +421,10 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 await eventProvider.deleteEvent(event.id, deleteAll: false);
                 Navigator.of(context).pop(true);
               },
-              child: Text(l10n.delete, style: TextStyle(color: Colors.red)), // TRADUCIDO
+              child: Text(
+                l10n.delete,
+                style: TextStyle(color: Colors.red),
+              ), // TRADUCIDO
             ),
             if (event.repeatDays.isNotEmpty)
               TextButton(
@@ -412,7 +432,10 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   await eventProvider.deleteEvent(event.id, deleteAll: true);
                   Navigator.of(context).pop(true);
                 },
-                child: Text(l10n.deleteAll, style: TextStyle(color: Colors.red)), // TRADUCIDO
+                child: Text(
+                  l10n.deleteAll,
+                  style: TextStyle(color: Colors.red),
+                ), // TRADUCIDO
               ),
             TextButton(
               onPressed: () {

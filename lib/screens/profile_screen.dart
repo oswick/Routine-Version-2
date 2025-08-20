@@ -70,13 +70,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text('Sign Out'),
-          content: const Text('Are you sure you want to sign out?'),
+          title: Text(AppLocalizations.of(context).signOut),
+          content: Text(AppLocalizations.of(context).areYouSureSignOut),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context).cancel,
                 style: TextStyle(color: Theme.of(context).colorScheme.primary),
               ),
             ),
@@ -86,7 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _handleAuthAction();
               },
               child: Text(
-                'Sign Out',
+                AppLocalizations.of(context).signOut,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),

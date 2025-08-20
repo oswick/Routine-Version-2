@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/screens/pomodoro_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:myapp/models/event.dart';
@@ -335,7 +336,9 @@ class _EventCardState extends State<EventCard> {
   Widget _buildCompletionIndicator() {
     if (_isRepetitiveEvent()) {
       return Tooltip(
-        message: isCompleted ? "Mark as incomplete" : "Mark as complete",
+        message: isCompleted
+            ? AppLocalizations.of(context).markAsComplete
+            : AppLocalizations.of(context).markAsComplete,
         child: Checkbox(
           shape: const CircleBorder(),
           value: isCompleted,
@@ -347,7 +350,9 @@ class _EventCardState extends State<EventCard> {
       );
     } else {
       return Tooltip(
-        message: isCompleted ? "Mark as incomplete" : "Mark as complete",
+        message: isCompleted
+            ? AppLocalizations.of(context).markAsIncomplete
+            : AppLocalizations.of(context).markAsIncomplete,
         child: Checkbox(
           shape: const CircleBorder(),
           value: isCompleted,
@@ -368,7 +373,7 @@ class _EventCardState extends State<EventCard> {
             Icon(Icons.check_circle, color: Colors.green, size: 16),
             const SizedBox(width: 4),
             Text(
-              'Realizado',
+              AppLocalizations.of(context).accomplished,
               style: TextStyle(color: Colors.green, fontSize: 12),
             ),
           ],
@@ -379,7 +384,7 @@ class _EventCardState extends State<EventCard> {
             Icon(Icons.history, color: Colors.grey, size: 16),
             const SizedBox(width: 4),
             Text(
-              'No realizado',
+              AppLocalizations.of(context).notAccomplished,
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ],
@@ -412,7 +417,16 @@ class _EventCardState extends State<EventCard> {
   }
 
   String _getRepeatDaysText() {
-    final dayNames = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    final dayNames = [
+      '',
+      AppLocalizations.of(context).mon,
+      AppLocalizations.of(context).tue,
+      AppLocalizations.of(context).wed,
+      AppLocalizations.of(context).thu,
+      AppLocalizations.of(context).fri,
+      AppLocalizations.of(context).sat,
+      AppLocalizations.of(context).sun,
+    ];
     final days = widget.event.repeatDays.map((day) => dayNames[day]).join(', ');
     return days;
   }

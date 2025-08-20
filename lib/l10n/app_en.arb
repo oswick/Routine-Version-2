@@ -155,5 +155,8 @@
   "moderate": "Moderate",
   "important": "Important",
   "veryImportant": "Very Important",
-  "none": "None"
+  "none": "None",
+
+  "accomplished": "Accomplished",
+  "notAccomplished": "Not Accomplished"
 }
