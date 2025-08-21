@@ -462,21 +462,21 @@ class _EventCardState extends State<EventCard> {
                         ),
                       ),
                     const SizedBox(width: 12),
-                    if (widget.event.category.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          getCategoryIcon(widget.event.category),
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
+                // En el método build() del EventCard, en la parte donde se muestra el ícono de categoría:
+
+if (widget.event.category.isNotEmpty)
+  Container(
+    padding: const EdgeInsets.all(6),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+      shape: BoxShape.circle,
+    ),
+    child: Icon(
+      getCategoryIcon(widget.event.category, context), // <- Agregar context aquí
+      size: 16,
+      color: Theme.of(context).colorScheme.primary,
+    ),
+  ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(

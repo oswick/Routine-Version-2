@@ -553,7 +553,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                 onPressed: () => _showPriorityDialog(context),
               ),
               _buildOptionButton(
-                icon: getCategoryIcon(_category),
+                icon: getCategoryIcon(_category, context),
                 label: AppLocalizations.of(context).category,
                 isActive: _category.isNotEmpty,
                 onPressed: () => _showCategoryDialog(context),
