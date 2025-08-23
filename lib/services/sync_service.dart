@@ -323,7 +323,7 @@ Future<void> _migrateLocalEventsToUser(String userId) async {
       isOnline: _connectivity.isConnected,
       totalEvents: stats['active'] ?? 0,
       unsyncedEvents: stats['unsynced'] ?? 0,
-      lastSyncTime: null, // TODO: Implementar timestamp del último sync
+      lastSyncTime: null,
     );
   }
 

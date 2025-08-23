@@ -155,5 +155,17 @@
   "none": "Ninguna",
 
   "accomplished": "Realizado",
-  "notAccomplished": "No realizado"
+  "notAccomplished": "No realizado",
+
+  "eventReminder": "Recordatorio de Evento",
+  "eventStartsNow": "El evento comienza ahora",
+  "eventFinished": "¡Evento Terminado!",
+  "eventHasEnded": "El evento \"{eventTitle}\" ha terminado",
+  "eventCompletedCelebration": "¡Tarea completada! 🎉",
+  "eventMarkedIncomplete": "Tarea marcada como incompleta",
+  "excellentWork": "¡Excelente trabajo manteniendo el foco!",
+  "completedExclamation": "¡Completado!",
+  "youHaveCompleted": "¡Has completado \"{eventTitle}\"! 🎉",
+  "reschedulingNotifications": "Reprogramando notificaciones...",
+  "notificationsRescheduled": "Notificaciones reprogramadas"
 }

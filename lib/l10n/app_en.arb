@@ -31,7 +31,7 @@
   "deleteConfirmation": "Do you want to delete this event? This action cannot be undone.",
   "deleteConfirmationTitle": "Delete Event",
   "monday": "Monday",
-  "tuesday": "Tuesday", 
+  "tuesday": "Tuesday",
   "wednesday": "Wednesday",
   "thursday": "Thursday",
   "friday": "Friday",
@@ -68,14 +68,12 @@
   "syncing": "Syncing...",
   "synced": "Synced",
   "error": "Error",
-
   "morning": "Morning",
   "afternoon": "Afternoon",
   "night": "Night",
   "noEventsForThisDay": "No events for this day",
   "tapPlusButtonToAddEvent": "Tap the + button to add your first event",
   "deleteAllDays": "Delete All Days",
-
   "profile": "Profile",
   "settings": "Settings",
   "signInToViewProfile": "Sign in to view your profile",
@@ -90,7 +88,6 @@
   "incompleted": "Incompleted",
   "successRate": "Success Rate",
   "categories": "Categories",
-
   "security": "Security",
   "enableBiometricAuthentication": "Enable Biometric Authentication",
   "biometricNotAvailableDevice": "Biometric authentication is not available on this device",
@@ -111,7 +108,6 @@
   "securityOptions": "Security Options",
   "securityOptionsDescription": "• Auto-lock Timeout: Sets how long the app stays unlocked after being sent to background\n• Immediate Lock: App locks immediately when minimized, regardless of timeout setting",
   "biometricSetupMessage": "To use biometric authentication, please ensure your device supports it and you have enrolled biometric credentials in your device settings.",
-
   "immediately": "Immediately",
   "after1Minute": "After 1 minute",
   "after5Minutes": "After 5 minutes",
@@ -119,14 +115,11 @@
   "after30Minutes": "After 30 minutes",
   "after1Hour": "After 1 hour",
   "never": "Never",
-
   "home": "Home",
-
   "authenticationRequired": "Authentication Required",
   "authenticating": "Authenticating...",
   "authSuccessful": "Authentication successful",
   "authErrorOccurred": "Authentication error occurred",
-
   "editEvent": "Edit Event",
   "newEvent": "New Event",
   "eventTitleRequired": "Event Title *",
@@ -156,7 +149,62 @@
   "important": "Important",
   "veryImportant": "Very Important",
   "none": "None",
-
   "accomplished": "Accomplished",
-  "notAccomplished": "Not Accomplished"
+  "notAccomplished": "Not Accomplished",
+  "eventReminder": "Event Reminder",
+  "@eventReminder": {
+    "description": "Title for event reminder notifications"
+  },
+  "eventStartsNow": "Event starts now",
+  "@eventStartsNow": {
+    "description": "Notification body when event starts"
+  },
+  "eventFinished": "Event Finished!",
+  "@eventFinished": {
+    "description": "Title for event end notifications"
+  },
+  "eventHasEnded": "The event \"{eventTitle}\" has ended",
+  "@eventHasEnded": {
+    "description": "Notification body when event ends",
+    "placeholders": {
+      "eventTitle": {
+        "type": "String",
+        "description": "The title of the event that has ended"
+      }
+    }
+  },
+  "eventCompletedCelebration": "Task completed! 🎉",
+  "@eventCompletedCelebration": {
+    "description": "Message when task is completed"
+  },
+  "eventMarkedIncomplete": "Task marked as incomplete",
+  "@eventMarkedIncomplete": {
+    "description": "Message when task is marked as incomplete"
+  },
+  "excellentWork": "Excellent work maintaining focus!",
+  "@excellentWork": {
+    "description": "Congratulatory message for completing tasks"
+  },
+  "completedExclamation": "Completed!",
+  "@completedExclamation": {
+    "description": "Exclamation when something is completed"
+  },
+  "youHaveCompleted": "You have completed \"{eventTitle}\"! 🎉",
+  "@youHaveCompleted": {
+    "description": "Message when user completes an event",
+    "placeholders": {
+      "eventTitle": {
+        "type": "String",
+        "description": "The title of the completed event"
+      }
+    }
+  },
+  "reschedulingNotifications": "Rescheduling notifications...",
+  "@reschedulingNotifications": {
+    "description": "Status message when rescheduling notifications"
+  },
+  "notificationsRescheduled": "Notifications rescheduled",
+  "@notificationsRescheduled": {
+    "description": "Success message when notifications are rescheduled"
+  }
 }
