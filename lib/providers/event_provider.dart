@@ -1,4 +1,4 @@
-// lib/providers/event_provider.dart - Versión corregida
+// lib/providers/event_provider.dart - VERSIÓN OPTIMIZADA
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -21,22 +21,41 @@ class EventProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
-  // Streams para actualizaciones en tiempo real
+  // 🆕 NUEVO: Timer único para todas las actualizaciones
+  Timer? _globalUpdateTimer;
+  
+  // 🆕 NUEVO: Cache de progreso por evento
+  final Map<String, double> _progressCache = {};
+  
+  // 🆕 NUEVO: Cache de estado de completado por evento+día
+  final Map<String, bool> _completionCache = {};
+
   final StreamController<List<Event>> _eventsController =
       StreamController<List<Event>>.broadcast();
 
-  // Getters
   List<Event> get events => List.unmodifiable(_events);
   bool get isLoading => _isLoading;
   String? get error => _error;
   Stream<List<Event>> get eventsStream => _eventsController.stream;
 
-  // Inicializar el provider
+  // 🆕 NUEVO: Obtener progreso cacheado
+  double getEventProgress(String eventId) {
+    return _progressCache[eventId] ?? 0.0;
+  }
+
+  // 🆕 NUEVO: Obtener estado de completado cacheado
+  bool getEventCompletion(String eventId, DateTime date) {
+    final key = _getCompletionCacheKey(eventId, date);
+    return _completionCache[key] ?? false;
+  }
+
   Future<void> init() async {
     await _syncService.init();
     await loadEvents();
+    
+    // 🆕 NUEVO: Iniciar timer único
+    _startGlobalTimer();
 
-    // Escuchar cambios de autenticación
     _authService.authStateChanges.listen((state) {
       if (state.event == AuthChangeEvent.signedIn) {
         loadEvents();
@@ -46,22 +65,115 @@ class EventProvider extends ChangeNotifier {
     });
   }
 
+  // 🆕 NUEVO: Timer único que actualiza TODO
+  void _startGlobalTimer() {
+    _globalUpdateTimer?.cancel();
+    
+    // Timer que se ejecuta cada 5 segundos
+    _globalUpdateTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      
+      bool needsUpdate = false;
+      final now = DateTime.now();
+      
+      // Actualizar progreso de eventos activos
+      for (final event in _events) {
+        if (event.endTime != null && !event.isCompleted && !event.isDeleted) {
+          final newProgress = _calculateEventProgress(event, now);
+          final currentProgress = _progressCache[event.id] ?? -1.0;
+          
+          // Solo actualizar si cambió significativamente (1% de diferencia)
+          if ((newProgress - currentProgress).abs() > 0.01) {
+            _progressCache[event.id] = newProgress;
+            needsUpdate = true;
+          }
+        }
+      }
+      
+      if (needsUpdate) {
+        notifyListeners();
+      }
+    });
+  }
+
+  // 🆕 NUEVO: Calcular progreso sin crear timer
+  double _calculateEventProgress(Event event, DateTime now) {
+    if (event.endTime == null) return 0.0;
+
+    if (event.repeatDays.isNotEmpty) {
+      final today = now.weekday;
+      if (!event.repeatDays.contains(today)) return 0.0;
+
+      final todayStart = DateTime(
+        now.year, now.month, now.day,
+        event.startTime.hour, event.startTime.minute,
+      );
+      final todayEnd = DateTime(
+        now.year, now.month, now.day,
+        event.endTime!.hour, event.endTime!.minute,
+      );
+
+      if (now.isBefore(todayStart)) return 0.0;
+      if (now.isAfter(todayEnd)) return 1.0;
+
+      final total = todayEnd.difference(todayStart).inSeconds;
+      final elapsed = now.difference(todayStart).inSeconds;
+      return (elapsed / total).clamp(0.0, 1.0);
+    } else {
+      if (now.isBefore(event.startTime)) return 0.0;
+      if (now.isAfter(event.endTime!)) return 1.0;
+
+      final total = event.endTime!.difference(event.startTime).inSeconds;
+      final elapsed = now.difference(event.startTime).inSeconds;
+      return (elapsed / total).clamp(0.0, 1.0);
+    }
+  }
+
+  String _getCompletionCacheKey(String eventId, DateTime date) {
+    return '$eventId-${date.year}-${date.month}-${date.day}';
+  }
+
+  // 🆕 NUEVO: Actualizar estado de completado
+  void updateEventCompletion(Event event, bool completed, DateTime date) {
+    final key = _getCompletionCacheKey(event.id, date);
+    _completionCache[key] = completed;
+    
+    // Si es evento único, actualizar el evento
+    if (event.repeatDays.isEmpty) {
+      final updatedEvent = event.copyWith(isCompleted: completed);
+      updateEvent(updatedEvent);
+    }
+    
+    notifyListeners();
+  }
+
   Future<void> loadEvents() async {
     _setLoading(true);
     try {
       final loadedEvents = await _syncService.getEvents();
       _updateEvents(loadedEvents);
+      
+      // Actualizar cache de progreso inicial
+      final now = DateTime.now();
+      for (final event in loadedEvents) {
+        if (event.endTime != null && !event.isCompleted) {
+          _progressCache[event.id] = _calculateEventProgress(event, now);
+        }
+      }
+      
       _error = null;
     } catch (e) {
       _error = e.toString();
       debugPrint('Error loading events: $e');
     } finally {
       _setLoading(false);
-      notifyListeners(); // Notificar a los oyentes
+      notifyListeners();
     }
   }
 
-  // Agregar evento
   Future<void> addEvent(Event event) async {
     try {
       final userId = _authService.currentUserId ?? 'local_user';
@@ -71,48 +183,48 @@ class EventProvider extends ChangeNotifier {
         needsSync: _authService.isAuthenticated,
       );
 
-      // Optimistic update - agregar inmediatamente a la UI
       _events.add(newEvent);
       _notifyChanges();
 
-      // Guardar en el backend
       await _syncService.saveEvent(newEvent);
 
-      // Programar notificaciones
       if (!newEvent.isCompleted) {
         _scheduleEventNotifications(newEvent);
       }
     } catch (e) {
-      // En caso de error, recargar para mantener consistencia
       await loadEvents();
       _error = e.toString();
       rethrow;
     }
   }
 
-  // MÉTODO CORREGIDO: Actualizar evento sin recargar toda la lista
+  // OPTIMIZADO: Sin recargar toda la lista
   Future<void> updateEvent(Event updatedEvent) async {
     try {
       final index = _events.indexWhere((e) => e.id == updatedEvent.id);
       if (index == -1) return;
 
       final oldEvent = _events[index];
-
-      // Optimistic update - actualizar solo el evento específico
       _events[index] = updatedEvent;
+      
+      // Actualizar cache de progreso
+      if (updatedEvent.endTime != null) {
+        _progressCache[updatedEvent.id] = _calculateEventProgress(
+          updatedEvent, 
+          DateTime.now()
+        );
+      }
+      
       _notifyChanges();
 
-      // Guardar en el backend en el fondo
       _syncService.saveEvent(updatedEvent).catchError((e) {
-        debugPrint('Error saving event to backend: $e');
-        // En caso de error, restaurar el evento anterior
+        debugPrint('Error saving event: $e');
         if (mounted && index < _events.length) {
           _events[index] = oldEvent;
           _notifyChanges();
         }
       });
 
-      // Actualizar notificaciones
       _cancelAllEventNotifications(oldEvent);
       if (!updatedEvent.isCompleted) {
         _scheduleEventNotifications(updatedEvent);
@@ -123,22 +235,22 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  // Eliminar evento
   Future<void> deleteEvent(String eventId, {bool deleteAll = false}) async {
     try {
       final eventIndex = _events.indexWhere((e) => e.id == eventId);
       if (eventIndex == -1) return;
 
       final event = _events[eventIndex];
-
-      // Optimistic update
       _events.removeAt(eventIndex);
+      
+      // Limpiar cache
+      _progressCache.remove(eventId);
+      _completionCache.removeWhere((key, _) => key.startsWith(eventId));
+      
       _notifyChanges();
 
-      // Cancelar notificaciones
       _cancelAllEventNotifications(event);
 
-      // Eliminar del backend
       if (deleteAll) {
         await _syncService.deleteAllEventInstances(eventId);
       } else {
@@ -151,18 +263,13 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  // Obtener eventos para un día específico
   List<Event> getEventsForDay(DateTime day) {
     final Set<String> seenIds = {};
     return _events.where((event) {
-      // Evitar duplicados
-      if (seenIds.contains(event.id)) {
-        return false;
-      }
+      if (seenIds.contains(event.id)) return false;
 
       bool shouldInclude = false;
 
-      // Para eventos repetitivos
       if (event.repeatDays.isNotEmpty) {
         final eventCreationDate = DateTime(
           event.startTime.year,
@@ -171,13 +278,10 @@ class EventProvider extends ChangeNotifier {
         );
         final queryDate = DateTime(day.year, day.month, day.day);
 
-        shouldInclude =
-            event.repeatDays.contains(day.weekday) &&
+        shouldInclude = event.repeatDays.contains(day.weekday) &&
             (queryDate.isAtSameMomentAs(eventCreationDate) ||
                 queryDate.isAfter(eventCreationDate));
-      }
-      // Para eventos únicos (no repetitivos)
-      else {
+      } else {
         shouldInclude = _isSameDay(event.startTime, day);
       }
 
@@ -189,7 +293,6 @@ class EventProvider extends ChangeNotifier {
     }).toList();
   }
 
-  // Métodos privados
   void _updateEvents(List<Event> newEvents) {
     _events = newEvents;
     _notifyChanges();
@@ -197,6 +300,8 @@ class EventProvider extends ChangeNotifier {
 
   void _clearEvents() {
     _events = [];
+    _progressCache.clear();
+    _completionCache.clear();
     _notifyChanges();
   }
 
@@ -216,22 +321,17 @@ class EventProvider extends ChangeNotifier {
         date1.day == date2.day;
   }
 
-  // Helper para verificar si el provider está montado
   bool get mounted => !_eventsController.isClosed;
 
-  // Métodos de notificaciones
-  // Métodos de notificaciones - VERSIÓN MEJORADA
+  // Métodos de notificaciones (sin cambios)
   void _scheduleEventNotifications(Event event) async {
-    // Cancelar notificaciones existentes primero
     _cancelAllEventNotifications(event);
     
     if (event.repeatDays.isNotEmpty) {
-      // Para eventos repetitivos, programar para cada día de la semana
       for (int day in event.repeatDays) {
         await _scheduleNotificationForDay(event, day);
       }
     } else {
-      // Para eventos únicos
       await _scheduleSingleEventNotification(event);
     }
   }
@@ -239,7 +339,6 @@ class EventProvider extends ChangeNotifier {
   Future<void> _scheduleSingleEventNotification(Event event) async {
     final now = DateTime.now();
     
-    // Solo programar si el evento es en el futuro
     if (event.startTime.isAfter(now)) {
       await NotificationService().scheduleNotification(
         event.id.hashCode,
@@ -249,7 +348,6 @@ class EventProvider extends ChangeNotifier {
         null,
       );
 
-      // Programar notificación de fin si existe
       if (event.endTime != null && event.endTime!.isAfter(now)) {
         await NotificationService().scheduleEndNotification(
           event.id.hashCode,
@@ -259,15 +357,13 @@ class EventProvider extends ChangeNotifier {
           null,
         );
       }
-      
     }
   }
 
-   Future<void> _scheduleNotificationForDay(Event event, int day) async {
+  Future<void> _scheduleNotificationForDay(Event event, int day) async {
     final now = DateTime.now();
     final nextNotificationTime = _calculateNotificationTime(day, event.startTime);
     
-    // Solo programar si es en el futuro
     if (nextNotificationTime.isAfter(now)) {
       final notificationId = event.id.hashCode + day;
       
@@ -279,7 +375,6 @@ class EventProvider extends ChangeNotifier {
         null,
       );
 
-      // Programar notificación de fin si existe
       if (event.endTime != null) {
         final nextEndTime = _calculateEndNotificationTime(day, event.endTime!);
         if (nextEndTime.isAfter(now)) {
@@ -292,27 +387,22 @@ class EventProvider extends ChangeNotifier {
           );
         }
       }
-      
     }
   }
-void _cancelAllEventNotifications(Event event) {
-    // Cancelar notificación principal
+
+  void _cancelAllEventNotifications(Event event) {
     NotificationService().flutterLocalNotificationsPlugin.cancel(
       event.id.hashCode,
     );
-    // Cancelar notificación de fin
     NotificationService().flutterLocalNotificationsPlugin.cancel(
       event.id.hashCode + 10000,
     );
 
-    // Para eventos repetitivos, cancelar todas las notificaciones de cada día
     if (event.repeatDays.isNotEmpty) {
       for (int day in event.repeatDays) {
-        // Notificación de inicio
         NotificationService().flutterLocalNotificationsPlugin.cancel(
           event.id.hashCode + day,
         );
-        // Notificación de fin
         NotificationService().flutterLocalNotificationsPlugin.cancel(
           event.id.hashCode + day + 10000,
         );
@@ -320,24 +410,19 @@ void _cancelAllEventNotifications(Event event) {
     }
   }
 
- DateTime _calculateNotificationTime(int day, DateTime startTime) {
+  DateTime _calculateNotificationTime(int day, DateTime startTime) {
     DateTime now = DateTime.now();
     int daysUntilNext = (day - now.weekday + 7) % 7;
     
-    // Si es hoy, verificar si ya pasó la hora
     if (daysUntilNext == 0) {
       final todayAtEventTime = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        startTime.hour,
-        startTime.minute,
+        now.year, now.month, now.day,
+        startTime.hour, startTime.minute,
       );
       
       if (todayAtEventTime.isAfter(now)) {
         return todayAtEventTime;
       } else {
-        // Si ya pasó hoy, programar para la próxima semana
         daysUntilNext = 7;
       }
     }
@@ -356,20 +441,15 @@ void _cancelAllEventNotifications(Event event) {
     DateTime now = DateTime.now();
     int daysUntilNext = (day - now.weekday + 7) % 7;
     
-    // Si es hoy, verificar si ya pasó la hora
     if (daysUntilNext == 0) {
       final todayAtEventTime = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        endTime.hour,
-        endTime.minute,
+        now.year, now.month, now.day,
+        endTime.hour, endTime.minute,
       );
       
       if (todayAtEventTime.isAfter(now)) {
         return todayAtEventTime;
       } else {
-        // Si ya pasó hoy, programar para la próxima semana
         daysUntilNext = 7;
       }
     }
@@ -384,7 +464,6 @@ void _cancelAllEventNotifications(Event event) {
     );
   }
 
- // NUEVO método para reprogramar todas las notificaciones
   Future<void> rescheduleAllNotifications() async {
     print('🔄 Reprogramando todas las notificaciones...');
     
@@ -399,7 +478,10 @@ void _cancelAllEventNotifications(Event event) {
   
   @override
   void dispose() {
+    _globalUpdateTimer?.cancel();
     _eventsController.close();
+    _progressCache.clear();
+    _completionCache.clear();
     super.dispose();
   }
 }

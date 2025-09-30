@@ -84,7 +84,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get markAsIncomplete => 'Mark as incomplete';
 
   @override
-  String get deleteConfirmation => 'Do you want to delete this event? This action cannot be undone.';
+  String get deleteConfirmation =>
+      'Do you want to delete this event? This action cannot be undone.';
 
   @override
   String get deleteConfirmationTitle => 'Delete Event';
@@ -168,13 +169,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authenticateToAccess => 'Authenticate to access the app';
 
   @override
-  String get biometricNotAvailable => 'Biometric authentication is not available on this device.';
+  String get biometricNotAvailable =>
+      'Biometric authentication is not available on this device.';
 
   @override
-  String get deviceNotSupported => 'This device does not support biometric authentication.';
+  String get deviceNotSupported =>
+      'This device does not support biometric authentication.';
 
   @override
-  String get noBiometricEnrolled => 'No biometric methods are enrolled on this device. Please set up fingerprint, face ID, or other biometric authentication in your device settings.';
+  String get noBiometricEnrolled =>
+      'No biometric methods are enrolled on this device. Please set up fingerprint, face ID, or other biometric authentication in your device settings.';
 
   @override
   String get signOut => 'Sign Out';
@@ -216,7 +220,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noEventsForThisDay => 'No events for this day';
 
   @override
-  String get tapPlusButtonToAddEvent => 'Tap the + button to add your first event';
+  String get tapPlusButtonToAddEvent =>
+      'Tap the + button to add your first event';
 
   @override
   String get deleteAllDays => 'Delete All Days';
@@ -231,13 +236,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signInToViewProfile => 'Sign in to view your profile';
 
   @override
-  String get accessStatisticsAndSync => 'Access your statistics and sync your events across devices';
+  String get accessStatisticsAndSync =>
+      'Access your statistics and sync your events across devices';
 
   @override
   String get noEventsYet => 'No events yet';
 
   @override
-  String get startByCreatingFirstEvent => 'Start by creating your first event in the Home tab';
+  String get startByCreatingFirstEvent =>
+      'Start by creating your first event in the Home tab';
 
   @override
   String get areYouSureSignOut => 'Are you sure you want to sign out?';
@@ -270,13 +277,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get enableBiometricAuthentication => 'Enable Biometric Authentication';
 
   @override
-  String get biometricNotAvailableDevice => 'Biometric authentication is not available on this device';
+  String get biometricNotAvailableDevice =>
+      'Biometric authentication is not available on this device';
 
   @override
-  String get appWillRequireBiometric => 'App will require biometric authentication on startup';
+  String get appWillRequireBiometric =>
+      'App will require biometric authentication on startup';
 
   @override
-  String get biometricEnabledSuccessfully => 'Biometric authentication enabled successfully!';
+  String get biometricEnabledSuccessfully =>
+      'Biometric authentication enabled successfully!';
 
   @override
   String get authenticationFailed => 'Authentication failed.';
@@ -285,7 +295,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get biometricDisabled => 'Biometric authentication disabled.';
 
   @override
-  String get authRequiredToChangeSettings => 'Authentication required to change this setting.';
+  String get authRequiredToChangeSettings =>
+      'Authentication required to change this setting.';
 
   @override
   String get autoLockTimeout => 'Auto-lock Timeout';
@@ -300,28 +311,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get immediateLock => 'Immediate Lock';
 
   @override
-  String get appLocksImmediately => 'App locks immediately when sent to background';
+  String get appLocksImmediately =>
+      'App locks immediately when sent to background';
 
   @override
-  String get appUsesTimeoutSetting => 'App uses timeout setting when sent to background';
+  String get appUsesTimeoutSetting =>
+      'App uses timeout setting when sent to background';
 
   @override
   String get autoLockTimeoutSetTo => 'Auto-lock timeout set to';
 
   @override
-  String get immediateEnabledMessage => 'Immediate lock enabled - app will lock when sent to background';
+  String get immediateEnabledMessage =>
+      'Immediate lock enabled - app will lock when sent to background';
 
   @override
-  String get immediateDisabledMessage => 'Immediate lock disabled - timeout will be used instead';
+  String get immediateDisabledMessage =>
+      'Immediate lock disabled - timeout will be used instead';
 
   @override
   String get securityOptions => 'Security Options';
 
   @override
-  String get securityOptionsDescription => '• Auto-lock Timeout: Sets how long the app stays unlocked after being sent to background\n• Immediate Lock: App locks immediately when minimized, regardless of timeout setting';
+  String get securityOptionsDescription =>
+      '• Auto-lock Timeout: Sets how long the app stays unlocked after being sent to background\n• Immediate Lock: App locks immediately when minimized, regardless of timeout setting';
 
   @override
-  String get biometricSetupMessage => 'To use biometric authentication, please ensure your device supports it and you have enrolled biometric credentials in your device settings.';
+  String get biometricSetupMessage =>
+      'To use biometric authentication, please ensure your device supports it and you have enrolled biometric credentials in your device settings.';
 
   @override
   String get immediately => 'Immediately';

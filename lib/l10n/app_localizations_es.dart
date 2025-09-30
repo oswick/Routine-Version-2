@@ -84,7 +84,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get markAsIncomplete => 'Marcar como incompleto';
 
   @override
-  String get deleteConfirmation => '¿Quieres eliminar este evento? Esta acción no se puede deshacer.';
+  String get deleteConfirmation =>
+      '¿Quieres eliminar este evento? Esta acción no se puede deshacer.';
 
   @override
   String get deleteConfirmationTitle => 'Eliminar Evento';
@@ -168,13 +169,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get authenticateToAccess => 'Autentícate para acceder a la aplicación';
 
   @override
-  String get biometricNotAvailable => 'La autenticación biométrica no está disponible en este dispositivo.';
+  String get biometricNotAvailable =>
+      'La autenticación biométrica no está disponible en este dispositivo.';
 
   @override
-  String get deviceNotSupported => 'Este dispositivo no es compatible con autenticación biométrica.';
+  String get deviceNotSupported =>
+      'Este dispositivo no es compatible con autenticación biométrica.';
 
   @override
-  String get noBiometricEnrolled => 'No hay métodos biométricos registrados en este dispositivo. Por favor configura huella digital, Face ID u otra autenticación biométrica en la configuración de tu dispositivo.';
+  String get noBiometricEnrolled =>
+      'No hay métodos biométricos registrados en este dispositivo. Por favor configura huella digital, Face ID u otra autenticación biométrica en la configuración de tu dispositivo.';
 
   @override
   String get signOut => 'Cerrar Sesión';
@@ -216,7 +220,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get noEventsForThisDay => 'No hay eventos para este día';
 
   @override
-  String get tapPlusButtonToAddEvent => 'Toca el botón + para agregar tu primer evento';
+  String get tapPlusButtonToAddEvent =>
+      'Toca el botón + para agregar tu primer evento';
 
   @override
   String get deleteAllDays => 'Eliminar Todos los Días';
@@ -231,13 +236,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get signInToViewProfile => 'Inicia sesión para ver tu perfil';
 
   @override
-  String get accessStatisticsAndSync => 'Accede a tus estadísticas y sincroniza tus eventos en todos los dispositivos';
+  String get accessStatisticsAndSync =>
+      'Accede a tus estadísticas y sincroniza tus eventos en todos los dispositivos';
 
   @override
   String get noEventsYet => 'Aún no hay eventos';
 
   @override
-  String get startByCreatingFirstEvent => 'Comienza creando tu primer evento en la pestaña Inicio';
+  String get startByCreatingFirstEvent =>
+      'Comienza creando tu primer evento en la pestaña Inicio';
 
   @override
   String get areYouSureSignOut => '¿Estás seguro de que quieres cerrar sesión?';
@@ -267,16 +274,20 @@ class AppLocalizationsEs extends AppLocalizations {
   String get security => 'Seguridad';
 
   @override
-  String get enableBiometricAuthentication => 'Habilitar Autenticación Biométrica';
+  String get enableBiometricAuthentication =>
+      'Habilitar Autenticación Biométrica';
 
   @override
-  String get biometricNotAvailableDevice => 'La autenticación biométrica no está disponible en este dispositivo';
+  String get biometricNotAvailableDevice =>
+      'La autenticación biométrica no está disponible en este dispositivo';
 
   @override
-  String get appWillRequireBiometric => 'La aplicación requerirá autenticación biométrica al iniciar';
+  String get appWillRequireBiometric =>
+      'La aplicación requerirá autenticación biométrica al iniciar';
 
   @override
-  String get biometricEnabledSuccessfully => '¡Autenticación biométrica habilitada exitosamente!';
+  String get biometricEnabledSuccessfully =>
+      '¡Autenticación biométrica habilitada exitosamente!';
 
   @override
   String get authenticationFailed => 'Autenticación fallida.';
@@ -285,7 +296,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get biometricDisabled => 'Autenticación biométrica deshabilitada.';
 
   @override
-  String get authRequiredToChangeSettings => 'Se requiere autenticación para cambiar esta configuración.';
+  String get authRequiredToChangeSettings =>
+      'Se requiere autenticación para cambiar esta configuración.';
 
   @override
   String get autoLockTimeout => 'Tiempo de Bloqueo Automático';
@@ -300,28 +312,35 @@ class AppLocalizationsEs extends AppLocalizations {
   String get immediateLock => 'Bloqueo Inmediato';
 
   @override
-  String get appLocksImmediately => 'La aplicación se bloquea inmediatamente al enviarla al fondo';
+  String get appLocksImmediately =>
+      'La aplicación se bloquea inmediatamente al enviarla al fondo';
 
   @override
-  String get appUsesTimeoutSetting => 'La aplicación usa la configuración de tiempo al enviarla al fondo';
+  String get appUsesTimeoutSetting =>
+      'La aplicación usa la configuración de tiempo al enviarla al fondo';
 
   @override
-  String get autoLockTimeoutSetTo => 'Tiempo de bloqueo automático configurado a';
+  String get autoLockTimeoutSetTo =>
+      'Tiempo de bloqueo automático configurado a';
 
   @override
-  String get immediateEnabledMessage => 'Bloqueo inmediato habilitado - la aplicación se bloqueará al enviarla al fondo';
+  String get immediateEnabledMessage =>
+      'Bloqueo inmediato habilitado - la aplicación se bloqueará al enviarla al fondo';
 
   @override
-  String get immediateDisabledMessage => 'Bloqueo inmediato deshabilitado - se usará el tiempo de espera en su lugar';
+  String get immediateDisabledMessage =>
+      'Bloqueo inmediato deshabilitado - se usará el tiempo de espera en su lugar';
 
   @override
   String get securityOptions => 'Opciones de Seguridad';
 
   @override
-  String get securityOptionsDescription => '• Tiempo de Bloqueo Automático: Establece cuánto tiempo permanece desbloqueada la aplicación después de enviarla al fondo\n• Bloqueo Inmediato: La aplicación se bloquea inmediatamente cuando se minimiza, independientemente de la configuración de tiempo';
+  String get securityOptionsDescription =>
+      '• Tiempo de Bloqueo Automático: Establece cuánto tiempo permanece desbloqueada la aplicación después de enviarla al fondo\n• Bloqueo Inmediato: La aplicación se bloquea inmediatamente cuando se minimiza, independientemente de la configuración de tiempo';
 
   @override
-  String get biometricSetupMessage => 'Para usar la autenticación biométrica, por favor asegúrate de que tu dispositivo la soporte y que hayas registrado credenciales biométricas en la configuración de tu dispositivo.';
+  String get biometricSetupMessage =>
+      'Para usar la autenticación biométrica, por favor asegúrate de que tu dispositivo la soporte y que hayas registrado credenciales biométricas en la configuración de tu dispositivo.';
 
   @override
   String get immediately => 'Inmediatamente';
@@ -408,7 +427,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pleaseEnterTitle => 'Por favor ingresa un título para el evento';
 
   @override
-  String get endTimeAfterStart => 'La hora de fin debe ser después de la hora de inicio';
+  String get endTimeAfterStart =>
+      'La hora de fin debe ser después de la hora de inicio';
 
   @override
   String get errorSavingEvent => 'Error al guardar el evento';
