@@ -314,14 +314,20 @@ class _MainHomeScreenState extends State<MainHomeScreen>
           MonthlyCalendarScreen(
             fromHomeScreen: true,
             events: eventProvider.events,
-            onAddEvent: (Event event) {
-              eventProvider.addEvent(event);
-            },
+            onAddEvent: (Event event) => eventProvider.addEvent(event),
             onUpdateEvent: (int index, Event event) {
-              eventProvider.updateEvent(event);
+              // Usar index para localizar el evento y actualizarlo
+              final events = eventProvider.events;
+              if (index >= 0 && index < events.length) {
+                eventProvider.updateEvent(event);
+              }
             },
-            onDeleteEvent: (int index, bool deleteAll) {
-              eventProvider.deleteEvent(deleteAll as String);
+            onDeleteEvent: (int index, bool deleteAll) async {
+              final events = eventProvider.events;
+              if (index >= 0 && index < events.length) {
+                final event = events[index];
+                await eventProvider.deleteEvent(event.id, deleteAll: deleteAll);
+              }
             },
           ),
           const ProfileScreen(),

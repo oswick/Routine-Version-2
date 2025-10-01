@@ -1,4 +1,4 @@
-import 'dart:async';
+// lib/widgets/event_card.dart - VERSIÓN OPTIMIZADA SIN TIMERS
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/l10n/app_localizations.dart';
@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:myapp/models/event.dart';
 import 'package:myapp/screens/add_event_screen.dart';
 import 'package:myapp/utils/event_utils.dart';
+import 'package:provider/provider.dart';
+import 'package:myapp/providers/event_provider.dart';
 
 class EventCard extends StatefulWidget {
   final Event event;
@@ -26,125 +28,52 @@ class EventCard extends StatefulWidget {
 
 class _EventCardState extends State<EventCard> {
   late bool isCompleted;
-  Timer? _timer;
-  Timer? _progressTimer; // Timer separado para el progreso
   String? _currentDateKey;
-  double _currentProgress = 0.0; // Cache del progreso actual
 
   @override
   void initState() {
     super.initState();
     _currentDateKey = _getDateKey();
-    isCompleted = widget.event.isCompleted;
     _loadCompletedStatus();
-    _checkAndUpdateCompletedStatus();
-    _startTimers();
   }
 
   @override
   void didUpdateWidget(EventCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Verificar si cambió el día
     final newDateKey = _getDateKey();
     if (_currentDateKey != newDateKey) {
       _currentDateKey = newDateKey;
-      _loadCompletedStatus(); // Recargar el estado para el nuevo día
+      _loadCompletedStatus();
     }
-    // Solo actualizar si realmente cambió algo importante del evento
-    if (oldWidget.event.id != widget.event.id ||
-        oldWidget.event.endTime != widget.event.endTime ||
-        oldWidget.event.startTime != widget.event.startTime ||
-        oldWidget.event.isCompleted != widget.event.isCompleted) {
-      // Actualizar estado de completado si cambió
-      if (oldWidget.event.isCompleted != widget.event.isCompleted) {
-        isCompleted = widget.event.isCompleted;
-      }
-      _checkAndUpdateCompletedStatus();
-      _updateProgressTimer(); // Reiniciar timer de progreso si cambiaron las horas
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _progressTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startTimers() {
-    // Timer principal para verificaciones cada minuto
-    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted) {
-        final newDateKey = _getDateKey();
-        // Si cambió el día, recargar el estado
-        if (_currentDateKey != newDateKey) {
-          _currentDateKey = newDateKey;
-          _loadCompletedStatus();
-        }
-        _checkAndUpdateCompletedStatus();
-      }
-    });
-
-    // Inicializar el timer de progreso
-    _updateProgressTimer();
-  }
-
-  void _updateProgressTimer() {
-    _progressTimer?.cancel();
-
-    // Solo crear timer de progreso si debe mostrar el indicador
-    if (_shouldShowProgressIndicator()) {
-      _progressTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (mounted && _shouldShowProgressIndicator()) {
-          final newProgress = _calculateProgress();
-          if (newProgress != _currentProgress) {
-            setState(() {
-              _currentProgress = newProgress;
-            });
-          }
-        } else {
-          // Si ya no debe mostrar el progreso, cancelar el timer
-          timer.cancel();
-        }
-      });
-
-      // Actualizar progreso inicial
-      _currentProgress = _calculateProgress();
+    
+    if (oldWidget.event.isCompleted != widget.event.isCompleted) {
+      isCompleted = widget.event.isCompleted;
     }
   }
 
   Future<void> _loadCompletedStatus() async {
     if (_isRepetitiveEvent()) {
-      // Para eventos repetitivos, cargar el estado específico del día actual
-      final prefs = await SharedPreferences.getInstance();
-      final key = _getCompletionKey();
-      final completedStatus =
-          prefs.getBool(key) ?? false; // Default false para nuevos días
+      final provider = Provider.of<EventProvider>(context, listen: false);
       if (mounted) {
         setState(() {
-          isCompleted = completedStatus;
+          isCompleted = provider.getEventCompletion(
+            widget.event.id, 
+            DateTime.now()
+          );
         });
       }
     } else {
-      // Para eventos únicos, usar el estado del evento directamente
       if (mounted) {
         setState(() {
           isCompleted = widget.event.isCompleted;
         });
       }
     }
-
-    // Actualizar timer de progreso después de cargar el estado
-    _updateProgressTimer();
   }
 
   String _getDateKey() {
     final now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
-
-  String _getCompletionKey() {
-    return 'event_${widget.event.id}_completion_$_currentDateKey';
   }
 
   bool _isRepetitiveEvent() {
@@ -153,15 +82,16 @@ class _EventCardState extends State<EventCard> {
 
   Future<void> _saveCompletedStatus(bool completed) async {
     if (_isRepetitiveEvent()) {
-      // Para eventos repetitivos, guardar el estado específico del día
       final prefs = await SharedPreferences.getInstance();
-      final key = _getCompletionKey();
+      final key = 'event_${widget.event.id}_completion_$_currentDateKey';
       await prefs.setBool(key, completed);
-
-      // Opcional: limpiar estados antiguos (más de 30 días)
+      
+      // Actualizar cache del provider
+      final provider = Provider.of<EventProvider>(context, listen: false);
+      provider.updateEventCompletion(widget.event, completed, DateTime.now());
+      
       _cleanOldCompletionStates();
     } else {
-      // Para eventos únicos, actualizar el evento directamente
       final updatedEvent = widget.event.copyWith(isCompleted: completed);
       widget.onUpdateEvent(updatedEvent);
     }
@@ -195,91 +125,21 @@ class _EventCardState extends State<EventCard> {
     }
   }
 
-  double _calculateProgress() {
-    if (widget.event.endTime == null) {
-      return 0.0;
-    }
-
-    final now = DateTime.now();
-
-    if (_isRepetitiveEvent()) {
-      // Para eventos repetitivos, calcular el progreso para hoy
-      final today = now.weekday;
-      if (!widget.event.repeatDays.contains(today)) {
-        return 0.0;
-      }
-
-      final todayStart = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        widget.event.startTime.hour,
-        widget.event.startTime.minute,
-      );
-      final todayEnd = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        widget.event.endTime!.hour,
-        widget.event.endTime!.minute,
-      );
-
-      if (now.isBefore(todayStart)) {
-        return 0.0;
-      }
-      if (now.isAfter(todayEnd)) {
-        return 1.0;
-      }
-
-      final totalDuration = todayEnd.difference(todayStart).inSeconds;
-      final elapsedDuration = now.difference(todayStart).inSeconds;
-      return elapsedDuration / totalDuration;
-    } else {
-      // Para eventos únicos, usar la lógica original
-      final startTime = widget.event.startTime;
-      final endTime = widget.event.endTime!;
-
-      if (now.isBefore(startTime)) {
-        return 0.0;
-      }
-      if (now.isAfter(endTime)) {
-        return 1.0;
-      }
-
-      final totalDuration = endTime.difference(startTime).inSeconds;
-      final elapsedDuration = now.difference(startTime).inSeconds;
-      return elapsedDuration / totalDuration;
-    }
-  }
-
   bool _shouldShowProgressIndicator() {
     final now = DateTime.now();
-    final hasEndTime = widget.event.endTime != null;
-    if (!hasEndTime) {
-      return false;
-    }
+    if (widget.event.endTime == null) return false;
 
     if (_isRepetitiveEvent()) {
-      // Para eventos repetitivos, verificar si hoy es uno de los días de repetición
       final today = now.weekday;
-      if (!widget.event.repeatDays.contains(today)) {
-        return false;
-      }
+      if (!widget.event.repeatDays.contains(today)) return false;
 
-      // Crear las horas de inicio y fin para hoy
       final todayStart = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        widget.event.startTime.hour,
-        widget.event.startTime.minute,
+        now.year, now.month, now.day,
+        widget.event.startTime.hour, widget.event.startTime.minute,
       );
       final todayEnd = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        widget.event.endTime!.hour,
-        widget.event.endTime!.minute,
+        now.year, now.month, now.day,
+        widget.event.endTime!.hour, widget.event.endTime!.minute,
       );
 
       return now.isAfter(todayStart) && now.isBefore(todayEnd);
@@ -289,47 +149,17 @@ class _EventCardState extends State<EventCard> {
     }
   }
 
-  void _checkAndUpdateCompletedStatus() {
-    final now = DateTime.now();
-    final hasEndTime = widget.event.endTime != null;
-
-    if (_isRepetitiveEvent()) {
-      // Para eventos repetitivos, no hacer cambios automáticos
-      // El usuario debe marcarlos manualmente cada día
-      return;
-    }
-
-    // Para eventos únicos, mantener la lógica original
-    if (hasEndTime) {
-      final hasEnded = now.isAfter(widget.event.endTime!);
-      final isCurrentlyInProgress =
-          now.isAfter(widget.event.startTime) &&
-          now.isBefore(widget.event.endTime!);
-
-      if (hasEnded && !isCompleted) {
-        // Si no quieres marcar como hecho automáticamente, comenta la siguiente línea
-        // _updateCompletedStatus(true);
-      } else if (isCompleted && isCurrentlyInProgress) {
-        _updateCompletedStatus(false);
-      }
-    }
-  }
-
   void _updateCompletedStatus(bool value) {
     if (mounted) {
       setState(() {
         isCompleted = value;
         _saveCompletedStatus(value);
 
-        // Solo actualizar el evento si no es repetitivo
         if (!_isRepetitiveEvent()) {
           final updatedEvent = widget.event.copyWith(isCompleted: value);
           widget.onUpdateEvent(updatedEvent);
         }
       });
-
-      // Actualizar timer de progreso cuando cambia el estado de completado
-      _updateProgressTimer();
     }
   }
 
@@ -342,10 +172,7 @@ class _EventCardState extends State<EventCard> {
         child: Checkbox(
           shape: const CircleBorder(),
           value: isCompleted,
-          onChanged: (value) {
-            // Removido el condicional widget.pastEvent
-            _updateCompletedStatus(value!);
-          },
+          onChanged: (value) => _updateCompletedStatus(value!),
         ),
       );
     } else {
@@ -356,10 +183,7 @@ class _EventCardState extends State<EventCard> {
         child: Checkbox(
           shape: const CircleBorder(),
           value: isCompleted,
-          onChanged: (value) {
-            // Removido el condicional widget.pastEvent
-            _updateCompletedStatus(value!);
-          },
+          onChanged: (value) => _updateCompletedStatus(value!),
         ),
       );
     }
@@ -436,176 +260,157 @@ class _EventCardState extends State<EventCard> {
     bool isPast = widget.pastEvent;
     double cardOpacity = isPast ? 0.5 : (isCompleted ? 0.6 : 1.0);
 
-    return GestureDetector(
-      onTap: () {
-        _showEventDetails(context);
-      },
-      child: Card(
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Opacity(
-          opacity: cardOpacity,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    if (widget.event.importance != null)
-                      Container(
-                        width: 4,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: getImportanceColor(widget.event.importance!),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    const SizedBox(width: 12),
+    // 🆕 Consumir solo cuando hay cambios en el provider
+    return Consumer<EventProvider>(
+      builder: (context, provider, child) {
+        // Obtener progreso del cache del provider
+        final progress = provider.getEventProgress(widget.event.id);
+        final showProgress = _shouldShowProgressIndicator();
 
-                    // En el método build() del EventCard, en la parte donde se muestra el ícono de categoría:
-                    if (widget.event.category.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          getCategoryIcon(
-                            widget.event.category,
-                            context,
-                          ), // <- Agregar context aquí
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+        return GestureDetector(
+          onTap: () => _showEventDetails(context),
+          child: Card(
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)
+            ),
+            child: Opacity(
+              opacity: cardOpacity,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        if (widget.event.importance != null)
+                          Container(
+                            width: 4,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: getImportanceColor(widget.event.importance!),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        const SizedBox(width: 12),
+                        if (widget.event.category.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              getCategoryIcon(widget.event.category, context),
+                              size: 16,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  widget.event.title,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      widget.event.title,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  Text(
+                                    formatTime(widget.event.startTime),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withOpacity(0.6),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                formatTime(widget.event.startTime),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.6),
-                                ),
-                              ),
+                              const SizedBox(height: 4),
+                              _buildStatusIndicator(),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          _buildStatusIndicator(),
-                        ],
-                      ),
-                    ),
-                    if (widget.event.endTime != null && !isCompleted && !isPast)
-                      IconButton(
-                        icon: Icon(
-                          Icons.timer,
-                          color: Theme.of(context).colorScheme.primary,
                         ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  PomodoroScreen(event: widget.event),
+                        if (widget.event.endTime != null && 
+                            !isCompleted && 
+                            !isPast)
+                          IconButton(
+                            icon: Icon(
+                              Icons.timer,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
-                          );
-                        },
-                      ),
-                    _buildCompletionIndicator(),
-                  ],
-                ),
-                if (_shouldShowProgressIndicator())
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Column(
-                      children: [
-                        LinearProgressIndicator(
-                          value: _currentProgress, // Usar el progreso cacheado
-                          minHeight: 4,
-                          borderRadius: BorderRadius.circular(2),
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainer,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Theme.of(context).colorScheme.primary,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      PomodoroScreen(event: widget.event),
+                                ),
+                              );
+                            },
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        _buildCompletionIndicator(),
+                      ],
+                    ),
+                    
+                    // Mostrar progreso solo si es necesario
+                    if (showProgress)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Column(
                           children: [
-                            Text(
-                              _isRepetitiveEvent()
-                                  ? formatTime(
-                                      DateTime(
-                                        DateTime.now().year,
-                                        DateTime.now().month,
-                                        DateTime.now().day,
-                                        widget.event.startTime.hour,
-                                        widget.event.startTime.minute,
-                                      ),
-                                    )
-                                  : formatTime(widget.event.startTime),
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.5),
+                            LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 4,
+                              borderRadius: BorderRadius.circular(2),
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainer,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Theme.of(context).colorScheme.primary,
                               ),
                             ),
-                            Text(
-                              _isRepetitiveEvent()
-                                  ? formatTime(
-                                      DateTime(
-                                        DateTime.now().year,
-                                        DateTime.now().month,
-                                        DateTime.now().day,
-                                        widget.event.endTime!.hour,
-                                        widget.event.endTime!.minute,
-                                      ),
-                                    )
-                                  : formatTime(widget.event.endTime!),
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.5),
-                              ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  formatTime(widget.event.endTime!),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withOpacity(0.5),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-              ],
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
