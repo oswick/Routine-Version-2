@@ -21,7 +21,7 @@
 -keep class io.flutter.plugins.** { *; }
 
 # Mantener tu implementación de callbacks
--keep class com.yourcompany.yourapp.** { *; }
+-keep class com.homostudios.routine.** { *; }
 
 # -----------------------------
 # Google Play Services / Auth

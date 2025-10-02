@@ -67,6 +67,7 @@ dependencies:
   
   flutter_localizations:
     sdk: flutter
+  collection: ^1.19.1
 
 
 dev_dependencies:

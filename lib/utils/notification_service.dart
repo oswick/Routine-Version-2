@@ -1,4 +1,4 @@
-// lib/utils/notification_service.dart - Versión mejorada
+// lib/utils/notification_service.dart - VERSIÓN COMPLETA OPTIMIZADA
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -48,10 +48,13 @@ class NotificationService {
       NotificationService._internal();
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
-  final Map<DateTime, int> scheduledNotifications = {};
 
   factory NotificationService() => _notificationService;
   NotificationService._internal();
+
+  // 🆕 NUEVO: Cache de notificaciones pendientes
+  List<PendingNotificationRequest>? _pendingNotificationsCache;
+  DateTime? _cacheTime;
 
   Future<void> init() async {
     const AndroidInitializationSettings androidInitSettings =
@@ -105,31 +108,38 @@ class NotificationService {
     }
   }
 
-  Future<void> _saveNotificationData(
-    ScheduledNotificationData notificationData,
+  // 🆕 OPTIMIZADO: Batch save de notificaciones
+  Future<void> _batchSaveNotificationData(
+    List<ScheduledNotificationData> notificationsList,
   ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final notificationsJson =
           prefs.getStringList('scheduled_notifications') ?? [];
 
-      final existingIndex = notificationsJson.indexWhere((item) {
-        final existing = ScheduledNotificationData.fromJson(jsonDecode(item));
-        return existing.id == notificationData.id;
-      });
+      final notificationsMap = {
+        for (var item in notificationsJson)
+          ScheduledNotificationData.fromJson(jsonDecode(item)).id: item
+      };
 
-      if (existingIndex >= 0) {
-        notificationsJson[existingIndex] = jsonEncode(
-          notificationData.toJson(),
-        );
-      } else {
-        notificationsJson.add(jsonEncode(notificationData.toJson()));
+      // Actualizar o agregar nuevas
+      for (var notification in notificationsList) {
+        notificationsMap[notification.id] = jsonEncode(notification.toJson());
       }
 
-      await prefs.setStringList('scheduled_notifications', notificationsJson);
+      await prefs.setStringList(
+        'scheduled_notifications',
+        notificationsMap.values.toList(),
+      );
     } catch (e) {
-      debugPrint('Error saving notification data: $e');
+      debugPrint('Error batch saving notification data: $e');
     }
+  }
+
+  Future<void> _saveNotificationData(
+    ScheduledNotificationData notificationData,
+  ) async {
+    await _batchSaveNotificationData([notificationData]);
   }
 
   Future<void> _removeNotificationData(int id) async {
@@ -168,6 +178,35 @@ class NotificationService {
     }
   }
 
+  // 🆕 OPTIMIZADO: Cache de notificaciones pendientes
+  Future<List<PendingNotificationRequest>> getPendingNotifications({
+    bool useCache = true,
+  }) async {
+    // Usar cache si es válido (menos de 5 segundos)
+    if (useCache && 
+        _pendingNotificationsCache != null && 
+        _cacheTime != null) {
+      final timeDiff = DateTime.now().difference(_cacheTime!);
+      if (timeDiff.inSeconds < 5) {
+        return _pendingNotificationsCache!;
+      }
+    }
+
+    // Actualizar cache
+    _pendingNotificationsCache = 
+        await flutterLocalNotificationsPlugin.pendingNotificationRequests();
+    _cacheTime = DateTime.now();
+    
+    return _pendingNotificationsCache!;
+  }
+
+  // 🆕 NUEVO: Invalidar cache
+  void _invalidateCache() {
+    _pendingNotificationsCache = null;
+    _cacheTime = null;
+  }
+
+  // 🆕 OPTIMIZADO: Proceso batch para reprogramación
   Future<void> ensureScheduledNotificationsExist() async {
     try {
       final notificationsData = await _getScheduledNotificationsData();
@@ -175,49 +214,64 @@ class NotificationService {
       final pendingIds = pendingNotifications.map((n) => n.id).toSet();
       
       int rescheduledCount = 0;
+      final now = DateTime.now();
+      
+      // 🆕 Procesar en lotes
+      final toReschedule = <ScheduledNotificationData>[];
+      final toRemove = <int>[];
       
       for (final notificationData in notificationsData) {
-        if (notificationData.scheduledDate.isAfter(DateTime.now())) {
+        if (notificationData.scheduledDate.isAfter(now)) {
           if (!pendingIds.contains(notificationData.id)) {
-            print('🔔 Rescheduling notification ${notificationData.id} from background');
-            
-            await flutterLocalNotificationsPlugin.zonedSchedule(
-              notificationData.id,
-              notificationData.title,
-              notificationData.body,
-              tz.TZDateTime.from(notificationData.scheduledDate, tz.local),
-              const NotificationDetails(
-                android: AndroidNotificationDetails(
-                  'your_channel_id',
-                  'your_channel_name',
-                  channelDescription: 'your_channel_description',
-                  importance: Importance.max,
-                  priority: Priority.high,
-                  icon: '@mipmap/launcher_icon',
-                  enableVibration: true,
-                  styleInformation: DefaultStyleInformation(true, true),
-                  autoCancel: true,
-                  playSound: true,
-                  // NUEVOS parámetros para mejor persistencia
-                  fullScreenIntent: true,
-                  category: AndroidNotificationCategory.alarm,
-                  visibility: NotificationVisibility.public,
-                ),
-              ),
-              uiLocalNotificationDateInterpretation:
-                  UILocalNotificationDateInterpretation.absoluteTime,
-              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-              payload: notificationData.id.toString(),
-            );
-            rescheduledCount++;
+            toReschedule.add(notificationData);
           }
         } else {
-          await _removeNotificationData(notificationData.id);
+          toRemove.add(notificationData.id);
         }
       }
       
-      if (rescheduledCount > 0) {
-        print('✅ Rescheduled $rescheduledCount notifications');
+      // Reprogramar en lote
+      for (final notificationData in toReschedule) {
+        print('🔔 Rescheduling notification ${notificationData.id}');
+        
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          notificationData.id,
+          notificationData.title,
+          notificationData.body,
+          tz.TZDateTime.from(notificationData.scheduledDate, tz.local),
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'your_channel_id',
+              'your_channel_name',
+              channelDescription: 'your_channel_description',
+              importance: Importance.max,
+              priority: Priority.high,
+              icon: '@mipmap/launcher_icon',
+              enableVibration: true,
+              styleInformation: DefaultStyleInformation(true, true),
+              autoCancel: true,
+              playSound: true,
+              fullScreenIntent: true,
+              category: AndroidNotificationCategory.alarm,
+              visibility: NotificationVisibility.public,
+            ),
+          ),
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          payload: notificationData.id.toString(),
+        );
+        rescheduledCount++;
+      }
+      
+      // Limpiar antiguas en lote
+      for (final id in toRemove) {
+        await _removeNotificationData(id);
+      }
+      
+      if (rescheduledCount > 0 || toRemove.isNotEmpty) {
+        _invalidateCache(); // Invalidar cache después de cambios
+        print('✅ Rescheduled $rescheduledCount, removed ${toRemove.length} old notifications');
       }
     } catch (e) {
       debugPrint('Error ensuring scheduled notifications: $e');
@@ -250,11 +304,9 @@ class NotificationService {
               styleInformation: DefaultStyleInformation(true, true),
               autoCancel: true,
               fullScreenIntent: true,
-              // MEJORAR persistencia de notificaciones
               category: AndroidNotificationCategory.alarm,
               visibility: NotificationVisibility.public,
               showWhen: true,
-              when: null, // Se usará scheduledDate automáticamente
             ),
           ),
           uiLocalNotificationDateInterpretation:
@@ -272,6 +324,7 @@ class NotificationService {
           ),
         );
 
+        _invalidateCache();
         debugPrint('📅 Scheduled notification ($id) for $scheduledDate');
       }
     } catch (e) {
@@ -332,6 +385,7 @@ class NotificationService {
           ),
         );
 
+        _invalidateCache();
         debugPrint(
           '📅 Scheduled end notification ($endNotificationId) for $scheduledDate',
         );
@@ -354,11 +408,8 @@ class NotificationService {
     await flutterLocalNotificationsPlugin.cancel(endNotificationId);
     await _removeNotificationData(endNotificationId);
 
+    _invalidateCache();
     debugPrint('❌ Notification canceled ($id)');
-  }
-
-  Future<List<PendingNotificationRequest>> getPendingNotifications() async {
-    return await flutterLocalNotificationsPlugin.pendingNotificationRequests();
   }
 
   Future<void> cancelAllNotifications() async {
@@ -367,13 +418,12 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('scheduled_notifications');
 
-    scheduledNotifications.clear();
+    _invalidateCache();
   }
 
-  // NUEVO: Método para verificar el estado de las notificaciones
   Future<Map<String, dynamic>> getNotificationStatus() async {
     final scheduled = await _getScheduledNotificationsData();
-    final pending = await getPendingNotifications();
+    final pending = await getPendingNotifications(useCache: false);
     final now = DateTime.now();
     
     final upcomingScheduled = scheduled.where((n) => n.scheduledDate.isAfter(now)).length;
