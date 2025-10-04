@@ -318,7 +318,6 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             now.hour,
             now.minute,
           ).add(const Duration(minutes: 5));
-          _endTime = _startTime.add(const Duration(hours: 1));
           break;
         case '30min':
           _startTime = DateTime(
@@ -328,7 +327,6 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             now.hour,
             now.minute,
           ).add(const Duration(minutes: 30));
-          _endTime = _startTime.add(const Duration(hours: 1));
           break;
         case '1hour':
           _startTime = DateTime(
@@ -338,17 +336,6 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             now.hour,
             now.minute,
           ).add(const Duration(hours: 1));
-          _endTime = _startTime.add(const Duration(hours: 1));
-          break;
-        case '2hours':
-          _startTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            now.hour,
-            now.minute,
-          ).add(const Duration(hours: 2));
-          _endTime = _startTime.add(const Duration(hours: 1));
           break;
         case 'morning':
           // Si ya pasaron las 9 AM, programar para mañana
@@ -380,7 +367,6 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             _selectedDate = _selectedDate.add(const Duration(days: 1));
           }
           _startTime = afternoonTime;
-          _endTime = afternoonTime.add(const Duration(hours: 1));
           break;
         case 'evening':
           // Si ya pasaron las 6 PM, programar para mañana
@@ -396,12 +382,12 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             _selectedDate = _selectedDate.add(const Duration(days: 1));
           }
           _startTime = eveningTime;
-          _endTime = eveningTime.add(const Duration(hours: 1));
           break;
       }
       _showTimeShortcuts = false; // Ocultar después de seleccionar
     });
   }
+
   // 🆕 Widget de atajos rápidos
   Widget _buildTimeShortcuts() {
     if (!_showTimeShortcuts) {
@@ -447,9 +433,9 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           runSpacing: 8,
           children: [
             _buildTimeShortcutChip(
-              label: 'Now',
+              label: 'In 5 min',
               icon: Icons.schedule,
-              onTap: () => _applyTimeShortcut('now'),
+              onTap: () => _applyTimeShortcut('5min'),
             ),
             _buildTimeShortcutChip(
               label: 'In 30 min',
@@ -460,11 +446,6 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               label: 'In 1 hour',
               icon: Icons.schedule,
               onTap: () => _applyTimeShortcut('1hour'),
-            ),
-            _buildTimeShortcutChip(
-              label: 'In 2 hours',
-              icon: Icons.schedule,
-              onTap: () => _applyTimeShortcut('2hours'),
             ),
             _buildTimeShortcutChip(
               label: 'Morning (9 AM)',

@@ -256,8 +256,6 @@ class NotificationService {
               visibility: NotificationVisibility.public,
             ),
           ),
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           payload: notificationData.id.toString(),
         );
@@ -309,8 +307,6 @@ class NotificationService {
               showWhen: true,
             ),
           ),
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           payload: id.toString(),
         );
@@ -369,8 +365,6 @@ class NotificationService {
               visibility: NotificationVisibility.public,
             ),
           ),
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           payload: id.toString(),
         );
