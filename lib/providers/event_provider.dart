@@ -1,4 +1,4 @@
-// lib/providers/event_provider.dart - VERSIÓN OPTIMIZADA
+// lib/providers/event_provider.dart - CON LIMPIEZA DIARIA DE COMPLETADOS
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,6 +7,7 @@ import '../services/sync_service.dart';
 import '../services/auth_service.dart';
 import '../utils/notification_service.dart';
 import 'package:uuid/uuid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class EventProvider extends ChangeNotifier {
   static final EventProvider _instance = EventProvider._internal();
@@ -21,14 +22,12 @@ class EventProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
-  // 🆕 NUEVO: Timer único para todas las actualizaciones
   Timer? _globalUpdateTimer;
-  
-  // 🆕 NUEVO: Cache de progreso por evento
   final Map<String, double> _progressCache = {};
-  
-  // 🆕 NUEVO: Cache de estado de completado por evento+día
   final Map<String, bool> _completionCache = {};
+  final Map<String, List<Event>> _dayCache = {};
+  static const int _maxDayCacheSize = 30;
+  static const int _maxCacheSize = 1000;
 
   final StreamController<List<Event>> _eventsController =
       StreamController<List<Event>>.broadcast();
@@ -38,12 +37,10 @@ class EventProvider extends ChangeNotifier {
   String? get error => _error;
   Stream<List<Event>> get eventsStream => _eventsController.stream;
 
-  // 🆕 NUEVO: Obtener progreso cacheado
   double getEventProgress(String eventId) {
     return _progressCache[eventId] ?? 0.0;
   }
 
-  // 🆕 NUEVO: Obtener estado de completado cacheado
   bool getEventCompletion(String eventId, DateTime date) {
     final key = _getCompletionCacheKey(eventId, date);
     return _completionCache[key] ?? false;
@@ -51,10 +48,12 @@ class EventProvider extends ChangeNotifier {
 
   Future<void> init() async {
     await _syncService.init();
+    await _cleanOldCompletionStates(); // 🆕 Limpiar estados antiguos PRIMERO
     await loadEvents();
-    
-    // 🆕 NUEVO: Iniciar timer único
+    await _loadTodayCompletionStates(); // 🆕 Solo cargar estados de HOY
+
     _startGlobalTimer();
+    _startDailyCleanupTimer(); // 🆕 Timer para limpieza automática diaria
 
     _authService.authStateChanges.listen((state) {
       if (state.event == AuthChangeEvent.signedIn) {
@@ -65,41 +64,224 @@ class EventProvider extends ChangeNotifier {
     });
   }
 
-  // 🆕 NUEVO: Timer único que actualiza TODO
-  void _startGlobalTimer() {
-    _globalUpdateTimer?.cancel();
-    
-    // Timer que se ejecuta cada 5 segundos
-    _globalUpdateTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
+  // 🆕 NUEVO: Timer que limpia estados antiguos todos los días a medianoche
+  void _startDailyCleanupTimer() {
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final durationUntilMidnight = tomorrow.difference(now);
+
+    Timer(durationUntilMidnight, () {
+      _cleanOldCompletionStates();
+      _startDailyCleanupTimer(); // Reprogramar para mañana
+    });
+  }
+
+  // 🆕 NUEVO: Limpiar estados de días anteriores
+  Future<void> _cleanOldCompletionStates() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys();
+      final today = DateTime.now();
+      final todayKey = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
       
-      bool needsUpdate = false;
-      final now = DateTime.now();
+      int removedCount = 0;
       
-      // Actualizar progreso de eventos activos
-      for (final event in _events) {
-        if (event.endTime != null && !event.isCompleted && !event.isDeleted) {
-          final newProgress = _calculateEventProgress(event, now);
-          final currentProgress = _progressCache[event.id] ?? -1.0;
-          
-          // Solo actualizar si cambió significativamente (1% de diferencia)
-          if ((newProgress - currentProgress).abs() > 0.01) {
-            _progressCache[event.id] = newProgress;
-            needsUpdate = true;
+      for (final key in keys) {
+        if (key.startsWith('event_') && key.contains('_completion_')) {
+          final parts = key.split('_completion_');
+          if (parts.length == 2) {
+            final dateStr = parts[1]; // YYYY-MM-DD
+            
+            // Si NO es de hoy, eliminar
+            if (dateStr != todayKey) {
+              await prefs.remove(key);
+              removedCount++;
+              
+              // También limpiar del cache en memoria
+              final eventId = parts[0].replaceAll('event_', '');
+              try {
+                final dateParts = dateStr.split('-');
+                if (dateParts.length == 3) {
+                  final year = int.parse(dateParts[0]);
+                  final month = int.parse(dateParts[1]);
+                  final day = int.parse(dateParts[2]);
+                  final cacheKey = _getCompletionCacheKey(
+                    eventId,
+                    DateTime(year, month, day),
+                  );
+                  _completionCache.remove(cacheKey);
+                }
+              } catch (e) {
+                debugPrint('Error parsing date during cleanup: $e');
+              }
+            }
           }
         }
       }
       
-      if (needsUpdate) {
-        notifyListeners();
+      if (removedCount > 0) {
+        print('🧹 Cleaned $removedCount old completion states');
       }
+    } catch (e) {
+      debugPrint('Error cleaning old completion states: $e');
+    }
+  }
+
+  // 🆕 MODIFICADO: Solo cargar estados de HOY
+  Future<void> _loadTodayCompletionStates() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final today = DateTime.now();
+      final todayKey = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      
+      final keys = prefs.getKeys();
+      int loadedCount = 0;
+      
+      for (final key in keys) {
+        if (key.startsWith('event_') && key.contains('_completion_')) {
+          final parts = key.split('_completion_');
+          if (parts.length == 2) {
+            final dateStr = parts[1];
+            
+            // Solo cargar si es de HOY
+            if (dateStr == todayKey) {
+              final completed = prefs.getBool(key) ?? false;
+              final eventId = parts[0].replaceAll('event_', '');
+              
+              final cacheKey = _getCompletionCacheKey(eventId, today);
+              _completionCache[cacheKey] = completed;
+              loadedCount++;
+            }
+          }
+        }
+      }
+      
+      print('📥 Loaded $loadedCount completion states for today');
+    } catch (e) {
+      debugPrint('Error loading today completion states: $e');
+    }
+  }
+
+  void _pruneCache() {
+    if (_progressCache.length > _maxCacheSize) {
+      final keysToRemove = _progressCache.keys.take(100).toList();
+      for (final key in keysToRemove) {
+        _progressCache.remove(key);
+      }
+      print('🧹 Pruned progress cache: removed ${keysToRemove.length} entries');
+    }
+
+    if (_completionCache.length > _maxCacheSize) {
+      final keysToRemove = _completionCache.keys.take(100).toList();
+      for (final key in keysToRemove) {
+        _completionCache.remove(key);
+      }
+      print('🧹 Pruned completion cache: removed ${keysToRemove.length} entries');
+    }
+
+    if (_dayCache.length > _maxDayCacheSize) {
+      final keysToRemove = _dayCache.keys.take(10).toList();
+      for (final key in keysToRemove) {
+        _dayCache.remove(key);
+      }
+      print('🧹 Pruned day cache: removed ${keysToRemove.length} entries');
+    }
+  }
+
+  void _startGlobalTimer() {
+    _globalUpdateTimer?.cancel();
+    _scheduleNextUpdate();
+  }
+
+  void _scheduleNextUpdate() {
+    final nextUpdateTime = _calculateNextUpdateTime();
+
+    if (nextUpdateTime == null) {
+      _globalUpdateTimer = Timer(const Duration(minutes: 1), () {
+        if (mounted) _scheduleNextUpdate();
+      });
+      return;
+    }
+
+    final now = DateTime.now();
+    final duration = nextUpdateTime.difference(now);
+
+    if (duration.isNegative) {
+      _scheduleNextUpdate();
+      return;
+    }
+
+    print('⏰ Next update scheduled in ${duration.inSeconds}s');
+
+    _globalUpdateTimer = Timer(duration, () {
+      if (!mounted) return;
+      _updateActiveEvents();
+      _scheduleNextUpdate();
     });
   }
 
-  // 🆕 NUEVO: Calcular progreso sin crear timer
+  DateTime? _calculateNextUpdateTime() {
+    DateTime? nearest;
+    final now = DateTime.now();
+
+    for (final event in _events) {
+      if (event.endTime == null || event.isCompleted || event.isDeleted)
+        continue;
+
+      DateTime? eventTime;
+
+      if (event.repeatDays.isNotEmpty) {
+        if (event.repeatDays.contains(now.weekday)) {
+          final todayEnd = DateTime(
+            now.year,
+            now.month,
+            now.day,
+            event.endTime!.hour,
+            event.endTime!.minute,
+          );
+
+          if (todayEnd.isAfter(now)) {
+            eventTime = todayEnd;
+          }
+        }
+      } else {
+        if (event.endTime!.isAfter(now)) {
+          eventTime = event.endTime;
+        }
+      }
+
+      if (eventTime != null) {
+        if (nearest == null || eventTime.isBefore(nearest)) {
+          nearest = eventTime;
+        }
+      }
+    }
+
+    return nearest;
+  }
+
+  void _updateActiveEvents() {
+    bool needsUpdate = false;
+    final now = DateTime.now();
+
+    for (final event in _events) {
+      if (event.endTime != null && !event.isCompleted && !event.isDeleted) {
+        final newProgress = _calculateEventProgress(event, now);
+        final currentProgress = _progressCache[event.id] ?? -1.0;
+
+        if ((newProgress - currentProgress).abs() > 0.01) {
+          _progressCache[event.id] = newProgress;
+          needsUpdate = true;
+        }
+      }
+    }
+
+    if (needsUpdate) {
+      print('🔄 Updating ${_events.length} active events');
+      notifyListeners();
+    }
+  }
+
   double _calculateEventProgress(Event event, DateTime now) {
     if (event.endTime == null) return 0.0;
 
@@ -108,12 +290,18 @@ class EventProvider extends ChangeNotifier {
       if (!event.repeatDays.contains(today)) return 0.0;
 
       final todayStart = DateTime(
-        now.year, now.month, now.day,
-        event.startTime.hour, event.startTime.minute,
+        now.year,
+        now.month,
+        now.day,
+        event.startTime.hour,
+        event.startTime.minute,
       );
       final todayEnd = DateTime(
-        now.year, now.month, now.day,
-        event.endTime!.hour, event.endTime!.minute,
+        now.year,
+        now.month,
+        now.day,
+        event.endTime!.hour,
+        event.endTime!.minute,
       );
 
       if (now.isBefore(todayStart)) return 0.0;
@@ -136,17 +324,24 @@ class EventProvider extends ChangeNotifier {
     return '$eventId-${date.year}-${date.month}-${date.day}';
   }
 
-  // 🆕 NUEVO: Actualizar estado de completado
-  void updateEventCompletion(Event event, bool completed, DateTime date) {
+  Future<void> updateEventCompletion(Event event, bool completed, DateTime date) async {
     final key = _getCompletionCacheKey(event.id, date);
     _completionCache[key] = completed;
-    
-    // Si es evento único, actualizar el evento
-    if (event.repeatDays.isEmpty) {
+
+    if (event.repeatDays.isNotEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final prefKey = 'event_${event.id}_completion_${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        await prefs.setBool(prefKey, completed);
+        print('💾 Saved completion state: $prefKey = $completed');
+      } catch (e) {
+        debugPrint('Error saving completion state: $e');
+      }
+    } else {
       final updatedEvent = event.copyWith(isCompleted: completed);
-      updateEvent(updatedEvent);
+      await updateEvent(updatedEvent);
     }
-    
+
     notifyListeners();
   }
 
@@ -155,15 +350,16 @@ class EventProvider extends ChangeNotifier {
     try {
       final loadedEvents = await _syncService.getEvents();
       _updateEvents(loadedEvents);
-      
-      // Actualizar cache de progreso inicial
+
       final now = DateTime.now();
       for (final event in loadedEvents) {
         if (event.endTime != null && !event.isCompleted) {
           _progressCache[event.id] = _calculateEventProgress(event, now);
         }
       }
-      
+
+      await _loadTodayCompletionStates();
+
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -184,6 +380,7 @@ class EventProvider extends ChangeNotifier {
       );
 
       _events.add(newEvent);
+      _dayCache.clear();
       _notifyChanges();
 
       await _syncService.saveEvent(newEvent);
@@ -191,6 +388,8 @@ class EventProvider extends ChangeNotifier {
       if (!newEvent.isCompleted) {
         _scheduleEventNotifications(newEvent);
       }
+
+      _pruneCache();
     } catch (e) {
       await loadEvents();
       _error = e.toString();
@@ -198,7 +397,6 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  // OPTIMIZADO: Sin recargar toda la lista
   Future<void> updateEvent(Event updatedEvent) async {
     try {
       final index = _events.indexWhere((e) => e.id == updatedEvent.id);
@@ -206,21 +404,22 @@ class EventProvider extends ChangeNotifier {
 
       final oldEvent = _events[index];
       _events[index] = updatedEvent;
-      
-      // Actualizar cache de progreso
+
       if (updatedEvent.endTime != null) {
         _progressCache[updatedEvent.id] = _calculateEventProgress(
-          updatedEvent, 
-          DateTime.now()
+          updatedEvent,
+          DateTime.now(),
         );
       }
-      
+
+      _dayCache.clear();
       _notifyChanges();
 
       _syncService.saveEvent(updatedEvent).catchError((e) {
         debugPrint('Error saving event: $e');
         if (mounted && index < _events.length) {
           _events[index] = oldEvent;
+          _dayCache.clear();
           _notifyChanges();
         }
       });
@@ -242,11 +441,26 @@ class EventProvider extends ChangeNotifier {
 
       final event = _events[eventIndex];
       _events.removeAt(eventIndex);
-      
-      // Limpiar cache
+
       _progressCache.remove(eventId);
       _completionCache.removeWhere((key, _) => key.startsWith(eventId));
-      
+      _dayCache.clear();
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final keys = prefs.getKeys();
+        final keysToRemove = keys.where((key) => 
+          key.startsWith('event_$eventId')
+        ).toList();
+        
+        for (final key in keysToRemove) {
+          await prefs.remove(key);
+        }
+        print('🗑️ Cleaned ${keysToRemove.length} completion records for event $eventId');
+      } catch (e) {
+        debugPrint('Error cleaning SharedPreferences: $e');
+      }
+
       _notifyChanges();
 
       _cancelAllEventNotifications(event);
@@ -264,8 +478,14 @@ class EventProvider extends ChangeNotifier {
   }
 
   List<Event> getEventsForDay(DateTime day) {
+    final cacheKey = '${day.year}-${day.month}-${day.day}';
+
+    if (_dayCache.containsKey(cacheKey)) {
+      return _dayCache[cacheKey]!;
+    }
+
     final Set<String> seenIds = {};
-    return _events.where((event) {
+    final events = _events.where((event) {
       if (seenIds.contains(event.id)) return false;
 
       bool shouldInclude = false;
@@ -278,7 +498,8 @@ class EventProvider extends ChangeNotifier {
         );
         final queryDate = DateTime(day.year, day.month, day.day);
 
-        shouldInclude = event.repeatDays.contains(day.weekday) &&
+        shouldInclude =
+            event.repeatDays.contains(day.weekday) &&
             (queryDate.isAtSameMomentAs(eventCreationDate) ||
                 queryDate.isAfter(eventCreationDate));
       } else {
@@ -291,10 +512,19 @@ class EventProvider extends ChangeNotifier {
       }
       return false;
     }).toList();
+
+    _dayCache[cacheKey] = events;
+
+    if (_dayCache.length > _maxDayCacheSize) {
+      _dayCache.remove(_dayCache.keys.first);
+    }
+
+    return events;
   }
 
   void _updateEvents(List<Event> newEvents) {
     _events = newEvents;
+    _dayCache.clear();
     _notifyChanges();
   }
 
@@ -302,6 +532,7 @@ class EventProvider extends ChangeNotifier {
     _events = [];
     _progressCache.clear();
     _completionCache.clear();
+    _dayCache.clear();
     _notifyChanges();
   }
 
@@ -311,8 +542,10 @@ class EventProvider extends ChangeNotifier {
   }
 
   void _notifyChanges() {
+    if (!_eventsController.isClosed) {
+      _eventsController.add(_events);
+    }
     notifyListeners();
-    _eventsController.add(_events);
   }
 
   bool _isSameDay(DateTime date1, DateTime date2) {
@@ -326,7 +559,7 @@ class EventProvider extends ChangeNotifier {
   // Métodos de notificaciones (sin cambios)
   void _scheduleEventNotifications(Event event) async {
     _cancelAllEventNotifications(event);
-    
+
     if (event.repeatDays.isNotEmpty) {
       for (int day in event.repeatDays) {
         await _scheduleNotificationForDay(event, day);
@@ -338,7 +571,7 @@ class EventProvider extends ChangeNotifier {
 
   Future<void> _scheduleSingleEventNotification(Event event) async {
     final now = DateTime.now();
-    
+
     if (event.startTime.isAfter(now)) {
       await NotificationService().scheduleNotification(
         event.id.hashCode,
@@ -362,11 +595,14 @@ class EventProvider extends ChangeNotifier {
 
   Future<void> _scheduleNotificationForDay(Event event, int day) async {
     final now = DateTime.now();
-    final nextNotificationTime = _calculateNotificationTime(day, event.startTime);
-    
+    final nextNotificationTime = _calculateNotificationTime(
+      day,
+      event.startTime,
+    );
+
     if (nextNotificationTime.isAfter(now)) {
       final notificationId = event.id.hashCode + day;
-      
+
       await NotificationService().scheduleNotification(
         notificationId,
         event.title,
@@ -413,20 +649,23 @@ class EventProvider extends ChangeNotifier {
   DateTime _calculateNotificationTime(int day, DateTime startTime) {
     DateTime now = DateTime.now();
     int daysUntilNext = (day - now.weekday + 7) % 7;
-    
+
     if (daysUntilNext == 0) {
       final todayAtEventTime = DateTime(
-        now.year, now.month, now.day,
-        startTime.hour, startTime.minute,
+        now.year,
+        now.month,
+        now.day,
+        startTime.hour,
+        startTime.minute,
       );
-      
+
       if (todayAtEventTime.isAfter(now)) {
         return todayAtEventTime;
       } else {
         daysUntilNext = 7;
       }
     }
-    
+
     DateTime nextNotificationDate = now.add(Duration(days: daysUntilNext));
     return DateTime(
       nextNotificationDate.year,
@@ -440,20 +679,23 @@ class EventProvider extends ChangeNotifier {
   DateTime _calculateEndNotificationTime(int day, DateTime endTime) {
     DateTime now = DateTime.now();
     int daysUntilNext = (day - now.weekday + 7) % 7;
-    
+
     if (daysUntilNext == 0) {
       final todayAtEventTime = DateTime(
-        now.year, now.month, now.day,
-        endTime.hour, endTime.minute,
+        now.year,
+        now.month,
+        now.day,
+        endTime.hour,
+        endTime.minute,
       );
-      
+
       if (todayAtEventTime.isAfter(now)) {
         return todayAtEventTime;
       } else {
         daysUntilNext = 7;
       }
     }
-    
+
     DateTime nextNotificationDate = now.add(Duration(days: daysUntilNext));
     return DateTime(
       nextNotificationDate.year,
@@ -466,22 +708,23 @@ class EventProvider extends ChangeNotifier {
 
   Future<void> rescheduleAllNotifications() async {
     print('🔄 Reprogramando todas las notificaciones...');
-    
+
     for (final event in _events) {
       if (!event.isCompleted && !event.isDeleted) {
         _scheduleEventNotifications(event);
       }
     }
-    
+
     print('✅ Notificaciones reprogramadas');
   }
-  
+
   @override
   void dispose() {
     _globalUpdateTimer?.cancel();
     _eventsController.close();
     _progressCache.clear();
     _completionCache.clear();
+    _dayCache.clear();
     super.dispose();
   }
 }

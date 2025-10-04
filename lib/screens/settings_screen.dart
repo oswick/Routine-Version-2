@@ -4,6 +4,8 @@ import 'package:myapp/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/auth_provider.dart';
 import 'package:myapp/services/biometric_service.dart';
+import 'package:myapp/utils/event_sorting_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -16,10 +18,151 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isBiometricAvailable = false;
   bool _isCheckingBiometric = true;
 
+  // 🆕 Estado de ordenamiento
+  EventSortOption _selectedSortOption = EventSortOption.timeAscending;
+  bool _isLoadingSortPreference = true;
+
   @override
   void initState() {
     super.initState();
     _checkBiometricAvailability();
+    _loadSortPreference();
+  }
+
+  // 🆕 Cargar preferencia de ordenamiento
+  Future<void> _loadSortPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final sortIndex = prefs.getInt('event_sort_option') ?? 0;
+
+      if (mounted) {
+        setState(() {
+          _selectedSortOption = EventSortOption.values[sortIndex];
+          _isLoadingSortPreference = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading sort preference: $e');
+      if (mounted) {
+        setState(() => _isLoadingSortPreference = false);
+      }
+    }
+  }
+
+  // 🆕 Guardar preferencia de ordenamiento
+  Future<void> _saveSortPreference(EventSortOption option) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('event_sort_option', option.index);
+
+      if (mounted) {
+        setState(() => _selectedSortOption = option);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Sort preference saved: ${_getSortOptionName(option)}',
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving sort preference: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving preference: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  // 🆕 Obtener nombre de la opción de ordenamiento
+  String _getSortOptionName(EventSortOption option) {
+    switch (option) {
+      case EventSortOption.timeAscending:
+        return 'Time (Early → Late)';
+      case EventSortOption.timeDescending:
+        return 'Time (Late → Early)';
+      case EventSortOption.importance:
+        return 'Importance';
+      case EventSortOption.importanceAndTime:
+        return 'Importance + Time';
+      case EventSortOption.title:
+        return 'Alphabetical';
+      case EventSortOption.category:
+        return 'Category';
+    }
+  }
+
+  // 🆕 Obtener descripción de la opción
+  String _getSortOptionDescription(EventSortOption option) {
+    switch (option) {
+      case EventSortOption.timeAscending:
+        return 'Events ordered from earliest to latest';
+      case EventSortOption.timeDescending:
+        return 'Events ordered from latest to earliest';
+      case EventSortOption.importance:
+        return 'Events ordered by importance level';
+      case EventSortOption.importanceAndTime:
+        return 'High importance first, then by time';
+      case EventSortOption.title:
+        return 'Events ordered alphabetically by title';
+      case EventSortOption.category:
+        return 'Events grouped by category, then by time';
+    }
+  }
+
+  // 🆕 Mostrar diálogo de opciones de ordenamiento
+  Future<void> _showSortOptionsDialog() async {
+    final result = await showDialog<EventSortOption>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Event Sorting'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: EventSortOption.values.map((option) {
+                return RadioListTile<EventSortOption>(
+                  title: Text(_getSortOptionName(option)),
+                  subtitle: Text(
+                    _getSortOptionDescription(option),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                  value: option,
+                  groupValue: _selectedSortOption,
+                  onChanged: (value) {
+                    Navigator.of(context).pop(value);
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(AppLocalizations.of(context).cancel),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result != null && result != _selectedSortOption) {
+      await _saveSortPreference(result);
+    }
   }
 
   Future<void> _checkBiometricAvailability() async {
@@ -36,7 +179,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     if (value) {
-      // Trying to enable biometric auth
       AuthResult result = await BiometricService.authenticateWithResult();
       if (result.success) {
         await authProvider.setBiometricAuthEnabled(true);
@@ -64,7 +206,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       }
     } else {
-      // Trying to disable biometric auth - require authentication first
       AuthResult result = await BiometricService.authenticateWithResult();
       if (result.success) {
         await authProvider.setBiometricAuthEnabled(false);
@@ -99,7 +240,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-  title: Text(AppLocalizations.of(context).autoLockTimeout),
+          title: Text(AppLocalizations.of(context).autoLockTimeout),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: AuthProvider.timeoutOptions.map((minutes) {
@@ -116,7 +257,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-      child: Text(AppLocalizations.of(context).cancel),
+              child: Text(AppLocalizations.of(context).cancel),
             ),
           ],
         );
@@ -124,12 +265,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (result != null && result != authProvider.authTimeoutMinutes) {
-      // Require authentication to change timeout
       AuthResult authResult = await BiometricService.authenticateWithResult();
       if (authResult.success) {
         await authProvider.setAuthTimeout(result);
-
-        // Asegurar que el usuario permanece autenticado después del cambio
         await authProvider.setLastAuthTime();
 
         if (mounted) {
@@ -163,12 +301,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleImmediateTimeout(bool value) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // Require authentication to change this setting
     AuthResult result = await BiometricService.authenticateWithResult();
     if (result.success) {
       await authProvider.setImmediateTimeout(value);
-
-      // Asegurar que el usuario permanece autenticado después del cambio
       await authProvider.setLastAuthTime();
 
       if (mounted) {
@@ -255,7 +390,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
 
-        // Advanced biometric options (only shown when biometric is enabled)
         if (authProvider.isBiometricAuthEnabled && _isBiometricAvailable) ...[
           const Divider(height: 1),
 
@@ -312,6 +446,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // 🆕 Widget para configuración de ordenamiento
+  Widget _buildSortingSettings() {
+    if (_isLoadingSortPreference) {
+      return const ListTile(
+        leading: Icon(Icons.sort),
+        title: Text('Event Sorting'),
+        trailing: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    return ListTile(
+      leading: Icon(Icons.sort, color: Theme.of(context).colorScheme.primary),
+      title: const Text(
+        'Event Sorting',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+      ),
+      subtitle: Text(
+        'Currently: ${_getSortOptionName(_selectedSortOption)}',
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          fontSize: 12,
+        ),
+      ),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      onTap: _showSortOptionsDialog,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -354,9 +520,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 24),
 
+          // 🆕 Display & Organization Section
+          Text(
+            'Display & Organization',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          Container(
+            decoration: BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.surfaceVariant.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: _buildSortingSettings(),
+          ),
+
+          const SizedBox(height: 24),
+
           // Warning message for non-available biometric
           if (!_isBiometricAvailable && !_isCheckingBiometric) ...[
-            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -383,11 +571,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
           ],
 
           // Info about timeout options
           if (authProvider.isBiometricAuthEnabled && _isBiometricAvailable) ...[
-            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(

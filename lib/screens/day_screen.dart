@@ -1,9 +1,10 @@
-// lib/screens/day_screen.dart - Versión mejorada
+// lib/screens/day_screen.dart - Con ordenamiento inteligente
 import 'package:flutter/material.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/screens/add_event_screen.dart';
+import 'package:myapp/utils/event_sorting_utils.dart';
 import '../models/event.dart';
 import '../widgets/event_card.dart';
 
@@ -28,13 +29,50 @@ class DayScreen extends StatefulWidget {
 }
 
 class _DayScreenState extends State<DayScreen>
-    with AutomaticKeepAliveClientMixin {
-  bool _showMorningEvents = true;
-  bool _showAfternoonEvents = true;
-  bool _showNightEvents = true;
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
+  
+  // 🆕 Estado de secciones colapsables
+  final Map<TimePeriod, bool> _sectionVisibility = {
+    TimePeriod.morning: true,
+    TimePeriod.afternoon: true,
+    TimePeriod.evening: true,
+    TimePeriod.night: true,
+  };
+
+  // 🆕 Opción de ordenamiento
+  EventSortOption _sortOption = EventSortOption.timeAscending;
 
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSortPreference();
+    WidgetsBinding.instance.addObserver(this); // 🆕 Observar lifecycle
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // 🆕 Remover observer
+    super.dispose();
+  }
+
+  // 🆕 Detectar cuando la app regresa del background (ej: Settings)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadSortPreference(); // Recargar preferencia cuando regresamos
+    }
+  }
+
+  // 🆕 Cargar preferencia de ordenamiento al iniciar
+  Future<void> _loadSortPreference() async {
+    final sortOption = await EventSortingUtils.loadSortPreference();
+    if (mounted) {
+      setState(() => _sortOption = sortOption);
+    }
+  }
 
   bool _isEventPast(Event event) {
     final now = DateTime.now();
@@ -80,25 +118,42 @@ class _DayScreenState extends State<DayScreen>
     }
   }
 
+  String _getPeriodName(TimePeriod period) {
+    final l10n = AppLocalizations.of(context);
+    switch (period) {
+      case TimePeriod.morning:
+        return l10n.morning;
+      case TimePeriod.afternoon:
+        return l10n.afternoon;
+      case TimePeriod.evening:
+        return l10n.night; // Reusa "night" para "evening"
+      case TimePeriod.night:
+        return 'Madrugada'; // Agrega esta traducción si no existe
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    // Group events by time of day
-    List<Event> morningEvents = [];
-    List<Event> afternoonEvents = [];
-    List<Event> nightEvents = [];
+    // 🆕 Ordenar eventos según la preferencia seleccionada PRIMERO
+    final sortedEvents = EventSortingUtils.sortEvents(
+      widget.events,
+      widget.day,
+      sortBy: _sortOption,
+    );
 
-    for (var event in widget.events) {
-      final hour = event.startTime.hour;
-      if (hour >= 0 && hour < 12) {
-        morningEvents.add(event);
-      } else if (hour >= 12 && hour < 18) {
-        afternoonEvents.add(event);
-      } else {
-        nightEvents.add(event);
-      }
-    }
+    // 🆕 Agrupar por periodo SIN re-ordenar (sortGroups: false)
+    final eventsByPeriod = EventSortingUtils.groupByTimePeriod(
+      sortedEvents,
+      widget.day,
+      sortGroups: false, // Mantener el orden ya aplicado
+    );
+
+    // Filtrar periodos vacíos
+    final nonEmptyPeriods = eventsByPeriod.entries
+        .where((entry) => entry.value.isNotEmpty)
+        .toList();
 
     return Consumer<EventProvider>(
       builder: (context, eventProvider, child) {
@@ -106,94 +161,60 @@ class _DayScreenState extends State<DayScreen>
           backgroundColor: Theme.of(context).colorScheme.surface,
           body: eventProvider.isLoading && widget.events.isEmpty
               ? const Center(child: CircularProgressIndicator())
-              : ListView(
-                  padding: const EdgeInsets.all(16.0),
+              : Column(
                   children: [
-                    if (morningEvents.isNotEmpty) ...[
-                      _buildHeader(
-                        AppLocalizations.of(context).morning,
-                        _showMorningEvents,
-                        () {
-                          setState(() {
-                            _showMorningEvents = !_showMorningEvents;
-                          });
-                        },
-                      ),
-                      if (_showMorningEvents)
-                        ...morningEvents.map(
-                          (event) => _buildEventCard(event, eventProvider),
-                        ),
-                    ],
-                    if (afternoonEvents.isNotEmpty) ...[
-                      _buildHeader(
-                        AppLocalizations.of(context).afternoon,
-                        _showAfternoonEvents,
-                        () {
-                          setState(() {
-                            _showAfternoonEvents = !_showAfternoonEvents;
-                          });
-                        },
-                      ),
-                      if (_showAfternoonEvents)
-                        ...afternoonEvents.map(
-                          (event) => _buildEventCard(event, eventProvider),
-                        ),
-                    ],
-                    if (nightEvents.isNotEmpty) ...[
-                      _buildHeader(
-                        AppLocalizations.of(context).night,
-                        _showNightEvents,
-                        () {
-                          setState(() {
-                            _showNightEvents = !_showNightEvents;
-                          });
-                        },
-                      ),
-                      if (_showNightEvents)
-                        ...nightEvents.map(
-                          (event) => _buildEventCard(event, eventProvider),
-                        ),
-                    ],
-                    if (widget.events.isEmpty) ...[
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 50.0),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.event_busy,
-                                size: 64,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.3),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                AppLocalizations.of(context).noEventsForThisDay,
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.6),
-                                  fontSize: 18,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                AppLocalizations.of(
-                                  context,
-                                ).tapPlusButtonToAddEvent,
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.4),
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                    // 🆕 Barra de opciones de ordenamiento
+                
+                    
+                    Expanded(
+                      child: widget.events.isEmpty
+                          ? _buildEmptyState()
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(16.0),
+                              itemCount: nonEmptyPeriods.length,
+                              itemBuilder: (context, index) {
+                                final entry = nonEmptyPeriods[index];
+                                final period = entry.key;
+                                final events = entry.value;
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildPeriodHeader(period, events.length),
+                                    if (_sectionVisibility[period]!)
+                                      ...events.asMap().entries.map((entry) {
+                                        final index = entry.key;
+                                        final event = entry.value;
+                                        final isLast = index == events.length - 1;
+                                        
+                                        return Column(
+                                          children: [
+                                            _buildEventCard(event, eventProvider),
+                                            // 🆕 Divider sutil entre eventos (excepto el último)
+                                            if (!isLast)
+                                              Padding(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 16.0,
+                                                  vertical: 4.0,
+                                                ),
+                                                child: Divider(
+                                                  height: 1,
+                                                  thickness: 0.5,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .outlineVariant
+                                                      .withOpacity(0.3),
+                                                ),
+                                              ),
+                                          ],
+                                        );
+                                      }),
+                                    const SizedBox(height: 8),
+                                  ],
+                                );
+                              },
+                            ),
+                    ),
                   ],
                 ),
           floatingActionButton: FloatingActionButton(
@@ -209,22 +230,53 @@ class _DayScreenState extends State<DayScreen>
     );
   }
 
-  Widget _buildHeader(String title, bool isVisible, VoidCallback onTap) {
+  
+
+
+  Widget _buildPeriodHeader(TimePeriod period, int eventCount) {
+    final isVisible = _sectionVisibility[period]!;
+    
     return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
+      onTap: () {
+        setState(() {
+          _sectionVisibility[period] = !isVisible;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            Icon(
+              _getPeriodIcon(period),
+              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
             Text(
-              title,
+              _getPeriodName(period),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '$eventCount',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+            const Spacer(),
             Icon(
               isVisible ? Icons.expand_less : Icons.expand_more,
               color: Theme.of(context).colorScheme.onSurface,
@@ -235,24 +287,71 @@ class _DayScreenState extends State<DayScreen>
     );
   }
 
-  // MÉTODO CORREGIDO: Mejor gestión de keys para evitar reconstrucciones
+  IconData _getPeriodIcon(TimePeriod period) {
+    switch (period) {
+      case TimePeriod.morning:
+        return Icons.wb_sunny;
+      case TimePeriod.afternoon:
+        return Icons.wb_twilight;
+      case TimePeriod.evening:
+        return Icons.nightlight;
+      case TimePeriod.night:
+        return Icons.bedtime;
+    }
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.event_busy,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              AppLocalizations.of(context).noEventsForThisDay,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 18,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AppLocalizations.of(context).tapPlusButtonToAddEvent,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEventCard(Event event, EventProvider eventProvider) {
     final isPastEvent = _isEventPast(event);
-
-    // Crear una key estable que no cambie con cada actualización
     final stableKey = ValueKey(
       'event_${event.id}_${widget.day.millisecondsSinceEpoch}',
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.only(bottom: 8.0), // 🆕 Espaciado entre cards
       child: Dismissible(
         key: Key(
           'dismissible_${event.id}_${event.startTime.millisecondsSinceEpoch}',
         ),
         direction: DismissDirection.endToStart,
         background: Container(
-          color: Colors.red,
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(12), // 🆕 Matching card radius
+          ),
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20.0),
           child: const Icon(Icons.delete, color: Colors.white),
@@ -266,11 +365,10 @@ class _DayScreenState extends State<DayScreen>
         },
         onDismissed: (direction) {},
         child: EventCard(
-          key: stableKey, // Key estable
+          key: stableKey,
           event: event,
           pastEvent: isPastEvent,
           onUpdateEvent: (updatedEvent) async {
-            // Actualización optimista sin recargar
             await eventProvider.updateEvent(updatedEvent);
           },
         ),

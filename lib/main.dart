@@ -93,7 +93,7 @@ class _MyAppState extends State<MyApp> {
         return MaterialApp(
           title: 'Routine',
           debugShowCheckedModeBanner: false,
-          
+
           // CONFIGURACIÓN DE LOCALIZACIÓN
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -105,10 +105,10 @@ class _MyAppState extends State<MyApp> {
             Locale('en'), // Inglés
             Locale('es'), // Español
           ],
+
           // El idioma se detectará automáticamente del sistema
           // También puedes forzar un idioma específico:
           // locale: Locale('es'), // Forzar español
-          
           theme: ThemeData(
             useMaterial3: true,
             useSystemColors: true,
