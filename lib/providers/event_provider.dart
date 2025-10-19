@@ -1,4 +1,4 @@
-// lib/providers/event_provider.dart - CON LIMPIEZA DIARIA DE COMPLETADOS
+// lib/providers/event_provider.dart - CON LIMPIEZA DIARIA DE COMPLETADOS + FIX NOTIFICACIONES
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -48,12 +48,12 @@ class EventProvider extends ChangeNotifier {
 
   Future<void> init() async {
     await _syncService.init();
-    await _cleanOldCompletionStates(); // 🆕 Limpiar estados antiguos PRIMERO
+    await _cleanOldCompletionStates();
     await loadEvents();
-    await _loadTodayCompletionStates(); // 🆕 Solo cargar estados de HOY
+    await _loadTodayCompletionStates();
 
     _startGlobalTimer();
-    _startDailyCleanupTimer(); // 🆕 Timer para limpieza automática diaria
+    _startDailyCleanupTimer();
 
     _authService.authStateChanges.listen((state) {
       if (state.event == AuthChangeEvent.signedIn) {
@@ -64,7 +64,6 @@ class EventProvider extends ChangeNotifier {
     });
   }
 
-  // 🆕 NUEVO: Timer que limpia estados antiguos todos los días a medianoche
   void _startDailyCleanupTimer() {
     final now = DateTime.now();
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
@@ -72,11 +71,10 @@ class EventProvider extends ChangeNotifier {
 
     Timer(durationUntilMidnight, () {
       _cleanOldCompletionStates();
-      _startDailyCleanupTimer(); // Reprogramar para mañana
+      _startDailyCleanupTimer();
     });
   }
 
-  // 🆕 NUEVO: Limpiar estados de días anteriores
   Future<void> _cleanOldCompletionStates() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -90,14 +88,12 @@ class EventProvider extends ChangeNotifier {
         if (key.startsWith('event_') && key.contains('_completion_')) {
           final parts = key.split('_completion_');
           if (parts.length == 2) {
-            final dateStr = parts[1]; // YYYY-MM-DD
+            final dateStr = parts[1];
             
-            // Si NO es de hoy, eliminar
             if (dateStr != todayKey) {
               await prefs.remove(key);
               removedCount++;
               
-              // También limpiar del cache en memoria
               final eventId = parts[0].replaceAll('event_', '');
               try {
                 final dateParts = dateStr.split('-');
@@ -127,7 +123,6 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  // 🆕 MODIFICADO: Solo cargar estados de HOY
   Future<void> _loadTodayCompletionStates() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -143,7 +138,6 @@ class EventProvider extends ChangeNotifier {
           if (parts.length == 2) {
             final dateStr = parts[1];
             
-            // Solo cargar si es de HOY
             if (dateStr == todayKey) {
               final completed = prefs.getBool(key) ?? false;
               final eventId = parts[0].replaceAll('event_', '');
@@ -386,7 +380,7 @@ class EventProvider extends ChangeNotifier {
       await _syncService.saveEvent(newEvent);
 
       if (!newEvent.isCompleted) {
-        _scheduleEventNotifications(newEvent);
+        await _scheduleEventNotifications(newEvent);
       }
 
       _pruneCache();
@@ -424,9 +418,10 @@ class EventProvider extends ChangeNotifier {
         }
       });
 
-      _cancelAllEventNotifications(oldEvent);
+      // 🆕 CORREGIDO: Esperar a que se cancelen las notificaciones
+      await _cancelAllEventNotifications(oldEvent);
       if (!updatedEvent.isCompleted) {
-        _scheduleEventNotifications(updatedEvent);
+        await _scheduleEventNotifications(updatedEvent);
       }
     } catch (e) {
       _error = e.toString();
@@ -440,6 +435,10 @@ class EventProvider extends ChangeNotifier {
       if (eventIndex == -1) return;
 
       final event = _events[eventIndex];
+      
+      // 🆕 CORREGIDO: Cancelar notificaciones ANTES de eliminar el evento
+      await _cancelAllEventNotifications(event);
+      
       _events.removeAt(eventIndex);
 
       _progressCache.remove(eventId);
@@ -462,8 +461,6 @@ class EventProvider extends ChangeNotifier {
       }
 
       _notifyChanges();
-
-      _cancelAllEventNotifications(event);
 
       if (deleteAll) {
         await _syncService.deleteAllEventInstances(eventId);
@@ -556,9 +553,10 @@ class EventProvider extends ChangeNotifier {
 
   bool get mounted => !_eventsController.isClosed;
 
-  // Métodos de notificaciones (sin cambios)
-  void _scheduleEventNotifications(Event event) async {
-    _cancelAllEventNotifications(event);
+  // 🆕 MÉTODOS DE NOTIFICACIONES CORREGIDOS
+  
+  Future<void> _scheduleEventNotifications(Event event) async {
+    await _cancelAllEventNotifications(event);
 
     if (event.repeatDays.isNotEmpty) {
       for (int day in event.repeatDays) {
@@ -626,24 +624,12 @@ class EventProvider extends ChangeNotifier {
     }
   }
 
-  void _cancelAllEventNotifications(Event event) {
-    NotificationService().flutterLocalNotificationsPlugin.cancel(
-      event.id.hashCode,
+  // 🆕 CORREGIDO: Ahora es async y usa el nuevo método del servicio
+  Future<void> _cancelAllEventNotifications(Event event) async {
+    await NotificationService().cancelEventNotifications(
+      event.id,
+      repeatDays: event.repeatDays.isNotEmpty ? event.repeatDays : null,
     );
-    NotificationService().flutterLocalNotificationsPlugin.cancel(
-      event.id.hashCode + 10000,
-    );
-
-    if (event.repeatDays.isNotEmpty) {
-      for (int day in event.repeatDays) {
-        NotificationService().flutterLocalNotificationsPlugin.cancel(
-          event.id.hashCode + day,
-        );
-        NotificationService().flutterLocalNotificationsPlugin.cancel(
-          event.id.hashCode + day + 10000,
-        );
-      }
-    }
   }
 
   DateTime _calculateNotificationTime(int day, DateTime startTime) {
@@ -711,7 +697,7 @@ class EventProvider extends ChangeNotifier {
 
     for (final event in _events) {
       if (!event.isCompleted && !event.isDeleted) {
-        _scheduleEventNotifications(event);
+        await _scheduleEventNotifications(event);
       }
     }
 

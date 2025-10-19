@@ -110,12 +110,14 @@ class _MyAppState extends State<MyApp> {
           // También puedes forzar un idioma específico:
           // locale: Locale('es'), // Forzar español
           theme: ThemeData(
+            typography: Typography.material2021(),
             useMaterial3: true,
             useSystemColors: true,
             brightness: Brightness.light,
             colorScheme: lightDynamic,
           ),
           darkTheme: ThemeData(
+            typography: Typography.material2021(),
             useMaterial3: true,
             useSystemColors: true,
             brightness: Brightness.dark,

@@ -44,7 +44,6 @@ dependencies:
   provider: ^6.0.0
   uuid: ^4.5.1
   permission_handler: ^12.0.1
-  google_fonts: ^6.2.1
   android_alarm_manager_plus: ^5.0.0
 
   workmanager: ^0.9.0+2
@@ -61,6 +60,9 @@ dependencies:
 
   app_links: ^6.4.0
   flutter_gen: ^5.9.0
+
+  google_fonts: ^6.3.2
+
   
   flutter_localizations:
     sdk: flutter
