@@ -2,6 +2,7 @@
 import '../models/event.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 /// Opciones de ordenamiento disponibles
 enum EventSortOption {
@@ -26,6 +27,7 @@ class EventSortingUtils {
       return EventSortOption.timeAscending; // Default
     }
   }
+
   /// Ordena eventos considerando si son repetitivos
   static List<Event> sortEvents(
     List<Event> events,
@@ -107,10 +109,10 @@ class EventSortingUtils {
     bool sortGroups = true, // 🆕 Parámetro para controlar ordenamiento
   }) {
     final groups = <TimePeriod, List<Event>>{
-      TimePeriod.morning: [],
-      TimePeriod.afternoon: [],
-      TimePeriod.evening: [],
-      TimePeriod.night: [],
+      TimePeriod.night: [],     // Madrugada
+      TimePeriod.morning: [],   // Mañana
+      TimePeriod.afternoon: [], // Tarde
+      TimePeriod.evening: [],   // Noche
     };
 
     for (final event in events) {
@@ -137,14 +139,14 @@ class EventSortingUtils {
     final effectiveTime = _getEffectiveTime(event, referenceDate);
     final hour = effectiveTime.hour;
 
-    if (hour >= 6 && hour < 12) {
-      return TimePeriod.morning;
-    } else if (hour >= 12 && hour < 17) {
-      return TimePeriod.afternoon;
-    } else if (hour >= 17 && hour < 21) {
-      return TimePeriod.evening;
+    if (hour >= 0 && hour < 5) {
+      return TimePeriod.night; // Madrugada
+    } else if (hour >= 5 && hour < 12) {
+      return TimePeriod.morning; // Mañana
+    } else if (hour >= 12 && hour < 18) {
+      return TimePeriod.afternoon; // Tarde
     } else {
-      return TimePeriod.night;
+      return TimePeriod.evening; // Noche
     }
   }
 
@@ -214,24 +216,36 @@ class EventSortingUtils {
 
 /// Periodos del día
 enum TimePeriod {
-  morning,   // 6:00 - 11:59
-  afternoon, // 12:00 - 16:59
-  evening,   // 17:00 - 20:59
-  night,     // 21:00 - 5:59
+  night,      // 00:00 - 04:59 → Madrugada
+  morning,    // 05:00 - 11:59 → Mañana
+  afternoon,  // 12:00 - 17:59 → Tarde
+  evening,    // 18:00 - 23:59 → Noche
 }
 
 extension TimePeriodExtension on TimePeriod {
   String getName(dynamic context) {
-    // Aquí deberías usar AppLocalizations.of(context)
     switch (this) {
+      case TimePeriod.night:
+        return 'Madrugada';
       case TimePeriod.morning:
         return 'Mañana';
       case TimePeriod.afternoon:
         return 'Tarde';
       case TimePeriod.evening:
         return 'Noche';
+    }
+  }
+
+  IconData getIcon() {
+    switch (this) {
       case TimePeriod.night:
-        return 'Madrugada';
+        return Icons.bedtime; // 🌙
+      case TimePeriod.morning:
+        return Icons.wb_sunny; // ☀️
+      case TimePeriod.afternoon:
+        return Icons.wb_twilight; // 🌇
+      case TimePeriod.evening:
+        return Icons.nightlight; // 🌃
     }
   }
 }
