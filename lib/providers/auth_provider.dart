@@ -8,6 +8,7 @@ class AuthProvider with ChangeNotifier {
   static const _authTimeoutKey = 'auth_timeout_minutes';
   static const _immediateTimeoutKey = 'immediate_timeout_enabled';
   static const _appStateKey = 'app_authenticated_state';
+  static const _sessionAuthKey = 'session_authenticated'; // NUEVO
 
   // Valores por defecto
   static const _defaultTimeoutMinutes = 5;
@@ -17,6 +18,7 @@ class AuthProvider with ChangeNotifier {
   bool _isCurrentlyAuthenticated = false;
   int _authTimeoutMinutes = _defaultTimeoutMinutes;
   bool _immediateTimeoutEnabled = _defaultImmediateTimeout;
+  bool _sessionAuthenticated = false; // NUEVO - para manejar la sesión actual
 
   bool get isBiometricAuthEnabled => _isBiometricAuthEnabled;
   bool get isCurrentlyAuthenticated => _isCurrentlyAuthenticated;
@@ -43,10 +45,12 @@ class AuthProvider with ChangeNotifier {
         prefs.getInt(_authTimeoutKey) ?? _defaultTimeoutMinutes;
     _immediateTimeoutEnabled =
         prefs.getBool(_immediateTimeoutKey) ?? _defaultImmediateTimeout;
+    _sessionAuthenticated = prefs.getBool(_sessionAuthKey) ?? false;
 
     print('🔐 AuthProvider: Biometric enabled = $_isBiometricAuthEnabled');
     print('🔐 AuthProvider: Timeout minutes = $_authTimeoutMinutes');
     print('🔐 AuthProvider: Immediate timeout = $_immediateTimeoutEnabled');
+    print('🔐 AuthProvider: Session authenticated = $_sessionAuthenticated');
 
     _isCurrentlyAuthenticated = false;
     notifyListeners();
@@ -60,8 +64,10 @@ class AuthProvider with ChangeNotifier {
 
     if (!isEnabled) {
       _isCurrentlyAuthenticated = false;
+      _sessionAuthenticated = false;
       await prefs.remove(_lastAuthTimeKey);
       await prefs.remove(_appStateKey);
+      await prefs.remove(_sessionAuthKey);
       _authTimeoutMinutes = _defaultTimeoutMinutes;
       _immediateTimeoutEnabled = _defaultImmediateTimeout;
       await prefs.remove(_authTimeoutKey);
@@ -90,58 +96,76 @@ class AuthProvider with ChangeNotifier {
     await prefs.setInt(_lastAuthTimeKey, now.millisecondsSinceEpoch);
 
     _isCurrentlyAuthenticated = true;
+    _sessionAuthenticated = true; // NUEVO - marcar sesión como autenticada
     await prefs.setBool(_appStateKey, true);
+    await prefs.setBool(_sessionAuthKey, true);
 
-    print('🔐 AuthProvider: Marked as currently authenticated');
+    print('🔐 AuthProvider: ✅ Marked as authenticated');
+    print('🔐 AuthProvider: Session authenticated = true');
     notifyListeners();
   }
 
-  /// ✅ FIX: ya no entra en bucle cuando immediateTimeout está activado
-/// ✅ Ahora respeta el timeout configurado
-Future<bool> needsAuthAgain() async {
-  print('🔐 AuthProvider: Checking if auth needed...');
+  /// ✅ FIX: Verifica si necesita autenticación de nuevo
+  Future<bool> needsAuthAgain() async {
+    print('🔐 AuthProvider: Checking if auth needed...');
 
-  if (!_isBiometricAuthEnabled) return false;
+    if (!_isBiometricAuthEnabled) return false;
 
-  final prefs = await SharedPreferences.getInstance();
-  final lastAuthTime = prefs.getInt(_lastAuthTimeKey);
+    // Si ya estamos autenticados en esta sesión, no pedir auth otra vez
+    if (_sessionAuthenticated) {
+      print('🔐 AuthProvider: ✅ Session already authenticated, no auth needed');
+      return false;
+    }
 
-  if (lastAuthTime == null) return true;
-
-  // Caso bloqueo inmediato: siempre pedir auth al volver
-  if (_immediateTimeoutEnabled) {
-    print('🔐 AuthProvider: Immediate timeout enabled, auth required');
-    return true;
-  }
-
-  final lastAuth = DateTime.fromMillisecondsSinceEpoch(lastAuthTime);
-  final now = DateTime.now();
-  final timeDifference = now.difference(lastAuth);
-  final timeoutDuration = Duration(minutes: _authTimeoutMinutes);
-
-  print('🔐 AuthProvider: Time since auth = ${timeDifference.inSeconds}s');
-  return timeDifference >= timeoutDuration;
-}
-
-Future<void> onAppPaused() async {
-  print('🔐 AuthProvider: App paused');
-  if (_isBiometricAuthEnabled) {
-    // Siempre marcar como no autenticado al salir
-    _isCurrentlyAuthenticated = false;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_appStateKey, false);
-    notifyListeners();
-  }
-}
+    final lastAuthTime = prefs.getInt(_lastAuthTimeKey);
 
+    if (lastAuthTime == null) {
+      print('🔐 AuthProvider: No previous auth time, auth required');
+      return true;
+    }
+
+    // Caso bloqueo inmediato: solo pedir auth si la sesión no está autenticada
+    if (_immediateTimeoutEnabled) {
+      print('🔐 AuthProvider: Immediate timeout enabled, checking session');
+      return !_sessionAuthenticated;
+    }
+
+    // Verificar timeout normal
+    final lastAuth = DateTime.fromMillisecondsSinceEpoch(lastAuthTime);
+    final now = DateTime.now();
+    final timeDifference = now.difference(lastAuth);
+    final timeoutDuration = Duration(minutes: _authTimeoutMinutes);
+
+    print('🔐 AuthProvider: Time since auth = ${timeDifference.inSeconds}s');
+    bool needsAuth = timeDifference >= timeoutDuration;
+    
+    print('🔐 AuthProvider: Needs auth = $needsAuth');
+    return needsAuth;
+  }
+
+  Future<void> onAppPaused() async {
+    print('🔐 AuthProvider: App paused');
+    if (_isBiometricAuthEnabled) {
+      // Marcar como no autenticado al salir
+      _isCurrentlyAuthenticated = false;
+      _sessionAuthenticated = false; // NUEVO - limpiar sesión
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_appStateKey, false);
+      await prefs.setBool(_sessionAuthKey, false);
+      print('🔐 AuthProvider: Session cleared on pause');
+      notifyListeners();
+    }
+  }
 
   Future<void> markAsUnauthenticated() async {
     _isCurrentlyAuthenticated = false;
+    _sessionAuthenticated = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_appStateKey, false);
+    await prefs.setBool(_sessionAuthKey, false);
     notifyListeners();
   }
-
 
   Future<bool> checkAuthOnResume() async {
     print('🔐 AuthProvider: ===============================================');
@@ -150,6 +174,7 @@ Future<void> onAppPaused() async {
 
     if (!_isBiometricAuthEnabled) {
       _isCurrentlyAuthenticated = true;
+      _sessionAuthenticated = true;
       notifyListeners();
       return false;
     }
@@ -158,15 +183,21 @@ Future<void> onAppPaused() async {
 
     if (needsAuth) {
       _isCurrentlyAuthenticated = false;
+      _sessionAuthenticated = false;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_appStateKey, false);
+      await prefs.setBool(_sessionAuthKey, false);
       notifyListeners();
+      print('🔐 AuthProvider: ❌ Auth required');
       return true;
     } else {
       _isCurrentlyAuthenticated = true;
+      _sessionAuthenticated = true;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_appStateKey, true);
+      await prefs.setBool(_sessionAuthKey, true);
       notifyListeners();
+      print('🔐 AuthProvider: ✅ Already authenticated');
       return false;
     }
   }
@@ -180,6 +211,7 @@ Future<void> onAppPaused() async {
     print('🔐 DEBUG INFO:');
     print('  - Biometric enabled: $_isBiometricAuthEnabled');
     print('  - Currently authenticated: $_isCurrentlyAuthenticated');
+    print('  - Session authenticated: $_sessionAuthenticated');
     print('  - Auth timeout minutes: $_authTimeoutMinutes');
     print('  - Immediate timeout: $_immediateTimeoutEnabled');
     print('  - Last auth time: $lastAuthDateTime');
