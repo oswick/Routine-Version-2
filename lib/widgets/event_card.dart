@@ -1,4 +1,4 @@
-// lib/widgets/event_card.dart - VERSIÓN OPTIMIZADA SIN TIMERS
+// lib/widgets/event_card.dart - VERSIÓN ACTUALIZADA CON EVENT PREVIEW SHEET
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/l10n/app_localizations.dart';
@@ -9,6 +9,7 @@ import 'package:myapp/screens/add_event_screen.dart';
 import 'package:myapp/utils/event_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
+import 'package:myapp/widgets/event_preview_sheet.dart'; // 🆕 NUEVO IMPORT
 
 class EventCard extends StatefulWidget {
   final Event event;
@@ -167,7 +168,7 @@ class _EventCardState extends State<EventCard> {
     if (_isRepetitiveEvent()) {
       return Tooltip(
         message: isCompleted
-            ? AppLocalizations.of(context).markAsComplete
+            ? AppLocalizations.of(context).markAsIncomplete
             : AppLocalizations.of(context).markAsComplete,
         child: Checkbox(
           shape: const CircleBorder(),
@@ -179,7 +180,7 @@ class _EventCardState extends State<EventCard> {
       return Tooltip(
         message: isCompleted
             ? AppLocalizations.of(context).markAsIncomplete
-            : AppLocalizations.of(context).markAsIncomplete,
+            : AppLocalizations.of(context).markAsComplete,
         child: Checkbox(
           shape: const CircleBorder(),
           value: isCompleted,
@@ -260,15 +261,13 @@ class _EventCardState extends State<EventCard> {
     bool isPast = widget.pastEvent;
     double cardOpacity = isPast ? 0.5 : (isCompleted ? 0.6 : 1.0);
 
-    // 🆕 Consumir solo cuando hay cambios en el provider
     return Consumer<EventProvider>(
       builder: (context, provider, child) {
-        // Obtener progreso del cache del provider
         final progress = provider.getEventProgress(widget.event.id);
         final showProgress = _shouldShowProgressIndicator();
 
         return GestureDetector(
-          onTap: () => _showEventDetails(context),
+          onTap: () => _showEventPreview(context), // 🆕 CAMBIO AQUÍ
           child: Card(
             color: Theme.of(context).colorScheme.surfaceContainer,
             elevation: 0,
@@ -368,7 +367,6 @@ class _EventCardState extends State<EventCard> {
                       ],
                     ),
                     
-                    // Mostrar progreso solo si es necesario
                     if (showProgress)
                       Padding(
                         padding: const EdgeInsets.only(top: 8.0),
@@ -414,17 +412,35 @@ class _EventCardState extends State<EventCard> {
     );
   }
 
-  void _showEventDetails(BuildContext context) {
+  // 🆕 NUEVO MÉTODO - Muestra el preview sheet primero
+  void _showEventPreview(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) {
-        return AddEventBottomSheet(
+        return EventPreviewSheet(
           event: widget.event,
-          onAddEvent: (updatedEvent) {
-            widget.onUpdateEvent(updatedEvent);
+          onEdit: () {
+            // Abrir pantalla de edición después de cerrar el preview
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) {
+                return AddEventBottomSheet(
+                  event: widget.event,
+                  onAddEvent: (updatedEvent) {
+                    widget.onUpdateEvent(updatedEvent);
+                  },
+                  day: widget.event.startTime,
+                );
+              },
+            );
           },
-          day: widget.event.startTime,
+          onDelete: () {
+            // El delete se maneja dentro del EventPreviewSheet
+          },
         );
       },
     );
