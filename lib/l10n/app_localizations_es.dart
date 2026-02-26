@@ -217,6 +217,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get night => 'Noche';
 
   @override
+  String get earlyMorning => 'Madrugada';
+
+  @override
   String get noEventsForThisDay => 'No hay eventos para este día';
 
   @override
@@ -481,4 +484,116 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get notificationsRescheduled => 'Notificaciones reprogramadas';
+
+  @override
+  String get inProgress => 'En progreso';
+
+  @override
+  String get paused => 'Pausado';
+
+  @override
+  String get completedLabel => 'Completado';
+
+  @override
+  String get continueLabel => 'Continuar';
+
+  @override
+  String get quickTime => 'Acceso Rápido';
+
+  @override
+  String get hide => 'Ocultar';
+
+  @override
+  String get customTime => 'Hora Personalizada';
+
+  @override
+  String get setSpecificTimes => 'Establecer hora de inicio y fin';
+
+  @override
+  String get quickLabel => 'Rápido';
+
+  @override
+  String get today => 'Hoy';
+
+  @override
+  String get in5min => 'En 5 min';
+
+  @override
+  String get in30min => 'En 30 min';
+
+  @override
+  String get in1hour => 'En 1 hora';
+
+  @override
+  String get morningTime => 'Mañana (9 AM)';
+
+  @override
+  String get afternoonTime => 'Tarde (2 PM)';
+
+  @override
+  String get eveningTime => 'Noche (6 PM)';
+
+  @override
+  String get eventSorting => 'Ordenar Eventos';
+
+  @override
+  String get displayAndOrganization => 'Visualización y Organización';
+
+  @override
+  String get sortTimeAscending => 'Hora (Temprano → Tarde)';
+
+  @override
+  String get sortTimeDescending => 'Hora (Tarde → Temprano)';
+
+  @override
+  String get sortImportance => 'Importancia';
+
+  @override
+  String get sortImportanceAndTime => 'Importancia + Hora';
+
+  @override
+  String get sortTitle => 'Alfabético';
+
+  @override
+  String get sortCategory => 'Categoría';
+
+  @override
+  String get sortDescTimeAscending =>
+      'Eventos ordenados de más temprano a más tarde';
+
+  @override
+  String get sortDescTimeDescending =>
+      'Eventos ordenados de más tarde a más temprano';
+
+  @override
+  String get sortDescImportance => 'Eventos ordenados por nivel de importancia';
+
+  @override
+  String get sortDescImportanceAndTime =>
+      'Mayor importancia primero, luego por hora';
+
+  @override
+  String get sortDescTitle => 'Eventos ordenados alfabéticamente por título';
+
+  @override
+  String get sortDescCategory =>
+      'Eventos agrupados por categoría, luego por hora';
+
+  @override
+  String get sortPrefSaved => 'Preferencia de orden guardada';
+
+  @override
+  String get currentlySorting => 'Actualmente';
+
+  @override
+  String get minuteLabel => 'minuto';
+
+  @override
+  String get minutesLabel => 'minutos';
+
+  @override
+  String get screenActive => 'Pantalla activa';
+
+  @override
+  String get authenticate => 'Autenticar';
 }

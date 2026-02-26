@@ -1,9 +1,7 @@
 {
   "@@locale": "en",
   "appTitle": "Routine",
-  "@appTitle": {
-    "description": "The title of the application"
-  },
+  "@appTitle": { "description": "The title of the application" },
   "calendar": "Calendar",
   "addEvent": "Add Event",
   "editEvent": "Edit Event",
@@ -71,6 +69,7 @@
   "morning": "Morning",
   "afternoon": "Afternoon",
   "night": "Night",
+  "earlyMorning": "Early Morning",
   "noEventsForThisDay": "No events for this day",
   "tapPlusButtonToAddEvent": "Tap the + button to add your first event",
   "deleteAllDays": "Delete All Days",
@@ -115,12 +114,10 @@
   "after30Minutes": "After 30 minutes",
   "after1Hour": "After 1 hour",
   "never": "Never",
-  "home": "Home",
   "authenticationRequired": "Authentication Required",
   "authenticating": "Authenticating...",
   "authSuccessful": "Authentication successful",
   "authErrorOccurred": "Authentication error occurred",
-  "editEvent": "Edit Event",
   "newEvent": "New Event",
   "eventTitleRequired": "Event Title *",
   "whatNeedsToBeDone": "What needs to be done?",
@@ -135,76 +132,81 @@
   "options": "Options",
   "repeat": "Repeat",
   "priority": "Priority",
-  "category": "Category",
   "createEvent": "Create Event",
   "updateEvent": "Update Event",
   "pleaseEnterTitle": "Please enter a title for the event",
   "endTimeAfterStart": "End time must be after start time",
   "errorSavingEvent": "Error saving event",
-  "repeatDays": "Repeat Days",
   "done": "Done",
   "priorityLevel": "Priority Level",
-  "low": "Low",
-  "moderate": "Moderate",
-  "important": "Important",
-  "veryImportant": "Very Important",
-  "none": "None",
   "accomplished": "Accomplished",
   "notAccomplished": "Not Accomplished",
   "eventReminder": "Event Reminder",
-  "@eventReminder": {
-    "description": "Title for event reminder notifications"
-  },
+  "@eventReminder": { "description": "Title for event reminder notifications" },
   "eventStartsNow": "Event starts now",
-  "@eventStartsNow": {
-    "description": "Notification body when event starts"
-  },
+  "@eventStartsNow": { "description": "Notification body when event starts" },
   "eventFinished": "Event Finished!",
-  "@eventFinished": {
-    "description": "Title for event end notifications"
-  },
+  "@eventFinished": { "description": "Title for event end notifications" },
   "eventHasEnded": "The event \"{eventTitle}\" has ended",
   "@eventHasEnded": {
     "description": "Notification body when event ends",
     "placeholders": {
-      "eventTitle": {
-        "type": "String",
-        "description": "The title of the event that has ended"
-      }
+      "eventTitle": { "type": "String", "description": "The title of the event that has ended" }
     }
   },
   "eventCompletedCelebration": "Task completed! 🎉",
-  "@eventCompletedCelebration": {
-    "description": "Message when task is completed"
-  },
+  "@eventCompletedCelebration": { "description": "Message when task is completed" },
   "eventMarkedIncomplete": "Task marked as incomplete",
-  "@eventMarkedIncomplete": {
-    "description": "Message when task is marked as incomplete"
-  },
+  "@eventMarkedIncomplete": { "description": "Message when task is marked as incomplete" },
   "excellentWork": "Excellent work maintaining focus!",
-  "@excellentWork": {
-    "description": "Congratulatory message for completing tasks"
-  },
+  "@excellentWork": { "description": "Congratulatory message for completing tasks" },
   "completedExclamation": "Completed!",
-  "@completedExclamation": {
-    "description": "Exclamation when something is completed"
-  },
+  "@completedExclamation": { "description": "Exclamation when something is completed" },
   "youHaveCompleted": "You have completed \"{eventTitle}\"! 🎉",
   "@youHaveCompleted": {
     "description": "Message when user completes an event",
     "placeholders": {
-      "eventTitle": {
-        "type": "String",
-        "description": "The title of the completed event"
-      }
+      "eventTitle": { "type": "String", "description": "The title of the completed event" }
     }
   },
   "reschedulingNotifications": "Rescheduling notifications...",
-  "@reschedulingNotifications": {
-    "description": "Status message when rescheduling notifications"
-  },
+  "@reschedulingNotifications": { "description": "Status message when rescheduling notifications" },
   "notificationsRescheduled": "Notifications rescheduled",
-  "@notificationsRescheduled": {
-    "description": "Success message when notifications are rescheduled"
-  }
+  "@notificationsRescheduled": { "description": "Success message when notifications are rescheduled" },
+  "inProgress": "In progress",
+  "paused": "Paused",
+  "completedLabel": "Completed",
+  "continueLabel": "Continue",
+  "quickTime": "Quick Time",
+  "hide": "Hide",
+  "customTime": "Custom Time",
+  "setSpecificTimes": "Set specific start and end times",
+  "quickLabel": "Quick",
+  "today": "Today",
+  "in5min": "In 5 min",
+  "in30min": "In 30 min",
+  "in1hour": "In 1 hour",
+  "morningTime": "Morning (9 AM)",
+  "afternoonTime": "Afternoon (2 PM)",
+  "eveningTime": "Evening (6 PM)",
+  "eventSorting": "Event Sorting",
+  "displayAndOrganization": "Display & Organization",
+  "sortTimeAscending": "Time (Early → Late)",
+  "sortTimeDescending": "Time (Late → Early)",
+  "sortImportance": "Importance",
+  "sortImportanceAndTime": "Importance + Time",
+  "sortTitle": "Alphabetical",
+  "sortCategory": "Category",
+  "sortDescTimeAscending": "Events ordered from earliest to latest",
+  "sortDescTimeDescending": "Events ordered from latest to earliest",
+  "sortDescImportance": "Events ordered by importance level",
+  "sortDescImportanceAndTime": "High importance first, then by time",
+  "sortDescTitle": "Events ordered alphabetically by title",
+  "sortDescCategory": "Events grouped by category, then by time",
+  "sortPrefSaved": "Sort preference saved",
+  "currentlySorting": "Currently",
+  "minuteLabel": "minute",
+  "minutesLabel": "minutes",
+  "screenActive": "Screen active",
+  "authenticate": "Authenticate"
 }

@@ -33,13 +33,11 @@ class _DayScreenState extends State<DayScreen>
   @override
   bool get wantKeepAlive => true;
 
-  // 🆕 Cache de eventos procesados
   List<Event>? _cachedSortedEvents;
   Map<TimePeriod, List<Event>>? _cachedGroupedEvents;
   EventSortOption? _cachedSortOption;
   int? _cachedEventsHash;
 
-  // Estado de secciones colapsables
   final Map<TimePeriod, bool> _sectionVisibility = {
     TimePeriod.morning: true,
     TimePeriod.afternoon: true,
@@ -59,7 +57,6 @@ class _DayScreenState extends State<DayScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // Limpiar cache
     _cachedSortedEvents = null;
     _cachedGroupedEvents = null;
     super.dispose();
@@ -75,36 +72,30 @@ class _DayScreenState extends State<DayScreen>
   @override
   void didUpdateWidget(DayScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
-    // 🆕 Invalidar cache si cambiaron los eventos o la fecha
-    if (oldWidget.events != widget.events || 
+    if (oldWidget.events != widget.events ||
         !_isSameDay(oldWidget.day, widget.day)) {
       _invalidateCache();
     }
   }
 
-  // 🆕 NUEVO: Invalidar cache
   void _invalidateCache() {
     _cachedSortedEvents = null;
     _cachedGroupedEvents = null;
     _cachedEventsHash = null;
   }
 
-  // 🆕 NUEVO: Calcular hash de eventos
   int _calculateEventsHash(List<Event> events) {
     return events.fold(0, (hash, event) {
       return hash ^ event.id.hashCode ^ event.lastModified.hashCode;
     });
   }
 
-  // 🆕 NUEVO: Obtener eventos ordenados con cache
   List<Event> _getCachedSortedEvents() {
     final currentHash = _calculateEventsHash(widget.events);
-    
-    if (_cachedSortedEvents == null || 
+
+    if (_cachedSortedEvents == null ||
         _cachedSortOption != _sortOption ||
         _cachedEventsHash != currentHash) {
-      
       _cachedSortedEvents = EventSortingUtils.sortEvents(
         widget.events,
         widget.day,
@@ -113,11 +104,10 @@ class _DayScreenState extends State<DayScreen>
       _cachedSortOption = _sortOption;
       _cachedEventsHash = currentHash;
     }
-    
+
     return _cachedSortedEvents!;
   }
 
-  // 🆕 NUEVO: Obtener eventos agrupados con cache
   Map<TimePeriod, List<Event>> _getCachedGroupedEvents() {
     if (_cachedGroupedEvents == null) {
       final sortedEvents = _getCachedSortedEvents();
@@ -135,7 +125,7 @@ class _DayScreenState extends State<DayScreen>
     if (mounted && sortOption != _sortOption) {
       setState(() {
         _sortOption = sortOption;
-        _invalidateCache(); // Invalidar cache al cambiar ordenamiento
+        _invalidateCache();
       });
     }
   }
@@ -194,7 +184,8 @@ class _DayScreenState extends State<DayScreen>
       case TimePeriod.evening:
         return l10n.night;
       case TimePeriod.night:
-        return 'Madrugada';
+        // FIX: was hardcoded 'Madrugada' — now uses l10n
+        return l10n.earlyMorning;
     }
   }
 
@@ -206,15 +197,12 @@ class _DayScreenState extends State<DayScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    // 🆕 OPTIMIZADO: Usar cache para eventos procesados
     final eventsByPeriod = _getCachedGroupedEvents();
 
-    // Filtrar periodos vacíos
     final nonEmptyPeriods = eventsByPeriod.entries
         .where((entry) => entry.value.isNotEmpty)
         .toList();
 
-    // 🆕 OPTIMIZADO: Usar Selector para rebuilds específicos
     return Selector<EventProvider, bool>(
       selector: (_, provider) => provider.isLoading,
       builder: (context, isLoading, child) {
@@ -238,11 +226,9 @@ class _DayScreenState extends State<DayScreen>
     );
   }
 
-  // 🆕 NUEVO: Extraer lista de eventos a widget separado
   Widget _buildEventsList(List<MapEntry<TimePeriod, List<Event>>> periods) {
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
-      // 🆕 OPTIMIZADO: Usar itemExtent para mejor rendimiento si es posible
       itemCount: periods.length,
       itemBuilder: (context, index) {
         final entry = periods[index];
@@ -324,7 +310,6 @@ class _DayScreenState extends State<DayScreen>
   }
 }
 
-// 🆕 NUEVO: Widget separado para cada sección de periodo
 class _PeriodSection extends StatelessWidget {
   final TimePeriod period;
   final String periodName;
@@ -356,13 +341,13 @@ class _PeriodSection extends StatelessWidget {
       children: [
         _buildPeriodHeader(context),
         if (isVisible)
-          // 🆕 OPTIMIZADO: Usar ListView.separated para mejor rendimiento
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: events.length,
             separatorBuilder: (context, index) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0, vertical: 4.0),
               child: Divider(
                 height: 1,
                 thickness: 0.5,
@@ -407,7 +392,8 @@ class _PeriodSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                color:
+                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(

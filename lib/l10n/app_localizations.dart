@@ -506,6 +506,12 @@ abstract class AppLocalizations {
   /// **'Night'**
   String get night;
 
+  /// No description provided for @earlyMorning.
+  ///
+  /// In en, this message translates to:
+  /// **'Early Morning'**
+  String get earlyMorning;
+
   /// No description provided for @noEventsForThisDay.
   ///
   /// In en, this message translates to:
@@ -997,6 +1003,222 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Notifications rescheduled'**
   String get notificationsRescheduled;
+
+  /// No description provided for @inProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get inProgress;
+
+  /// No description provided for @paused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get paused;
+
+  /// No description provided for @completedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get completedLabel;
+
+  /// No description provided for @continueLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueLabel;
+
+  /// No description provided for @quickTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Time'**
+  String get quickTime;
+
+  /// No description provided for @hide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get hide;
+
+  /// No description provided for @customTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Time'**
+  String get customTime;
+
+  /// No description provided for @setSpecificTimes.
+  ///
+  /// In en, this message translates to:
+  /// **'Set specific start and end times'**
+  String get setSpecificTimes;
+
+  /// No description provided for @quickLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick'**
+  String get quickLabel;
+
+  /// No description provided for @today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get today;
+
+  /// No description provided for @in5min.
+  ///
+  /// In en, this message translates to:
+  /// **'In 5 min'**
+  String get in5min;
+
+  /// No description provided for @in30min.
+  ///
+  /// In en, this message translates to:
+  /// **'In 30 min'**
+  String get in30min;
+
+  /// No description provided for @in1hour.
+  ///
+  /// In en, this message translates to:
+  /// **'In 1 hour'**
+  String get in1hour;
+
+  /// No description provided for @morningTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Morning (9 AM)'**
+  String get morningTime;
+
+  /// No description provided for @afternoonTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Afternoon (2 PM)'**
+  String get afternoonTime;
+
+  /// No description provided for @eveningTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Evening (6 PM)'**
+  String get eveningTime;
+
+  /// No description provided for @eventSorting.
+  ///
+  /// In en, this message translates to:
+  /// **'Event Sorting'**
+  String get eventSorting;
+
+  /// No description provided for @displayAndOrganization.
+  ///
+  /// In en, this message translates to:
+  /// **'Display & Organization'**
+  String get displayAndOrganization;
+
+  /// No description provided for @sortTimeAscending.
+  ///
+  /// In en, this message translates to:
+  /// **'Time (Early → Late)'**
+  String get sortTimeAscending;
+
+  /// No description provided for @sortTimeDescending.
+  ///
+  /// In en, this message translates to:
+  /// **'Time (Late → Early)'**
+  String get sortTimeDescending;
+
+  /// No description provided for @sortImportance.
+  ///
+  /// In en, this message translates to:
+  /// **'Importance'**
+  String get sortImportance;
+
+  /// No description provided for @sortImportanceAndTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Importance + Time'**
+  String get sortImportanceAndTime;
+
+  /// No description provided for @sortTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Alphabetical'**
+  String get sortTitle;
+
+  /// No description provided for @sortCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get sortCategory;
+
+  /// No description provided for @sortDescTimeAscending.
+  ///
+  /// In en, this message translates to:
+  /// **'Events ordered from earliest to latest'**
+  String get sortDescTimeAscending;
+
+  /// No description provided for @sortDescTimeDescending.
+  ///
+  /// In en, this message translates to:
+  /// **'Events ordered from latest to earliest'**
+  String get sortDescTimeDescending;
+
+  /// No description provided for @sortDescImportance.
+  ///
+  /// In en, this message translates to:
+  /// **'Events ordered by importance level'**
+  String get sortDescImportance;
+
+  /// No description provided for @sortDescImportanceAndTime.
+  ///
+  /// In en, this message translates to:
+  /// **'High importance first, then by time'**
+  String get sortDescImportanceAndTime;
+
+  /// No description provided for @sortDescTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Events ordered alphabetically by title'**
+  String get sortDescTitle;
+
+  /// No description provided for @sortDescCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Events grouped by category, then by time'**
+  String get sortDescCategory;
+
+  /// No description provided for @sortPrefSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort preference saved'**
+  String get sortPrefSaved;
+
+  /// No description provided for @currentlySorting.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently'**
+  String get currentlySorting;
+
+  /// No description provided for @minuteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'minute'**
+  String get minuteLabel;
+
+  /// No description provided for @minutesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'minutes'**
+  String get minutesLabel;
+
+  /// No description provided for @screenActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen active'**
+  String get screenActive;
+
+  /// No description provided for @authenticate.
+  ///
+  /// In en, this message translates to:
+  /// **'Authenticate'**
+  String get authenticate;
 }
 
 class _AppLocalizationsDelegate

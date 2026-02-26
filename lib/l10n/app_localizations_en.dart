@@ -217,6 +217,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get night => 'Night';
 
   @override
+  String get earlyMorning => 'Early Morning';
+
+  @override
   String get noEventsForThisDay => 'No events for this day';
 
   @override
@@ -478,4 +481,112 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationsRescheduled => 'Notifications rescheduled';
+
+  @override
+  String get inProgress => 'In progress';
+
+  @override
+  String get paused => 'Paused';
+
+  @override
+  String get completedLabel => 'Completed';
+
+  @override
+  String get continueLabel => 'Continue';
+
+  @override
+  String get quickTime => 'Quick Time';
+
+  @override
+  String get hide => 'Hide';
+
+  @override
+  String get customTime => 'Custom Time';
+
+  @override
+  String get setSpecificTimes => 'Set specific start and end times';
+
+  @override
+  String get quickLabel => 'Quick';
+
+  @override
+  String get today => 'Today';
+
+  @override
+  String get in5min => 'In 5 min';
+
+  @override
+  String get in30min => 'In 30 min';
+
+  @override
+  String get in1hour => 'In 1 hour';
+
+  @override
+  String get morningTime => 'Morning (9 AM)';
+
+  @override
+  String get afternoonTime => 'Afternoon (2 PM)';
+
+  @override
+  String get eveningTime => 'Evening (6 PM)';
+
+  @override
+  String get eventSorting => 'Event Sorting';
+
+  @override
+  String get displayAndOrganization => 'Display & Organization';
+
+  @override
+  String get sortTimeAscending => 'Time (Early → Late)';
+
+  @override
+  String get sortTimeDescending => 'Time (Late → Early)';
+
+  @override
+  String get sortImportance => 'Importance';
+
+  @override
+  String get sortImportanceAndTime => 'Importance + Time';
+
+  @override
+  String get sortTitle => 'Alphabetical';
+
+  @override
+  String get sortCategory => 'Category';
+
+  @override
+  String get sortDescTimeAscending => 'Events ordered from earliest to latest';
+
+  @override
+  String get sortDescTimeDescending => 'Events ordered from latest to earliest';
+
+  @override
+  String get sortDescImportance => 'Events ordered by importance level';
+
+  @override
+  String get sortDescImportanceAndTime => 'High importance first, then by time';
+
+  @override
+  String get sortDescTitle => 'Events ordered alphabetically by title';
+
+  @override
+  String get sortDescCategory => 'Events grouped by category, then by time';
+
+  @override
+  String get sortPrefSaved => 'Sort preference saved';
+
+  @override
+  String get currentlySorting => 'Currently';
+
+  @override
+  String get minuteLabel => 'minute';
+
+  @override
+  String get minutesLabel => 'minutes';
+
+  @override
+  String get screenActive => 'Screen active';
+
+  @override
+  String get authenticate => 'Authenticate';
 }

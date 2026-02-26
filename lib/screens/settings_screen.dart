@@ -18,7 +18,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isBiometricAvailable = false;
   bool _isCheckingBiometric = true;
 
-  // 🆕 Estado de ordenamiento
   EventSortOption _selectedSortOption = EventSortOption.timeAscending;
   bool _isLoadingSortPreference = true;
 
@@ -29,7 +28,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadSortPreference();
   }
 
-  // 🆕 Cargar preferencia de ordenamiento
   Future<void> _loadSortPreference() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -49,7 +47,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // 🆕 Guardar preferencia de ordenamiento
   Future<void> _saveSortPreference(EventSortOption option) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -58,10 +55,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() => _selectedSortOption = option);
 
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            // FIX: was hardcoded 'Sort preference saved: ...'
             content: Text(
-              'Sort preference saved: ${_getSortOptionName(option)}',
+              '${l10n.sortPrefSaved}: ${_getSortOptionName(option)}',
             ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
@@ -74,7 +73,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving preference: $e'),
+            content: Text('${AppLocalizations.of(context).error}: $e'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
@@ -83,49 +82,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // 🆕 Obtener nombre de la opción de ordenamiento
+  // FIX: was returning hardcoded English strings
   String _getSortOptionName(EventSortOption option) {
+    final l10n = AppLocalizations.of(context);
     switch (option) {
       case EventSortOption.timeAscending:
-        return 'Time (Early → Late)';
+        return l10n.sortTimeAscending;
       case EventSortOption.timeDescending:
-        return 'Time (Late → Early)';
+        return l10n.sortTimeDescending;
       case EventSortOption.importance:
-        return 'Importance';
+        return l10n.sortImportance;
       case EventSortOption.importanceAndTime:
-        return 'Importance + Time';
+        return l10n.sortImportanceAndTime;
       case EventSortOption.title:
-        return 'Alphabetical';
+        return l10n.sortTitle;
       case EventSortOption.category:
-        return 'Category';
+        return l10n.sortCategory;
     }
   }
 
-  // 🆕 Obtener descripción de la opción
+  // FIX: was returning hardcoded English strings
   String _getSortOptionDescription(EventSortOption option) {
+    final l10n = AppLocalizations.of(context);
     switch (option) {
       case EventSortOption.timeAscending:
-        return 'Events ordered from earliest to latest';
+        return l10n.sortDescTimeAscending;
       case EventSortOption.timeDescending:
-        return 'Events ordered from latest to earliest';
+        return l10n.sortDescTimeDescending;
       case EventSortOption.importance:
-        return 'Events ordered by importance level';
+        return l10n.sortDescImportance;
       case EventSortOption.importanceAndTime:
-        return 'High importance first, then by time';
+        return l10n.sortDescImportanceAndTime;
       case EventSortOption.title:
-        return 'Events ordered alphabetically by title';
+        return l10n.sortDescTitle;
       case EventSortOption.category:
-        return 'Events grouped by category, then by time';
+        return l10n.sortDescCategory;
     }
   }
 
-  // 🆕 Mostrar diálogo de opciones de ordenamiento
   Future<void> _showSortOptionsDialog() async {
+    final l10n = AppLocalizations.of(context);
+
     final result = await showDialog<EventSortOption>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Event Sorting'),
+          // FIX: was hardcoded 'Event Sorting'
+          title: Text(l10n.eventSorting),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -136,9 +139,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _getSortOptionDescription(option),
                     style: TextStyle(
                       fontSize: 12,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.6),
                     ),
                   ),
                   value: option,
@@ -177,6 +181,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _toggleBiometricAuth(bool value) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final l10n = AppLocalizations.of(context);
 
     if (value) {
       AuthResult result = await BiometricService.authenticateWithResult();
@@ -185,9 +190,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text(
-                'Biometric authentication enabled successfully!',
-              ),
+              // FIX: was hardcoded English
+              content: Text(l10n.biometricEnabledSuccessfully),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
             ),
@@ -197,7 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result.errorMessage ?? 'Authentication failed.'),
+              content: Text(result.errorMessage ?? l10n.authenticationFailed),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 4),
@@ -212,7 +216,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Biometric authentication disabled.'),
+              // FIX: was hardcoded English
+              content: Text(l10n.biometricDisabled),
               backgroundColor: Colors.orange,
               behavior: SnackBarBehavior.floating,
             ),
@@ -223,7 +228,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Authentication required to change this setting. ${result.errorMessage ?? ''}',
+                '${l10n.authRequiredToChangeSettings} ${result.errorMessage ?? ''}',
               ),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
@@ -236,6 +241,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _showTimeoutOptionsDialog(AuthProvider authProvider) async {
+    final l10n = AppLocalizations.of(context);
+
     final result = await showDialog<int>(
       context: context,
       builder: (BuildContext context) {
@@ -245,7 +252,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: AuthProvider.timeoutOptions.map((minutes) {
               return RadioListTile<int>(
-                title: Text(AuthProvider.getTimeoutText(minutes)),
+                // FIX: pass context so getTimeoutText uses l10n
+                title: Text(AuthProvider.getTimeoutText(minutes, context)),
                 value: minutes,
                 groupValue: authProvider.authTimeoutMinutes,
                 onChanged: (value) {
@@ -273,8 +281,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              // FIX: was hardcoded English
               content: Text(
-                'Auto-lock timeout set to ${AuthProvider.getTimeoutText(result)}',
+                '${l10n.autoLockTimeoutSetTo} ${AuthProvider.getTimeoutText(result, context)}',
               ),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
@@ -286,7 +295,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Authentication required to change this setting. ${authResult.errorMessage ?? ''}',
+                '${l10n.authRequiredToChangeSettings} ${authResult.errorMessage ?? ''}',
               ),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
@@ -300,6 +309,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _toggleImmediateTimeout(bool value) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final l10n = AppLocalizations.of(context);
 
     AuthResult result = await BiometricService.authenticateWithResult();
     if (result.success) {
@@ -309,10 +319,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            // FIX: was hardcoded English
             content: Text(
-              value
-                  ? 'Immediate lock enabled - app will lock when sent to background'
-                  : 'Immediate lock disabled - timeout will be used instead',
+              value ? l10n.immediateEnabledMessage : l10n.immediateDisabledMessage,
             ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
@@ -325,7 +334,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Authentication required to change this setting. ${result.errorMessage ?? ''}',
+              '${l10n.authRequiredToChangeSettings} ${result.errorMessage ?? ''}',
             ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
@@ -337,11 +346,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildBiometricSettings(AuthProvider authProvider) {
+    final l10n = AppLocalizations.of(context);
+
     if (_isCheckingBiometric) {
-      return const ListTile(
-        leading: Icon(Icons.fingerprint),
-        title: Text('Enable Biometric Authentication'),
-        trailing: SizedBox(
+      return ListTile(
+        leading: const Icon(Icons.fingerprint),
+        title: Text(l10n.enableBiometricAuthentication),
+        trailing: const SizedBox(
           width: 20,
           height: 20,
           child: CircularProgressIndicator(strokeWidth: 2),
@@ -352,7 +363,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         SwitchListTile(
           title: Text(
-            AppLocalizations.of(context).enableBiometricAuthentication,
+            l10n.enableBiometricAuthentication,
             style: TextStyle(
               color: _isBiometricAvailable
                   ? Theme.of(context).colorScheme.onSurface
@@ -363,23 +374,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           subtitle: !_isBiometricAvailable
               ? Text(
-                  AppLocalizations.of(context).biometricNotAvailableDevice,
+                  l10n.biometricNotAvailableDevice,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.error,
                     fontSize: 12,
                   ),
                 )
               : authProvider.isBiometricAuthEnabled
-              ? Text(
-                  AppLocalizations.of(context).appWillRequireBiometric,
-                  style: TextStyle(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.6),
-                    fontSize: 12,
-                  ),
-                )
-              : null,
+                  ? Text(
+                      l10n.appWillRequireBiometric,
+                      style: TextStyle(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.6),
+                        fontSize: 12,
+                      ),
+                    )
+                  : null,
           value: authProvider.isBiometricAuthEnabled,
           onChanged: _isBiometricAvailable ? _toggleBiometricAuth : null,
           secondary: Icon(
@@ -398,14 +410,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Icons.timer,
               color: Theme.of(context).colorScheme.primary,
             ),
-            title: const Text(
-              'Auto-lock Timeout',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            title: Text(
+              // FIX: was hardcoded 'Auto-lock Timeout'
+              l10n.autoLockTimeout,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
             subtitle: Text(
-              'Currently set to ${AuthProvider.getTimeoutText(authProvider.authTimeoutMinutes)}${authProvider.immediateTimeoutEnabled ? ' (overridden by immediate lock)' : ''}',
+              // FIX: was hardcoded English via getTimeoutText without context
+              '${l10n.currentlySetTo} ${AuthProvider.getTimeoutText(authProvider.authTimeoutMinutes, context)}'
+              '${authProvider.immediateTimeoutEnabled ? ' ${l10n.overriddenByImmediateLock}' : ''}',
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withOpacity(0.6),
                 fontSize: 12,
               ),
             ),
@@ -419,16 +437,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(height: 1),
 
           SwitchListTile(
-            title: const Text(
-              'Immediate Lock',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            title: Text(
+              // FIX: was hardcoded 'Immediate Lock'
+              l10n.immediateLock,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
             subtitle: Text(
+              // FIX: was hardcoded English
               authProvider.immediateTimeoutEnabled
-                  ? 'App locks immediately when sent to background'
-                  : 'App uses timeout setting when sent to background',
+                  ? l10n.appLocksImmediately
+                  : l10n.appUsesTimeoutSetting,
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withOpacity(0.6),
                 fontSize: 12,
               ),
             ),
@@ -446,13 +469,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // 🆕 Widget para configuración de ordenamiento
   Widget _buildSortingSettings() {
+    final l10n = AppLocalizations.of(context);
+
     if (_isLoadingSortPreference) {
-      return const ListTile(
-        leading: Icon(Icons.sort),
-        title: Text('Event Sorting'),
-        trailing: SizedBox(
+      return ListTile(
+        leading: const Icon(Icons.sort),
+        // FIX: was hardcoded 'Event Sorting'
+        title: Text(l10n.eventSorting),
+        trailing: const SizedBox(
           width: 20,
           height: 20,
           child: CircularProgressIndicator(strokeWidth: 2),
@@ -461,15 +486,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     return ListTile(
-      leading: Icon(Icons.sort, color: Theme.of(context).colorScheme.primary),
-      title: const Text(
-        'Event Sorting',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+      leading:
+          Icon(Icons.sort, color: Theme.of(context).colorScheme.primary),
+      // FIX: was hardcoded 'Event Sorting'
+      title: Text(
+        l10n.eventSorting,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
       ),
       subtitle: Text(
-        'Currently: ${_getSortOptionName(_selectedSortOption)}',
+        // FIX: was hardcoded 'Currently: ...'
+        '${l10n.currentlySorting}: ${_getSortOptionName(_selectedSortOption)}',
         style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          color:
+              Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
           fontSize: 12,
         ),
       ),
@@ -481,25 +510,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Text(
-          AppLocalizations.of(context).settings,
+          l10n.settings,
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.bold,
           ),
         ),
       ),
-
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           // Security Section
           Text(
-            AppLocalizations.of(context).security,
+            l10n.security,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -510,9 +539,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           Container(
             decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.surfaceVariant.withOpacity(0.3),
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceVariant
+                  .withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
             ),
             child: _buildBiometricSettings(authProvider),
@@ -520,9 +550,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 24),
 
-          // 🆕 Display & Organization Section
+          // Display & Organization Section
           Text(
-            'Display & Organization',
+            // FIX: was hardcoded 'Display & Organization'
+            l10n.displayAndOrganization,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -533,9 +564,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           Container(
             decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.surfaceVariant.withOpacity(0.3),
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceVariant
+                  .withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
             ),
             child: _buildSortingSettings(),
@@ -561,7 +593,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'To use biometric authentication, please ensure your device supports it and you have enrolled biometric credentials in your device settings.',
+                      // FIX: was hardcoded English
+                      l10n.biometricSetupMessage,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onErrorContainer,
                         fontSize: 12,
@@ -575,13 +608,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
 
           // Info about timeout options
-          if (authProvider.isBiometricAuthEnabled && _isBiometricAvailable) ...[
+          if (authProvider.isBiometricAuthEnabled &&
+              _isBiometricAvailable) ...[
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.primaryContainer.withOpacity(0.3),
+                color: Theme.of(context)
+                    .colorScheme
+                    .primaryContainer
+                    .withOpacity(0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -598,7 +633,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Security Options',
+                          // FIX: was hardcoded 'Security Options'
+                          l10n.securityOptions,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.primary,
                             fontSize: 14,
@@ -607,12 +643,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '• Auto-lock Timeout: Sets how long the app stays unlocked after being sent to background\n'
-                          '• Immediate Lock: App locks immediately when minimized, regardless of timeout setting',
+                          // FIX: was hardcoded English bullet points
+                          l10n.securityOptionsDescription,
                           style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withOpacity(0.8),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.8),
                             fontSize: 12,
                             height: 1.4,
                           ),

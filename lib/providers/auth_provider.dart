@@ -1,5 +1,6 @@
 // lib/providers/auth_provider.dart
 import 'package:flutter/material.dart';
+import 'package:myapp/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthProvider with ChangeNotifier {
@@ -8,9 +9,8 @@ class AuthProvider with ChangeNotifier {
   static const _authTimeoutKey = 'auth_timeout_minutes';
   static const _immediateTimeoutKey = 'immediate_timeout_enabled';
   static const _appStateKey = 'app_authenticated_state';
-  static const _sessionAuthKey = 'session_authenticated'; // NUEVO
+  static const _sessionAuthKey = 'session_authenticated';
 
-  // Valores por defecto
   static const _defaultTimeoutMinutes = 5;
   static const _defaultImmediateTimeout = false;
 
@@ -18,7 +18,7 @@ class AuthProvider with ChangeNotifier {
   bool _isCurrentlyAuthenticated = false;
   int _authTimeoutMinutes = _defaultTimeoutMinutes;
   bool _immediateTimeoutEnabled = _defaultImmediateTimeout;
-  bool _sessionAuthenticated = false; // NUEVO - para manejar la sesión actual
+  bool _sessionAuthenticated = false;
 
   bool get isBiometricAuthEnabled => _isBiometricAuthEnabled;
   bool get isCurrentlyAuthenticated => _isCurrentlyAuthenticated;
@@ -27,7 +27,15 @@ class AuthProvider with ChangeNotifier {
 
   static const List<int> timeoutOptions = [1, 2, 5, 10, 30];
 
-  static String getTimeoutText(int minutes) {
+  /// FIX: now accepts a BuildContext so it can use l10n instead of hardcoded English.
+  /// Usage: AuthProvider.getTimeoutText(minutes, context)
+  static String getTimeoutText(int minutes, [BuildContext? context]) {
+    if (context != null) {
+      final l10n = AppLocalizations.of(context);
+      final label = minutes == 1 ? l10n.minuteLabel : l10n.minutesLabel;
+      return '$minutes $label';
+    }
+    // Fallback for callers without context (e.g. non-UI code)
     return '$minutes ${minutes == 1 ? 'minute' : 'minutes'}';
   }
 
@@ -96,7 +104,7 @@ class AuthProvider with ChangeNotifier {
     await prefs.setInt(_lastAuthTimeKey, now.millisecondsSinceEpoch);
 
     _isCurrentlyAuthenticated = true;
-    _sessionAuthenticated = true; // NUEVO - marcar sesión como autenticada
+    _sessionAuthenticated = true;
     await prefs.setBool(_appStateKey, true);
     await prefs.setBool(_sessionAuthKey, true);
 
@@ -105,13 +113,11 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// ✅ FIX: Verifica si necesita autenticación de nuevo
   Future<bool> needsAuthAgain() async {
     print('🔐 AuthProvider: Checking if auth needed...');
 
     if (!_isBiometricAuthEnabled) return false;
 
-    // Si ya estamos autenticados en esta sesión, no pedir auth otra vez
     if (_sessionAuthenticated) {
       print('🔐 AuthProvider: ✅ Session already authenticated, no auth needed');
       return false;
@@ -125,13 +131,11 @@ class AuthProvider with ChangeNotifier {
       return true;
     }
 
-    // Caso bloqueo inmediato: solo pedir auth si la sesión no está autenticada
     if (_immediateTimeoutEnabled) {
       print('🔐 AuthProvider: Immediate timeout enabled, checking session');
       return !_sessionAuthenticated;
     }
 
-    // Verificar timeout normal
     final lastAuth = DateTime.fromMillisecondsSinceEpoch(lastAuthTime);
     final now = DateTime.now();
     final timeDifference = now.difference(lastAuth);
@@ -139,7 +143,7 @@ class AuthProvider with ChangeNotifier {
 
     print('🔐 AuthProvider: Time since auth = ${timeDifference.inSeconds}s');
     bool needsAuth = timeDifference >= timeoutDuration;
-    
+
     print('🔐 AuthProvider: Needs auth = $needsAuth');
     return needsAuth;
   }
@@ -147,9 +151,8 @@ class AuthProvider with ChangeNotifier {
   Future<void> onAppPaused() async {
     print('🔐 AuthProvider: App paused');
     if (_isBiometricAuthEnabled) {
-      // Marcar como no autenticado al salir
       _isCurrentlyAuthenticated = false;
-      _sessionAuthenticated = false; // NUEVO - limpiar sesión
+      _sessionAuthenticated = false;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_appStateKey, false);
       await prefs.setBool(_sessionAuthKey, false);
@@ -205,8 +208,9 @@ class AuthProvider with ChangeNotifier {
   Future<void> printDebugInfo() async {
     final prefs = await SharedPreferences.getInstance();
     final lastAuthTime = prefs.getInt(_lastAuthTimeKey);
-    final lastAuthDateTime =
-        lastAuthTime != null ? DateTime.fromMillisecondsSinceEpoch(lastAuthTime) : null;
+    final lastAuthDateTime = lastAuthTime != null
+        ? DateTime.fromMillisecondsSinceEpoch(lastAuthTime)
+        : null;
 
     print('🔐 DEBUG INFO:');
     print('  - Biometric enabled: $_isBiometricAuthEnabled');
@@ -219,7 +223,9 @@ class AuthProvider with ChangeNotifier {
 
     if (lastAuthDateTime != null) {
       final timeSinceAuth = DateTime.now().difference(lastAuthDateTime);
-      print('  - Time since last auth: ${timeSinceAuth.inMinutes} minutes ${timeSinceAuth.inSeconds % 60} seconds');
+      print(
+        '  - Time since last auth: ${timeSinceAuth.inMinutes} minutes ${timeSinceAuth.inSeconds % 60} seconds',
+      );
     }
   }
 }

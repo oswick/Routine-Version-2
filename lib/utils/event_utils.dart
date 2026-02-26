@@ -1,5 +1,52 @@
+// lib/utils/event_utils.dart
+//
+// IMPORTANT: Categories are stored as fixed English keys in the database
+// ("School", "Home", "Work", etc.). They are only translated for display.
+// Never store localized strings as category values.
+
 import 'package:flutter/material.dart';
 import 'package:myapp/l10n/app_localizations.dart';
+
+// Fixed category keys — these are the values stored in the DB.
+class CategoryKeys {
+  static const String school = 'School';
+  static const String home = 'Home';
+  static const String work = 'Work';
+  static const String shopping = 'Shopping';
+  static const String health = 'Health';
+  static const String personal = 'Personal';
+
+  static const List<String> all = [
+    school,
+    home,
+    work,
+    shopping,
+    health,
+    personal,
+  ];
+}
+
+/// Returns the localized display name for a category key.
+/// Falls back to the key itself if not recognized.
+String getCategoryDisplayName(String categoryKey, BuildContext context) {
+  final l10n = AppLocalizations.of(context);
+  switch (categoryKey) {
+    case CategoryKeys.school:
+      return l10n.school;
+    case CategoryKeys.home:
+      return l10n.home;
+    case CategoryKeys.work:
+      return l10n.work;
+    case CategoryKeys.shopping:
+      return l10n.shopping;
+    case CategoryKeys.health:
+      return l10n.health;
+    case CategoryKeys.personal:
+      return l10n.personal;
+    default:
+      return categoryKey;
+  }
+}
 
 Color getImportanceColor(int importance) {
   switch (importance) {
@@ -16,85 +63,77 @@ Color getImportanceColor(int importance) {
   }
 }
 
-String getImportanceText(int importance) {
+String getImportanceText(int importance, BuildContext context) {
+  final l10n = AppLocalizations.of(context);
   switch (importance) {
     case 1:
-      return 'Low';
+      return l10n.low;
     case 2:
-      return 'Moderate';
+      return l10n.moderate;
     case 3:
-      return 'Important';
+      return l10n.important;
     case 4:
-      return 'Very Important';
+      return l10n.veryImportant;
     default:
-      return 'None';
+      return l10n.none;
   }
 }
 
-Color getCategoryColor(String category) {
-  switch (category) {
-    case 'School':
-      return Colors.transparent;
-    case 'Home':
-      return Colors.transparent;
-    case 'Work':
-      return Colors.transparent;
-    case 'Shopping':
-      return Colors.transparent;
-    case 'Health':
-      return Colors.transparent;
-    case 'Personal':
-      return Colors.transparent;
-    default:
-      return Colors.transparent;
-  }
-}
+/// Returns the icon for a category key (always uses English keys).
+IconData getCategoryIcon(String categoryKey, [BuildContext? context]) {
+  // Normalize: if somehow a localized name was passed, try to reverse-map it.
+  final normalizedKey =
+      context != null ? _normalizeCategory(categoryKey, context) : categoryKey;
 
-// Función mejorada que maneja categorías localizadas
-IconData getCategoryIcon(String category, [BuildContext? context]) {
-  // Si no hay contexto, usar comparación en inglés (fallback)
-  if (context == null) {
-    return _getCategoryIconByEnglishName(category);
-  }
-
-  // Obtener las traducciones del contexto actual
-  final localizations = AppLocalizations.of(context);
-  
-  // Comparar con las traducciones localizadas
-  if (category == localizations.school) {
-    return Icons.school;
-  } else if (category == localizations.home) {
-    return Icons.home;
-  } else if (category == localizations.work) {
-    return Icons.work;
-  } else if (category == localizations.shopping) {
-    return Icons.shopping_cart;
-  } else if (category == localizations.health) {
-    return Icons.health_and_safety;
-  } else if (category == localizations.personal) {
-    return Icons.person;
-  }
-  
-  // Fallback: intentar comparación en inglés
-  return _getCategoryIconByEnglishName(category);
-}
-
-// Función auxiliar para comparación en inglés (para compatibilidad)
-IconData _getCategoryIconByEnglishName(String category) {
-  switch (category) {
-    case 'School':
+  switch (normalizedKey) {
+    case CategoryKeys.school:
       return Icons.school;
-    case 'Home':
+    case CategoryKeys.home:
       return Icons.home;
-    case 'Work':
+    case CategoryKeys.work:
       return Icons.work;
-    case 'Shopping':
+    case CategoryKeys.shopping:
       return Icons.shopping_cart;
-    case 'Health':
+    case CategoryKeys.health:
       return Icons.health_and_safety;
-    case 'Personal':
+    case CategoryKeys.personal:
       return Icons.person;
     default:
       return Icons.menu;
   }
+}
+
+/// Attempts to map a possibly-localized category string back to an English key.
+/// This is a compatibility shim for events saved with old localized values.
+String _normalizeCategory(String category, BuildContext context) {
+  // Already a valid key
+  if (CategoryKeys.all.contains(category)) return category;
+
+  // Try to map from localized name
+  final l10n = AppLocalizations.of(context);
+  if (category == l10n.school) return CategoryKeys.school;
+  if (category == l10n.home) return CategoryKeys.home;
+  if (category == l10n.work) return CategoryKeys.work;
+  if (category == l10n.shopping) return CategoryKeys.shopping;
+  if (category == l10n.health) return CategoryKeys.health;
+  if (category == l10n.personal) return CategoryKeys.personal;
+
+  // Also check Spanish hardcoded values (for migration of old data)
+  switch (category) {
+    case 'Escuela':
+      return CategoryKeys.school;
+    case 'Casa':
+    case 'Inicio':
+      return CategoryKeys.home;
+    case 'Trabajo':
+      return CategoryKeys.work;
+    case 'Compras':
+      return CategoryKeys.shopping;
+    case 'Salud':
+      return CategoryKeys.health;
+    case 'Personal':
+      return CategoryKeys.personal;
+  }
+
+  return category;
 }

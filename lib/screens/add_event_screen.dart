@@ -31,16 +31,15 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   late List<int> _repeatDays;
   late int _importance;
   late bool _isCompleted;
+  // FIX: category is always stored as an English key (e.g. "School", "Home")
   late String _category;
   late String _userId;
 
-  // Animation controllers
   late AnimationController _slideController;
   late AnimationController _fadeController;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
 
-  // Para indicar si estamos editando un evento existente
   bool get isEditing => widget.event != null;
   bool _showTimeShortcuts = true;
 
@@ -56,44 +55,37 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
       duration: const Duration(milliseconds: 400),
       vsync: this,
     );
-
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-        .animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
-
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
-
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(
+      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
     _slideController.forward();
     _fadeController.forward();
   }
 
   void _initializeData() {
     if (widget.event != null) {
-      // Modo edición - cargar datos del evento existente
       final event = widget.event!;
       _titleController = TextEditingController(text: event.title);
-      _descriptionController = TextEditingController(
-        text: event.description ?? '',
-      );
+      _descriptionController =
+          TextEditingController(text: event.description ?? '');
       _startTime = event.startTime;
       _endTime = event.endTime;
       _selectedDate = event.startTime;
       _repeatDays = List<int>.from(event.repeatDays);
       _importance = event.importance ?? 0;
       _isCompleted = event.isCompleted;
+      // FIX: category is already stored as English key — no translation needed
       _category = event.category;
       _userId = event.userId;
     } else {
-      // Modo creación - valores por defecto
       _titleController = TextEditingController();
       _descriptionController = TextEditingController();
       _startTime = DateTime(
@@ -141,9 +133,8 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           child: Container(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
@@ -153,28 +144,26 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               ],
             ),
             child: Padding(
-              padding: EdgeInsets.only(
-                bottom: mediaQueryData.viewInsets.bottom,
-              ),
+              padding: EdgeInsets.only(bottom: mediaQueryData.viewInsets.bottom),
               child: SingleChildScrollView(
                 child: FadeTransition(
                   opacity: _fadeAnimation,
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0), // Reduced from 24
+                    padding: const EdgeInsets.all(16.0),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildHeader(),
-                        const SizedBox(height: 12), // Reduced
+                        const SizedBox(height: 12),
                         _buildMainFields(),
-                        const SizedBox(height: 10), // Reduced
+                        const SizedBox(height: 10),
                         _buildTimeSection(),
-                        const SizedBox(height: 10), // Reduced
+                        const SizedBox(height: 10),
                         _buildDateSection(),
-                        const SizedBox(height: 12), // Reduced
+                        const SizedBox(height: 12),
                         _buildOptionsSection(),
-                        const SizedBox(height: 16), // Reduced
+                        const SizedBox(height: 16),
                         _buildActionButtons(),
                       ],
                     ),
@@ -202,13 +191,14 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   }
 
   Widget _buildMainFields() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10), // Reduced
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(14),
@@ -221,29 +211,27 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             ),
             const SizedBox(width: 12),
             Text(
-              isEditing
-                  ? AppLocalizations.of(context).editEvent
-                  : AppLocalizations.of(context).newEvent,
+              isEditing ? l10n.editEvent : l10n.newEvent,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
             ),
           ],
         ),
-        const SizedBox(height: 16), // Reduced
+        const SizedBox(height: 16),
         _buildTextField(
           controller: _titleController,
-          label: AppLocalizations.of(context).eventTitle,
-          hint: AppLocalizations.of(context).whatNeedsToBeDone,
+          label: l10n.eventTitle,
+          hint: l10n.whatNeedsToBeDone,
           icon: Icons.title_rounded,
           isRequired: true,
         ),
-        const SizedBox(height: 12), // Reduced
+        const SizedBox(height: 12),
         _buildTextField(
           controller: _descriptionController,
-          label: AppLocalizations.of(context).description,
-          hint: AppLocalizations.of(context).addSomeDetails,
+          label: l10n.description,
+          hint: l10n.addSomeDetails,
           icon: Icons.description_outlined,
           maxLines: 3,
         ),
@@ -261,7 +249,8 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
+        color:
+            Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
         borderRadius: BorderRadius.circular(14),
       ),
       child: TextField(
@@ -283,17 +272,12 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              icon,
-              size: 18,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            child: Icon(icon, size: 18,
+                color: Theme.of(context).colorScheme.primary),
           ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           labelStyle: TextStyle(
             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
             fontWeight: FontWeight.w500,
@@ -312,40 +296,25 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
       switch (shortcut) {
         case '5min':
           _startTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            now.hour,
-            now.minute,
+            _selectedDate.year, _selectedDate.month, _selectedDate.day,
+            now.hour, now.minute,
           ).add(const Duration(minutes: 5));
           break;
         case '30min':
           _startTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            now.hour,
-            now.minute,
+            _selectedDate.year, _selectedDate.month, _selectedDate.day,
+            now.hour, now.minute,
           ).add(const Duration(minutes: 30));
           break;
         case '1hour':
           _startTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            now.hour,
-            now.minute,
+            _selectedDate.year, _selectedDate.month, _selectedDate.day,
+            now.hour, now.minute,
           ).add(const Duration(hours: 1));
           break;
         case 'morning':
-          // Si ya pasaron las 9 AM, programar para mañana
           DateTime morningTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            9,
-            0,
-          );
+            _selectedDate.year, _selectedDate.month, _selectedDate.day, 9, 0);
           if (now.hour >= 9 && _selectedDate.day == now.day) {
             morningTime = morningTime.add(const Duration(days: 1));
             _selectedDate = _selectedDate.add(const Duration(days: 1));
@@ -354,14 +323,8 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           _endTime = morningTime.add(const Duration(hours: 1));
           break;
         case 'afternoon':
-          // Si ya pasaron las 2 PM, programar para mañana
           DateTime afternoonTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            14,
-            0,
-          );
+            _selectedDate.year, _selectedDate.month, _selectedDate.day, 14, 0);
           if (now.hour >= 14 && _selectedDate.day == now.day) {
             afternoonTime = afternoonTime.add(const Duration(days: 1));
             _selectedDate = _selectedDate.add(const Duration(days: 1));
@@ -369,14 +332,8 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           _startTime = afternoonTime;
           break;
         case 'evening':
-          // Si ya pasaron las 6 PM, programar para mañana
           DateTime eveningTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            18,
-            0,
-          );
+            _selectedDate.year, _selectedDate.month, _selectedDate.day, 18, 0);
           if (now.hour >= 18 && _selectedDate.day == now.day) {
             eveningTime = eveningTime.add(const Duration(days: 1));
             _selectedDate = _selectedDate.add(const Duration(days: 1));
@@ -384,16 +341,13 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           _startTime = eveningTime;
           break;
       }
-      _showTimeShortcuts = false; // Ocultar después de seleccionar
+      _showTimeShortcuts = false;
     });
   }
 
-  // 🆕 Widget de atajos rápidos
   Widget _buildTimeShortcuts() {
-    if (!_showTimeShortcuts) {
-      return const SizedBox.shrink();
-    }
-
+    if (!_showTimeShortcuts) return const SizedBox.shrink();
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -401,24 +355,23 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Quick Time',
+              l10n.quickTime,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                color:
+                    Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
             TextButton(
-              onPressed: () {
-                setState(() => _showTimeShortcuts = false);
-              },
+              onPressed: () => setState(() => _showTimeShortcuts = false),
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(0, 0),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(
-                'Hide',
+                l10n.hide,
                 style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).colorScheme.primary,
@@ -433,35 +386,29 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           runSpacing: 8,
           children: [
             _buildTimeShortcutChip(
-              label: 'In 5 min',
-              icon: Icons.schedule,
-              onTap: () => _applyTimeShortcut('5min'),
-            ),
+                label: l10n.in5min,
+                icon: Icons.schedule,
+                onTap: () => _applyTimeShortcut('5min')),
             _buildTimeShortcutChip(
-              label: 'In 30 min',
-              icon: Icons.access_time,
-              onTap: () => _applyTimeShortcut('30min'),
-            ),
+                label: l10n.in30min,
+                icon: Icons.access_time,
+                onTap: () => _applyTimeShortcut('30min')),
             _buildTimeShortcutChip(
-              label: 'In 1 hour',
-              icon: Icons.schedule,
-              onTap: () => _applyTimeShortcut('1hour'),
-            ),
+                label: l10n.in1hour,
+                icon: Icons.schedule,
+                onTap: () => _applyTimeShortcut('1hour')),
             _buildTimeShortcutChip(
-              label: 'Morning (9 AM)',
-              icon: Icons.wb_sunny,
-              onTap: () => _applyTimeShortcut('morning'),
-            ),
+                label: l10n.morningTime,
+                icon: Icons.wb_sunny,
+                onTap: () => _applyTimeShortcut('morning')),
             _buildTimeShortcutChip(
-              label: 'Afternoon (2 PM)',
-              icon: Icons.wb_twilight,
-              onTap: () => _applyTimeShortcut('afternoon'),
-            ),
+                label: l10n.afternoonTime,
+                icon: Icons.wb_twilight,
+                onTap: () => _applyTimeShortcut('afternoon')),
             _buildTimeShortcutChip(
-              label: 'Evening (6 PM)',
-              icon: Icons.nightlight_round,
-              onTap: () => _applyTimeShortcut('evening'),
-            ),
+                label: l10n.eveningTime,
+                icon: Icons.nightlight_round,
+                onTap: () => _applyTimeShortcut('evening')),
           ],
         ),
       ],
@@ -481,12 +428,14 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Theme.of(
-            context,
-          ).colorScheme.primaryContainer.withOpacity(0.5),
+          color: Theme.of(context)
+              .colorScheme
+              .primaryContainer
+              .withOpacity(0.5),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+            color:
+                Theme.of(context).colorScheme.primary.withOpacity(0.3),
             width: 1,
           ),
         ),
@@ -509,8 +458,8 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
     );
   }
 
-  // 🆕 Modificar _buildTimeSection para incluir atajos y botón Custom
   Widget _buildTimeSection() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -518,23 +467,19 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              AppLocalizations.of(context).time,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              l10n.time,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
             if (!_showTimeShortcuts)
               TextButton.icon(
-                onPressed: () {
-                  setState(() => _showTimeShortcuts = true);
-                },
-                icon: Icon(
-                  Icons.bolt,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                onPressed: () => setState(() => _showTimeShortcuts = true),
+                icon: Icon(Icons.bolt, size: 18,
+                    color: Theme.of(context).colorScheme.primary),
                 label: Text(
-                  'Quick',
+                  l10n.quickLabel,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -542,15 +487,14 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                   ),
                 ),
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   minimumSize: const Size(0, 0),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer.withOpacity(0.5),
+                  backgroundColor: Theme.of(context)
+                      .colorScheme
+                      .primaryContainer
+                      .withOpacity(0.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -559,13 +503,8 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           ],
         ),
         const SizedBox(height: 12),
-
-        // 🆕 Atajos rápidos
         _buildTimeShortcuts(),
-
         if (_showTimeShortcuts) const SizedBox(height: 12),
-
-        // Botón Custom que muestra los time pickers
         GestureDetector(
           onTap: () {
             HapticFeedback.lightImpact();
@@ -574,9 +513,10 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.surfaceContainer.withOpacity(0.7),
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainer
+                  .withOpacity(0.7),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: !_showTimeShortcuts
@@ -590,16 +530,14 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withOpacity(0.1),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    Icons.edit_calendar,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  child: Icon(Icons.edit_calendar, size: 20,
+                      color: Theme.of(context).colorScheme.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -607,7 +545,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Custom Time',
+                        l10n.customTime,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -616,34 +554,35 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Set specific start and end times',
+                        l10n.setSpecificTimes,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(0.6),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(0.6),
                         ),
                       ),
                     ],
                   ),
                 ),
                 Icon(
-                  !_showTimeShortcuts ? Icons.expand_less : Icons.expand_more,
+                  !_showTimeShortcuts
+                      ? Icons.expand_less
+                      : Icons.expand_more,
                   color: Theme.of(context).colorScheme.primary,
                 ),
               ],
             ),
           ),
         ),
-
-        // 🆕 Mostrar time pickers solo si se seleccionó Custom
         if (!_showTimeShortcuts) ...[
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: _buildTimeCard(
-                  title: AppLocalizations.of(context).start,
+                  title: l10n.start,
                   time: _startTime,
                   icon: Icons.play_circle_outline,
                   onTap: () => _selectTime(true),
@@ -652,16 +591,12 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               const SizedBox(width: 12),
               Expanded(
                 child: _buildTimeCard(
-                  title: AppLocalizations.of(context).end,
+                  title: l10n.end,
                   time: _endTime,
                   icon: Icons.stop_circle_outlined,
                   onTap: () => _selectTime(false),
                   canClear: true,
-                  onClear: () {
-                    setState(() {
-                      _endTime = null;
-                    });
-                  },
+                  onClear: () => setState(() => _endTime = null),
                 ),
               ),
             ],
@@ -679,17 +614,19 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
     bool canClear = false,
     VoidCallback? onClear,
   }) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
         onTap();
       },
       child: Container(
-        padding: const EdgeInsets.all(12), // Reduced
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Theme.of(
-            context,
-          ).colorScheme.surfaceContainer.withOpacity(0.7),
+          color: Theme.of(context)
+              .colorScheme
+              .surfaceContainer
+              .withOpacity(0.7),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
@@ -700,48 +637,45 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           children: [
             Row(
               children: [
-                Icon(
-                  icon,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                Icon(icon, size: 18,
+                    color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 6),
                 Text(
                   title,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.7),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.7),
                   ),
                 ),
                 if (canClear && time != null) ...[
                   const Spacer(),
                   GestureDetector(
                     onTap: onClear,
-                    child: Icon(
-                      Icons.close,
-                      size: 14,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(0.5),
-                    ),
+                    child: Icon(Icons.close, size: 14,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.5)),
                   ),
                 ],
               ],
             ),
             const SizedBox(height: 6),
             Text(
-              time != null
-                  ? formatTime(time)
-                  : AppLocalizations.of(context).notSet,
+              time != null ? formatTime(time) : l10n.notSet,
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: time != null
                     ? Theme.of(context).colorScheme.onSurface
-                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                    : Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.4),
               ),
             ),
           ],
@@ -751,6 +685,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   }
 
   Widget _buildDateSection() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -758,21 +693,19 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              AppLocalizations.of(context).date,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              l10n.date,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
             TextButton.icon(
               onPressed: () {
                 HapticFeedback.lightImpact();
                 _selectDate();
               },
-              icon: Icon(
-                Icons.calendar_month,
-                size: 16,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              icon: Icon(Icons.calendar_month, size: 16,
+                  color: Theme.of(context).colorScheme.primary),
               label: Text(
                 'Custom',
                 style: TextStyle(
@@ -782,18 +715,16 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                 ),
               ),
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 minimumSize: const Size(0, 0),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.primaryContainer.withOpacity(0.5),
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .primaryContainer
+                    .withOpacity(0.5),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ],
@@ -807,15 +738,15 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   Widget _buildHorizontalDateScroll() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    final l10n = AppLocalizations.of(context);
     return SizedBox(
-      height: 72, // Reduced
+      height: 72,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: 30,
         itemBuilder: (context, index) {
           final date = today.add(Duration(days: index));
-          final isSelected =
-              _selectedDate.year == date.year &&
+          final isSelected = _selectedDate.year == date.year &&
               _selectedDate.month == date.month &&
               _selectedDate.day == date.day;
           final isToday = index == 0;
@@ -824,38 +755,32 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               HapticFeedback.lightImpact();
               setState(() {
                 _selectedDate = date;
-                _startTime = DateTime(
-                  date.year,
-                  date.month,
-                  date.day,
-                  _startTime.hour,
-                  _startTime.minute,
-                );
+                _startTime = DateTime(date.year, date.month, date.day,
+                    _startTime.hour, _startTime.minute);
                 if (_endTime != null) {
-                  _endTime = DateTime(
-                    date.year,
-                    date.month,
-                    date.day,
-                    _endTime!.hour,
-                    _endTime!.minute,
-                  );
+                  _endTime = DateTime(date.year, date.month, date.day,
+                      _endTime!.hour, _endTime!.minute);
                 }
               });
             },
             child: Container(
-              width: 56, // Slightly narrower
+              width: 56,
               margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
                 color: isSelected
                     ? Theme.of(context).colorScheme.primary
-                    : Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainer.withOpacity(0.7),
+                    : Theme.of(context)
+                        .colorScheme
+                        .surfaceContainer
+                        .withOpacity(0.7),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isSelected
                       ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                      : Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withOpacity(0.2),
                   width: isSelected ? 2 : 1,
                 ),
               ),
@@ -865,22 +790,22 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                   if (isToday)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
+                          horizontal: 6, vertical: 2),
                       margin: const EdgeInsets.only(bottom: 3),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? Theme.of(
-                                context,
-                              ).colorScheme.onPrimary.withOpacity(0.2)
-                            : Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.1),
+                            ? Theme.of(context)
+                                .colorScheme
+                                .onPrimary
+                                .withOpacity(0.2)
+                            : Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.1),
                         borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
-                        'Today',
+                        l10n.today,
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
@@ -897,9 +822,10 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                       fontWeight: FontWeight.w500,
                       color: isSelected
                           ? Theme.of(context).colorScheme.onPrimary
-                          : Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withOpacity(0.6),
+                          : Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(0.6),
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -919,12 +845,14 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
                       color: isSelected
-                          ? Theme.of(
-                              context,
-                            ).colorScheme.onPrimary.withOpacity(0.8)
-                          : Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withOpacity(0.5),
+                          ? Theme.of(context)
+                              .colorScheme
+                              .onPrimary
+                              .withOpacity(0.8)
+                          : Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(0.5),
                     ),
                   ),
                 ],
@@ -937,22 +865,25 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   }
 
   Widget _buildOptionsSection() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          AppLocalizations.of(context).options,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          l10n.options,
+          style: Theme.of(context)
+              .textTheme
+              .titleMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Theme.of(
-              context,
-            ).colorScheme.surfaceContainer.withOpacity(0.3),
+            color: Theme.of(context)
+                .colorScheme
+                .surfaceContainer
+                .withOpacity(0.3),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -960,7 +891,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             children: [
               _buildOptionButton(
                 icon: Icons.repeat,
-                label: AppLocalizations.of(context).repeat,
+                label: l10n.repeat,
                 isActive: _repeatDays.isNotEmpty,
                 onPressed: () => _showRepeatDaysDialog(context),
                 badge: _repeatDays.isNotEmpty
@@ -969,7 +900,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               ),
               _buildOptionButton(
                 icon: Icons.flag_outlined,
-                label: AppLocalizations.of(context).priority,
+                label: l10n.priority,
                 isActive: _importance != 0,
                 color: _importance != 0
                     ? getImportanceColor(_importance)
@@ -978,7 +909,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               ),
               _buildOptionButton(
                 icon: getCategoryIcon(_category, context),
-                label: AppLocalizations.of(context).category,
+                label: l10n.category,
                 isActive: _category.isNotEmpty,
                 onPressed: () => _showCategoryDialog(context),
               ),
@@ -1020,9 +951,10 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                   size: 24,
                   color: isActive
                       ? (color ?? Theme.of(context).colorScheme.primary)
-                      : Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(0.5),
+                      : Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.5),
                 ),
                 if (badge != null)
                   Positioned(
@@ -1034,10 +966,8 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                         color: Theme.of(context).colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
+                      constraints:
+                          const BoxConstraints(minWidth: 16, minHeight: 16),
                       child: Text(
                         badge,
                         style: TextStyle(
@@ -1059,7 +989,10 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                 fontWeight: FontWeight.w500,
                 color: isActive
                     ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    : Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.7),
               ),
             ),
           ],
@@ -1069,6 +1002,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   }
 
   Widget _buildActionButtons() {
+    final l10n = AppLocalizations.of(context);
     return Row(
       children: [
         Expanded(
@@ -1077,15 +1011,15 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+                  borderRadius: BorderRadius.circular(14)),
             ),
             child: Text(
-              AppLocalizations.of(context).cancel,
+              l10n.cancel,
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                color:
+                    Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
           ),
@@ -1101,13 +1035,10 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               padding: const EdgeInsets.symmetric(vertical: 14),
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+                  borderRadius: BorderRadius.circular(14)),
             ),
             child: Text(
-              isEditing
-                  ? AppLocalizations.of(context).updateEvent
-                  : AppLocalizations.of(context).createEvent,
+              isEditing ? l10n.updateEvent : l10n.createEvent,
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
           ),
@@ -1118,32 +1049,16 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
 
   Future<void> _selectTime(bool isStartTime) async {
     final initialTime = TimeOfDay.fromDateTime(
-      isStartTime ? _startTime : (_endTime ?? _startTime),
-    );
-
-    final time = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-    );
-
+        isStartTime ? _startTime : (_endTime ?? _startTime));
+    final time = await showTimePicker(context: context, initialTime: initialTime);
     if (time != null) {
       setState(() {
         if (isStartTime) {
-          _startTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            time.hour,
-            time.minute,
-          );
+          _startTime = DateTime(_selectedDate.year, _selectedDate.month,
+              _selectedDate.day, time.hour, time.minute);
         } else {
-          _endTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            time.hour,
-            time.minute,
-          );
+          _endTime = DateTime(_selectedDate.year, _selectedDate.month,
+              _selectedDate.day, time.hour, time.minute);
         }
       });
     }
@@ -1156,45 +1071,36 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
-
     if (date != null) {
       setState(() {
         _selectedDate = date;
-        _startTime = DateTime(
-          date.year,
-          date.month,
-          date.day,
-          _startTime.hour,
-          _startTime.minute,
-        );
+        _startTime = DateTime(date.year, date.month, date.day,
+            _startTime.hour, _startTime.minute);
         if (_endTime != null) {
-          _endTime = DateTime(
-            date.year,
-            date.month,
-            date.day,
-            _endTime!.hour,
-            _endTime!.minute,
-          );
+          _endTime = DateTime(date.year, date.month, date.day,
+              _endTime!.hour, _endTime!.minute);
         }
       });
     }
   }
 
   void _saveEvent() {
+    final l10n = AppLocalizations.of(context);
+
     if (_titleController.text.trim().isEmpty) {
-      _showErrorSnackBar(AppLocalizations.of(context).pleaseEnterTitle);
+      _showErrorSnackBar(l10n.pleaseEnterTitle);
       return;
     }
 
+    // FIX: was using l10n.endTime (a label) instead of the error message
     if (_endTime != null && _endTime!.isBefore(_startTime)) {
-      _showErrorSnackBar(AppLocalizations.of(context).endTime);
+      _showErrorSnackBar(l10n.endTimeAfterStart);
       return;
     }
 
     try {
       final updatedEvent = Event(
-        id:
-            widget.event?.id ??
+        id: widget.event?.id ??
             DateTime.now().millisecondsSinceEpoch.toString(),
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim().isNotEmpty
@@ -1204,6 +1110,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
         endTime: _endTime,
         repeatDays: _repeatDays,
         importance: _importance,
+        // FIX: _category is already an English key — stored as-is
         category: _category,
         isCompleted: _isCompleted,
         userId: _userId,
@@ -1212,7 +1119,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
       widget.onAddEvent(updatedEvent);
       _closeWithAnimation();
     } catch (e) {
-      _showErrorSnackBar('Error saving event: $e');
+      _showErrorSnackBar('${l10n.errorSavingEvent}: $e');
     }
   }
 
@@ -1228,6 +1135,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   }
 
   void _showRepeatDaysDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     List<int> tempRepeatDays = List<int>.from(_repeatDays);
 
     showDialog(
@@ -1237,12 +1145,9 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           builder: (context, setDialogState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              title: Text(
-                AppLocalizations.of(context).repeatDays,
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+                  borderRadius: BorderRadius.circular(20)),
+              title: Text(l10n.repeatDays,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               backgroundColor: Theme.of(context).colorScheme.surface,
               content: Wrap(
                 spacing: 8,
@@ -1263,9 +1168,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                          horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? Theme.of(context).colorScheme.primary
@@ -1293,16 +1196,14 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text(AppLocalizations.of(context).cancel),
+                  child: Text(l10n.cancel),
                 ),
                 FilledButton(
                   onPressed: () {
-                    setState(() {
-                      _repeatDays = tempRepeatDays;
-                    });
+                    setState(() => _repeatDays = tempRepeatDays);
                     Navigator.pop(context);
                   },
-                  child: Text(AppLocalizations.of(context).done),
+                  child: Text(l10n.done),
                 ),
               ],
             );
@@ -1313,41 +1214,23 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   }
 
   void _showPriorityDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            AppLocalizations.of(context).priority,
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(l10n.priority,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
           backgroundColor: Theme.of(context).colorScheme.surface,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildPriorityOption(
-                AppLocalizations.of(context).low,
-                1,
-                Colors.green,
-              ),
-              _buildPriorityOption(
-                AppLocalizations.of(context).moderate,
-                2,
-                Colors.yellow,
-              ),
-              _buildPriorityOption(
-                AppLocalizations.of(context).important,
-                3,
-                Colors.orange,
-              ),
-              _buildPriorityOption(
-                AppLocalizations.of(context).veryImportant,
-                4,
-                Colors.red,
-              ),
+              _buildPriorityOption(l10n.low, 1, Colors.green),
+              _buildPriorityOption(l10n.moderate, 2, Colors.yellow),
+              _buildPriorityOption(l10n.important, 3, Colors.orange),
+              _buildPriorityOption(l10n.veryImportant, 4, Colors.red),
             ],
           ),
         );
@@ -1366,24 +1249,19 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
       child: ListTile(
         leading: Container(
           padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
-            shape: BoxShape.circle,
-          ),
+          decoration:
+              BoxDecoration(color: color.withOpacity(0.2), shape: BoxShape.circle),
           child: Icon(Icons.flag, color: color, size: 16),
         ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: color,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          ),
-        ),
-        trailing: isSelected ? Icon(Icons.check_circle, color: color) : null,
+        title: Text(title,
+            style: TextStyle(
+                color: color,
+                fontWeight:
+                    isSelected ? FontWeight.w600 : FontWeight.w500)),
+        trailing:
+            isSelected ? Icon(Icons.check_circle, color: color) : null,
         onTap: () {
-          setState(() {
-            _importance = value;
-          });
+          setState(() => _importance = value);
           Navigator.pop(context);
         },
       ),
@@ -1391,30 +1269,26 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   }
 
   void _showCategoryDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    // FIX: categories use fixed English keys; display names are translated
     final categories = [
-      {'name': AppLocalizations.of(context).school, 'icon': Icons.school},
-      {'name': AppLocalizations.of(context).home, 'icon': Icons.home},
-      {'name': AppLocalizations.of(context).work, 'icon': Icons.work},
-      {
-        'name': AppLocalizations.of(context).shopping,
-        'icon': Icons.shopping_cart,
-      },
-      {
-        'name': AppLocalizations.of(context).health,
-        'icon': Icons.health_and_safety,
-      },
-      {'name': AppLocalizations.of(context).personal, 'icon': Icons.person},
+      {'key': CategoryKeys.school, 'icon': Icons.school, 'name': l10n.school},
+      {'key': CategoryKeys.home, 'icon': Icons.home, 'name': l10n.home},
+      {'key': CategoryKeys.work, 'icon': Icons.work, 'name': l10n.work},
+      {'key': CategoryKeys.shopping, 'icon': Icons.shopping_cart, 'name': l10n.shopping},
+      {'key': CategoryKeys.health, 'icon': Icons.health_and_safety, 'name': l10n.health},
+      {'key': CategoryKeys.personal, 'icon': Icons.person, 'name': l10n.personal},
     ];
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
-            AppLocalizations.of(context).category,
+            l10n.category,
             style: TextStyle(
               fontWeight: FontWeight.w600,
               color: Theme.of(context).colorScheme.onSurface,
@@ -1425,37 +1299,33 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             mainAxisSize: MainAxisSize.min,
             children: [
               ...categories.map(
-                (category) => ListTile(
+                (cat) => ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withOpacity(0.1),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      category['icon'] as IconData,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                    child: Icon(cat['icon'] as IconData,
+                        color: Theme.of(context).colorScheme.primary),
                   ),
                   title: Text(
-                    category['name'] as String,
+                    cat['name'] as String,
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
+                        color: Theme.of(context).colorScheme.onSurface),
                   ),
-                  trailing: _category == category['name']
-                      ? Icon(
-                          Icons.check,
-                          color: Theme.of(context).colorScheme.primary,
-                        )
+                  // FIX: compare against the English key, not the translated name
+                  trailing: _category == cat['key']
+                      ? Icon(Icons.check,
+                          color: Theme.of(context).colorScheme.primary)
                       : null,
                   onTap: () {
-                    setState(() {
-                      _category = category['name'] as String;
-                    });
+                    // FIX: store the English key
+                    setState(() => _category = cat['key'] as String);
                     Navigator.pop(context);
                   },
                 ),
@@ -1470,17 +1340,13 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                   ),
                   child: const Icon(Icons.clear, color: Colors.grey),
                 ),
-                title: Text(AppLocalizations.of(context).none),
+                title: Text(l10n.none),
                 trailing: _category.isEmpty
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
+                    ? Icon(Icons.check,
+                        color: Theme.of(context).colorScheme.primary)
                     : null,
                 onTap: () {
-                  setState(() {
-                    _category = '';
-                  });
+                  setState(() => _category = '');
                   Navigator.pop(context);
                 },
               ),
@@ -1492,23 +1358,16 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   }
 
   String getDayName(int dayOfWeek) {
+    final l10n = AppLocalizations.of(context);
     switch (dayOfWeek) {
-      case 1:
-        return AppLocalizations.of(context).monday;
-      case 2:
-        return AppLocalizations.of(context).tuesday;
-      case 3:
-        return AppLocalizations.of(context).wednesday;
-      case 4:
-        return AppLocalizations.of(context).thursday;
-      case 5:
-        return AppLocalizations.of(context).friday;
-      case 6:
-        return AppLocalizations.of(context).saturday;
-      case 7:
-        return AppLocalizations.of(context).sunday;
-      default:
-        return '';
+      case 1: return l10n.monday;
+      case 2: return l10n.tuesday;
+      case 3: return l10n.wednesday;
+      case 4: return l10n.thursday;
+      case 5: return l10n.friday;
+      case 6: return l10n.saturday;
+      case 7: return l10n.sunday;
+      default: return '';
     }
   }
 
