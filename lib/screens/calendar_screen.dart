@@ -1,11 +1,13 @@
-// lib/screens/calendar_screen.dart - Ejemplo de uso de traducciones
+// lib/screens/calendar_screen.dart - MEJORADA CON TIMELINE Y PREVIEW
 import 'package:flutter/material.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:myapp/providers/event_provider.dart';
+import 'package:intl/intl.dart';
 import '../models/event.dart';
 import '../widgets/event_card.dart';
+import '../widgets/event_preview_sheet.dart';
 
 class MonthlyCalendarScreen extends StatefulWidget {
   final bool fromHomeScreen;
@@ -31,14 +33,14 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
+  bool _showTimeline = true;
+  final bool _showCompletedEvents = true;
 
   @override
   void initState() {
     super.initState();
     _selectedDay = DateTime.now();
   }
-
-  // ... métodos anteriores sin cambios ...
 
   List<Event> _getEventsForDay(DateTime day, List<Event> allEvents) {
     return allEvents.where((event) {
@@ -93,7 +95,6 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     }
   }
 
-  // ACTUALIZADO: Usar traducciones para los títulos de sección
   String _getSectionTitle(BuildContext context, String dayType, bool isPast) {
     final l10n = AppLocalizations.of(context);
 
@@ -106,9 +107,31 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     }
   }
 
+  void _goToToday() {
+    setState(() {
+      _selectedDay = DateTime.now();
+      _focusedDay = DateTime.now();
+    });
+  }
+
+  void _toggleCalendarFormat() {
+    setState(() {
+      _calendarFormat = _calendarFormat == CalendarFormat.month
+          ? CalendarFormat.week
+          : CalendarFormat.month;
+    });
+  }
+
+  void _toggleTimeline() {
+    setState(() {
+      _showTimeline = !_showTimeline;
+    });
+  }
+
+
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context); // Obtener traducciones
+    final l10n = AppLocalizations.of(context);
 
     return Consumer<EventProvider>(
       builder: (context, eventProvider, child) {
@@ -116,31 +139,37 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         final events = _selectedDay != null
             ? _getEventsForDay(_selectedDay!, allEvents)
             : [];
-        events.sort((a, b) => a.startTime.compareTo(b.startTime));
+        
+        // Filtrar eventos completados si está deshabilitado
+        final filteredEvents = _showCompletedEvents 
+            ? events 
+            : events.where((e) => !e.isCompleted).toList();
+        
+        filteredEvents.sort((a, b) => a.startTime.compareTo(b.startTime));
 
         final now = DateTime.now();
         final dayType = _selectedDay != null
             ? _getDayType(_selectedDay!)
             : 'today';
 
-        List<Event>? pastEvents = [];
-        List<Event>? currentOrFutureEvents = [];
+        List<Event> pastEvents = [];
+        List<Event> currentOrFutureEvents = [];
 
         if (dayType == 'today') {
-          pastEvents = events
+          pastEvents = filteredEvents
               .where((e) => e.endTime != null && e.endTime!.isBefore(now))
               .cast<Event>()
               .toList();
-          currentOrFutureEvents = events
+          currentOrFutureEvents = filteredEvents
               .where((e) => e.endTime == null || e.endTime!.isAfter(now))
               .cast<Event>()
               .toList();
         } else if (dayType == 'past') {
-          pastEvents = events.cast<Event>();
+          pastEvents = filteredEvents.cast<Event>();
           currentOrFutureEvents = [];
         } else {
           pastEvents = [];
-          currentOrFutureEvents = events.cast<Event>();
+          currentOrFutureEvents = filteredEvents.cast<Event>();
         }
 
         return Scaffold(
@@ -149,17 +178,57 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             backgroundColor: Theme.of(context).colorScheme.surface,
             elevation: 0,
             title: Text(
-              AppLocalizations.of(context).calendar, // TRADUCIDO
+              l10n.calendar,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
               ),
             ),
+            actions: [
+              // Filtrar completados
+         
+              // Timeline toggle
+              IconButton(
+                icon: Icon(
+                  _showTimeline ? Icons.timeline : Icons.timeline_outlined,
+                  color: _showTimeline 
+                      ? Theme.of(context).colorScheme.primary 
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+                onPressed: _toggleTimeline,
+                tooltip: _showTimeline ? 'Hide timeline' : 'Show timeline',
+              ),
+              
+              // Ir a hoy
+              IconButton(
+                icon: Icon(
+                  Icons.today,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                onPressed: _goToToday,
+                tooltip: 'Today',
+              ),
+              
+              // Cambiar formato
+              IconButton(
+                icon: Icon(
+                  _calendarFormat == CalendarFormat.month
+                      ? Icons.view_week
+                      : Icons.calendar_month,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                ),
+                onPressed: _toggleCalendarFormat,
+                tooltip: _calendarFormat == CalendarFormat.month
+                    ? 'Week view'
+                    : 'Month view',
+              ),
+            ],
           ),
           body: eventProvider.isLoading && allEvents.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
+                    // Calendario
                     TableCalendar(
                       locale: Localizations.localeOf(context).toLanguageTag(),
                       headerStyle: HeaderStyle(
@@ -248,151 +317,421 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                         },
                       ),
                     ),
+
+                    // Divider
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
+                    ),
+
+                    // Selected date info
+                    if (_selectedDay != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        color: Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.3),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.event,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              DateFormat.yMMMMd().format(_selectedDay!),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${filteredEvents.length} ${filteredEvents.length == 1 ? 'event' : 'events'}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Lista de eventos
                     Expanded(
                       child: RefreshIndicator(
                         onRefresh: () => eventProvider.loadEvents(),
-                        child: ListView(
-                          padding: const EdgeInsets.all(8.0),
-                          children: [
-                            if (currentOrFutureEvents.isNotEmpty) ...[
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8.0,
-                                ),
-                                child: Text(
-                                  _getSectionTitle(
+                        child: filteredEvents.isEmpty
+                            ? _buildEmptyState(context)
+                            : _showTimeline
+                                ? _buildTimelineView(
                                     context,
+                                    currentOrFutureEvents,
+                                    pastEvents,
                                     dayType,
-                                    false,
-                                  ), // TRADUCIDO
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                              ...currentOrFutureEvents.map(
-                                (event) => Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4.0,
-                                  ),
-                                  child: Dismissible(
-                                    key: Key(event.id),
-                                    direction: DismissDirection.endToStart,
-                                    background: Container(
-                                      color: Colors.red,
-                                      alignment: Alignment.centerRight,
-                                      padding: const EdgeInsets.only(
-                                        right: 20.0,
-                                      ),
-                                      child: const Icon(
-                                        Icons.delete,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    confirmDismiss: (direction) async {
-                                      return await _showDeleteConfirmationDialog(
-                                        context,
-                                        event,
-                                        eventProvider,
-                                      );
-                                    },
-                                    onDismissed: (direction) {},
-                                    child: EventCard(
-                                      event: event,
-                                      onUpdateEvent: (updatedEvent) async {
-                                        await eventProvider.updateEvent(
-                                          updatedEvent,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            if (pastEvents.isNotEmpty) ...[
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8.0,
-                                ),
-                                child: Text(
-                                  _getSectionTitle(
+                                    eventProvider,
+                                  )
+                                : _buildListView(
                                     context,
+                                    currentOrFutureEvents,
+                                    pastEvents,
                                     dayType,
-                                    true,
-                                  ), // TRADUCIDO
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.grey,
-                                    fontSize: 16,
+                                    eventProvider,
                                   ),
-                                ),
-                              ),
-                              ...pastEvents.map(
-                                (event) => Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4.0,
-                                  ),
-                                  child: Dismissible(
-                                    key: Key(event.id),
-                                    direction: DismissDirection.endToStart,
-                                    background: Container(
-                                      color: Colors.red,
-                                      alignment: Alignment.centerRight,
-                                      padding: const EdgeInsets.only(
-                                        right: 20.0,
-                                      ),
-                                      child: const Icon(
-                                        Icons.delete,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    confirmDismiss: (direction) async {
-                                      return await _showDeleteConfirmationDialog(
-                                        context,
-                                        event,
-                                        eventProvider,
-                                      );
-                                    },
-                                    onDismissed: (direction) {},
-                                    child: EventCard(
-                                      event: event,
-                                      onUpdateEvent: (updatedEvent) async {
-                                        await eventProvider.updateEvent(
-                                          updatedEvent,
-                                        );
-                                      },
-                                      pastEvent: true,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            if (events.isEmpty) ...[
-                              Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 32.0),
-                                  child: Text(
-                                    l10n.noEvents, // TRADUCIDO
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface.withOpacity(0.6),
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
                       ),
                     ),
                   ],
                 ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.event_busy,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              AppLocalizations.of(context).noEvents,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimelineView(
+    BuildContext context,
+    List<Event> currentOrFutureEvents,
+    List<Event> pastEvents,
+    String dayType,
+    EventProvider eventProvider,
+  ) {
+    final allEventsForTimeline = [...currentOrFutureEvents, ...pastEvents];
+    allEventsForTimeline.sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16.0),
+      itemCount: allEventsForTimeline.length,
+      itemBuilder: (context, index) {
+        final event = allEventsForTimeline[index];
+        final isLast = index == allEventsForTimeline.length - 1;
+        final isPast = pastEvents.contains(event);
+
+        return _buildTimelineEventCard(
+          context,
+          event,
+          eventProvider,
+          isLast,
+          isPast,
+        );
+      },
+    );
+  }
+
+  Widget _buildTimelineEventCard(
+    BuildContext context,
+    Event event,
+    EventProvider eventProvider,
+    bool isLast,
+    bool isPast,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Timeline indicator
+        Column(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: isPast
+                    ? Colors.grey
+                    : Theme.of(context).colorScheme.primary,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.surface,
+                  width: 2,
+                ),
+              ),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 80,
+                color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
+              ),
+          ],
+        ),
+
+        const SizedBox(width: 16),
+
+        // Event card
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Time label
+                Text(
+                  DateFormat.jm().format(event.startTime),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isPast
+                        ? Colors.grey
+                        : Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                
+                // Event card con Dismissible
+                Dismissible(
+                  key: Key(event.id),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20.0),
+                    child: const Icon(
+                      Icons.delete,
+                      color: Colors.white,
+                    ),
+                  ),
+                  confirmDismiss: (direction) async {
+                    return await _showDeleteConfirmationDialog(
+                      context,
+                      event,
+                      eventProvider,
+                    );
+                  },
+                  onDismissed: (direction) {},
+                  child: GestureDetector(
+                    onTap: () => _showEventPreview(context, event),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          // Category icon
+                          if (event.category.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                _getCategoryIcon(event.category),
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          
+                          const SizedBox(width: 12),
+                          
+                          // Event info
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  event.title,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                ),
+                                if (event.description != null &&
+                                    event.description!.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      event.description!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface.withOpacity(0.6),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          
+                          // Importance indicator
+                          if (event.importance != null && event.importance! > 0)
+                            Container(
+                              width: 4,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: _getImportanceColor(event.importance!),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildListView(
+    BuildContext context,
+    List<Event> currentOrFutureEvents,
+    List<Event> pastEvents,
+    String dayType,
+    EventProvider eventProvider,
+  ) {
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        if (currentOrFutureEvents.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              _getSectionTitle(context, dayType, false),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          ...currentOrFutureEvents.map(
+            (event) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Dismissible(
+                key: Key(event.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20.0),
+                  child: const Icon(
+                    Icons.delete,
+                    color: Colors.white,
+                  ),
+                ),
+                confirmDismiss: (direction) async {
+                  return await _showDeleteConfirmationDialog(
+                    context,
+                    event,
+                    eventProvider,
+                  );
+                },
+                onDismissed: (direction) {},
+                child: EventCard(
+                  event: event,
+                  onUpdateEvent: (updatedEvent) async {
+                    await eventProvider.updateEvent(updatedEvent);
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+        if (pastEvents.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              _getSectionTitle(context, dayType, true),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          ...pastEvents.map(
+            (event) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Dismissible(
+                key: Key(event.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20.0),
+                  child: const Icon(
+                    Icons.delete,
+                    color: Colors.white,
+                  ),
+                ),
+                confirmDismiss: (direction) async {
+                  return await _showDeleteConfirmationDialog(
+                    context,
+                    event,
+                    eventProvider,
+                  );
+                },
+                onDismissed: (direction) {},
+                child: EventCard(
+                  event: event,
+                  onUpdateEvent: (updatedEvent) async {
+                    await eventProvider.updateEvent(updatedEvent);
+                  },
+                  pastEvent: true,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _showEventPreview(BuildContext context, Event event) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return EventPreviewSheet(
+          event: event,
+          onEdit: () {
+            // Implementar edición si es necesario
+          },
+          onDelete: () {
+            // El delete se maneja dentro del EventPreviewSheet
+          },
         );
       },
     );
@@ -403,7 +742,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     Event event,
     EventProvider eventProvider,
   ) {
-    final l10n = AppLocalizations.of(context); // Obtener traducciones
+    final l10n = AppLocalizations.of(context);
 
     return showDialog<bool>(
       context: context,
@@ -412,8 +751,8 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: Text(l10n.deleteConfirmationTitle), // TRADUCIDO
-          content: Text(l10n.deleteConfirmation), // TRADUCIDO
+          title: Text(l10n.deleteConfirmationTitle),
+          content: Text(l10n.deleteConfirmation),
           backgroundColor: Theme.of(context).colorScheme.surface,
           actions: [
             TextButton(
@@ -424,7 +763,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               child: Text(
                 l10n.delete,
                 style: TextStyle(color: Colors.red),
-              ), // TRADUCIDO
+              ),
             ),
             if (event.repeatDays.isNotEmpty)
               TextButton(
@@ -435,17 +774,51 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 child: Text(
                   l10n.deleteAll,
                   style: TextStyle(color: Colors.red),
-                ), // TRADUCIDO
+                ),
               ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
-              child: Text(l10n.cancel), // TRADUCIDO
+              child: Text(l10n.cancel),
             ),
           ],
         );
       },
     );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'School':
+        return Icons.school;
+      case 'Home':
+        return Icons.home;
+      case 'Work':
+        return Icons.work;
+      case 'Shopping':
+        return Icons.shopping_cart;
+      case 'Health':
+        return Icons.health_and_safety;
+      case 'Personal':
+        return Icons.person;
+      default:
+        return Icons.event;
+    }
+  }
+
+  Color _getImportanceColor(int importance) {
+    switch (importance) {
+      case 1:
+        return Colors.green;
+      case 2:
+        return Colors.yellow;
+      case 3:
+        return Colors.orange;
+      case 4:
+        return Colors.red;
+      default:
+        return Colors.transparent;
+    }
   }
 }

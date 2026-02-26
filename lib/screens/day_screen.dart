@@ -1,4 +1,4 @@
-// lib/screens/day_screen.dart - Con ordenamiento inteligente
+// lib/screens/day_screen.dart - VERSIÓN OPTIMIZADA
 import 'package:flutter/material.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -30,8 +30,16 @@ class DayScreen extends StatefulWidget {
 
 class _DayScreenState extends State<DayScreen>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
-  
-  // 🆕 Estado de secciones colapsables
+  @override
+  bool get wantKeepAlive => true;
+
+  // 🆕 Cache de eventos procesados
+  List<Event>? _cachedSortedEvents;
+  Map<TimePeriod, List<Event>>? _cachedGroupedEvents;
+  EventSortOption? _cachedSortOption;
+  int? _cachedEventsHash;
+
+  // Estado de secciones colapsables
   final Map<TimePeriod, bool> _sectionVisibility = {
     TimePeriod.morning: true,
     TimePeriod.afternoon: true,
@@ -39,38 +47,96 @@ class _DayScreenState extends State<DayScreen>
     TimePeriod.night: true,
   };
 
-  // 🆕 Opción de ordenamiento
   EventSortOption _sortOption = EventSortOption.timeAscending;
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     _loadSortPreference();
-    WidgetsBinding.instance.addObserver(this); // 🆕 Observar lifecycle
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // 🆕 Remover observer
+    WidgetsBinding.instance.removeObserver(this);
+    // Limpiar cache
+    _cachedSortedEvents = null;
+    _cachedGroupedEvents = null;
     super.dispose();
   }
 
-  // 🆕 Detectar cuando la app regresa del background (ej: Settings)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _loadSortPreference(); // Recargar preferencia cuando regresamos
+      _loadSortPreference();
     }
   }
 
-  // 🆕 Cargar preferencia de ordenamiento al iniciar
+  @override
+  void didUpdateWidget(DayScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // 🆕 Invalidar cache si cambiaron los eventos o la fecha
+    if (oldWidget.events != widget.events || 
+        !_isSameDay(oldWidget.day, widget.day)) {
+      _invalidateCache();
+    }
+  }
+
+  // 🆕 NUEVO: Invalidar cache
+  void _invalidateCache() {
+    _cachedSortedEvents = null;
+    _cachedGroupedEvents = null;
+    _cachedEventsHash = null;
+  }
+
+  // 🆕 NUEVO: Calcular hash de eventos
+  int _calculateEventsHash(List<Event> events) {
+    return events.fold(0, (hash, event) {
+      return hash ^ event.id.hashCode ^ event.lastModified.hashCode;
+    });
+  }
+
+  // 🆕 NUEVO: Obtener eventos ordenados con cache
+  List<Event> _getCachedSortedEvents() {
+    final currentHash = _calculateEventsHash(widget.events);
+    
+    if (_cachedSortedEvents == null || 
+        _cachedSortOption != _sortOption ||
+        _cachedEventsHash != currentHash) {
+      
+      _cachedSortedEvents = EventSortingUtils.sortEvents(
+        widget.events,
+        widget.day,
+        sortBy: _sortOption,
+      );
+      _cachedSortOption = _sortOption;
+      _cachedEventsHash = currentHash;
+    }
+    
+    return _cachedSortedEvents!;
+  }
+
+  // 🆕 NUEVO: Obtener eventos agrupados con cache
+  Map<TimePeriod, List<Event>> _getCachedGroupedEvents() {
+    if (_cachedGroupedEvents == null) {
+      final sortedEvents = _getCachedSortedEvents();
+      _cachedGroupedEvents = EventSortingUtils.groupByTimePeriod(
+        sortedEvents,
+        widget.day,
+        sortGroups: false,
+      );
+    }
+    return _cachedGroupedEvents!;
+  }
+
   Future<void> _loadSortPreference() async {
     final sortOption = await EventSortingUtils.loadSortPreference();
-    if (mounted) {
-      setState(() => _sortOption = sortOption);
+    if (mounted && sortOption != _sortOption) {
+      setState(() {
+        _sortOption = sortOption;
+        _invalidateCache(); // Invalidar cache al cambiar ordenamiento
+      });
     }
   }
 
@@ -126,97 +192,39 @@ class _DayScreenState extends State<DayScreen>
       case TimePeriod.afternoon:
         return l10n.afternoon;
       case TimePeriod.evening:
-        return l10n.night; // Reusa "night" para "evening"
+        return l10n.night;
       case TimePeriod.night:
-        return 'Madrugada'; // Agrega esta traducción si no existe
+        return 'Madrugada';
     }
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    // 🆕 Ordenar eventos según la preferencia seleccionada PRIMERO
-    final sortedEvents = EventSortingUtils.sortEvents(
-      widget.events,
-      widget.day,
-      sortBy: _sortOption,
-    );
-
-    // 🆕 Agrupar por periodo SIN re-ordenar (sortGroups: false)
-    final eventsByPeriod = EventSortingUtils.groupByTimePeriod(
-      sortedEvents,
-      widget.day,
-      sortGroups: false, // Mantener el orden ya aplicado
-    );
+    // 🆕 OPTIMIZADO: Usar cache para eventos procesados
+    final eventsByPeriod = _getCachedGroupedEvents();
 
     // Filtrar periodos vacíos
     final nonEmptyPeriods = eventsByPeriod.entries
         .where((entry) => entry.value.isNotEmpty)
         .toList();
 
-    return Consumer<EventProvider>(
-      builder: (context, eventProvider, child) {
+    // 🆕 OPTIMIZADO: Usar Selector para rebuilds específicos
+    return Selector<EventProvider, bool>(
+      selector: (_, provider) => provider.isLoading,
+      builder: (context, isLoading, child) {
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          body: eventProvider.isLoading && widget.events.isEmpty
+          body: isLoading && widget.events.isEmpty
               ? const Center(child: CircularProgressIndicator())
-              : Column(
-                  children: [
-                    // 🆕 Barra de opciones de ordenamiento
-                
-                    
-                    Expanded(
-                      child: widget.events.isEmpty
-                          ? _buildEmptyState()
-                          : ListView.builder(
-                              padding: const EdgeInsets.all(16.0),
-                              itemCount: nonEmptyPeriods.length,
-                              itemBuilder: (context, index) {
-                                final entry = nonEmptyPeriods[index];
-                                final period = entry.key;
-                                final events = entry.value;
-
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildPeriodHeader(period, events.length),
-                                    if (_sectionVisibility[period]!)
-                                      ...events.asMap().entries.map((entry) {
-                                        final index = entry.key;
-                                        final event = entry.value;
-                                        final isLast = index == events.length - 1;
-                                        
-                                        return Column(
-                                          children: [
-                                            _buildEventCard(event, eventProvider),
-                                            // 🆕 Divider sutil entre eventos (excepto el último)
-                                            if (!isLast)
-                                              Padding(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 16.0,
-                                                  vertical: 4.0,
-                                                ),
-                                                child: Divider(
-                                                  height: 1,
-                                                  thickness: 0.5,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .outlineVariant
-                                                      .withOpacity(0.3),
-                                                ),
-                                              ),
-                                          ],
-                                        );
-                                      }),
-                                    const SizedBox(height: 8),
-                                  ],
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
+              : widget.events.isEmpty
+                  ? _buildEmptyState()
+                  : _buildEventsList(nonEmptyPeriods),
           floatingActionButton: FloatingActionButton(
             backgroundColor: Theme.of(context).colorScheme.primary,
             onPressed: _showAddEventBottomSheet,
@@ -230,74 +238,35 @@ class _DayScreenState extends State<DayScreen>
     );
   }
 
-  
+  // 🆕 NUEVO: Extraer lista de eventos a widget separado
+  Widget _buildEventsList(List<MapEntry<TimePeriod, List<Event>>> periods) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16.0),
+      // 🆕 OPTIMIZADO: Usar itemExtent para mejor rendimiento si es posible
+      itemCount: periods.length,
+      itemBuilder: (context, index) {
+        final entry = periods[index];
+        final period = entry.key;
+        final events = entry.value;
 
-
-  Widget _buildPeriodHeader(TimePeriod period, int eventCount) {
-    final isVisible = _sectionVisibility[period]!;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _sectionVisibility[period] = !isVisible;
-        });
+        return _PeriodSection(
+          key: ValueKey('${period.name}_${widget.day.millisecondsSinceEpoch}'),
+          period: period,
+          periodName: _getPeriodName(period),
+          events: events,
+          isVisible: _sectionVisibility[period]!,
+          onToggleVisibility: () {
+            setState(() {
+              _sectionVisibility[period] = !_sectionVisibility[period]!;
+            });
+          },
+          day: widget.day,
+          isEventPast: _isEventPast,
+          onUpdateEvent: widget.onUpdateEvent,
+          onDeleteEvent: widget.onDeleteEvent,
+        );
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        child: Row(
-          children: [
-            Icon(
-              _getPeriodIcon(period),
-              size: 20,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              _getPeriodName(period),
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '$eventCount',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-            const Spacer(),
-            Icon(
-              isVisible ? Icons.expand_less : Icons.expand_more,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ],
-        ),
-      ),
     );
-  }
-
-  IconData _getPeriodIcon(TimePeriod period) {
-    switch (period) {
-      case TimePeriod.morning:
-        return Icons.wb_sunny;
-      case TimePeriod.afternoon:
-        return Icons.wb_twilight;
-      case TimePeriod.evening:
-        return Icons.nightlight;
-      case TimePeriod.night:
-        return Icons.bedtime;
-    }
   }
 
   Widget _buildEmptyState() {
@@ -334,14 +303,141 @@ class _DayScreenState extends State<DayScreen>
     );
   }
 
-  Widget _buildEventCard(Event event, EventProvider eventProvider) {
-    final isPastEvent = _isEventPast(event);
+  void _showAddEventBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: AddEventBottomSheet(
+          onAddEvent: (event) {
+            widget.onAddEvent(event);
+          },
+          day: widget.day,
+        ),
+      ),
+    );
+  }
+}
+
+// 🆕 NUEVO: Widget separado para cada sección de periodo
+class _PeriodSection extends StatelessWidget {
+  final TimePeriod period;
+  final String periodName;
+  final List<Event> events;
+  final bool isVisible;
+  final VoidCallback onToggleVisibility;
+  final DateTime day;
+  final bool Function(Event) isEventPast;
+  final Function(int, Event) onUpdateEvent;
+  final Function(int, bool) onDeleteEvent;
+
+  const _PeriodSection({
+    super.key,
+    required this.period,
+    required this.periodName,
+    required this.events,
+    required this.isVisible,
+    required this.onToggleVisibility,
+    required this.day,
+    required this.isEventPast,
+    required this.onUpdateEvent,
+    required this.onDeleteEvent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPeriodHeader(context),
+        if (isVisible)
+          // 🆕 OPTIMIZADO: Usar ListView.separated para mejor rendimiento
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: events.length,
+            separatorBuilder: (context, index) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+              child: Divider(
+                height: 1,
+                thickness: 0.5,
+                color: Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withOpacity(0.3),
+              ),
+            ),
+            itemBuilder: (context, index) {
+              final event = events[index];
+              return _buildEventCard(context, event, index);
+            },
+          ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildPeriodHeader(BuildContext context) {
+    return GestureDetector(
+      onTap: onToggleVisibility,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Row(
+          children: [
+            Icon(
+              _getPeriodIcon(period),
+              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              periodName,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${events.length}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+            const Spacer(),
+            Icon(
+              isVisible ? Icons.expand_less : Icons.expand_more,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEventCard(BuildContext context, Event event, int index) {
+    final isPastEvent = isEventPast(event);
     final stableKey = ValueKey(
-      'event_${event.id}_${widget.day.millisecondsSinceEpoch}',
+      'event_${event.id}_${day.millisecondsSinceEpoch}',
     );
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0), // 🆕 Espaciado entre cards
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Dismissible(
         key: Key(
           'dismissible_${event.id}_${event.startTime.millisecondsSinceEpoch}',
@@ -350,18 +446,14 @@ class _DayScreenState extends State<DayScreen>
         background: Container(
           decoration: BoxDecoration(
             color: Colors.red,
-            borderRadius: BorderRadius.circular(12), // 🆕 Matching card radius
+            borderRadius: BorderRadius.circular(12),
           ),
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20.0),
           child: const Icon(Icons.delete, color: Colors.white),
         ),
         confirmDismiss: (direction) async {
-          return await _showDeleteConfirmationDialog(
-            context,
-            event,
-            eventProvider,
-          );
+          return await _showDeleteConfirmationDialog(context, event);
         },
         onDismissed: (direction) {},
         child: EventCard(
@@ -369,6 +461,10 @@ class _DayScreenState extends State<DayScreen>
           event: event,
           pastEvent: isPastEvent,
           onUpdateEvent: (updatedEvent) async {
+            final eventProvider = Provider.of<EventProvider>(
+              context,
+              listen: false,
+            );
             await eventProvider.updateEvent(updatedEvent);
           },
         ),
@@ -379,7 +475,6 @@ class _DayScreenState extends State<DayScreen>
   Future<bool?> _showDeleteConfirmationDialog(
     BuildContext context,
     Event event,
-    EventProvider eventProvider,
   ) {
     return showDialog<bool>(
       context: context,
@@ -392,6 +487,10 @@ class _DayScreenState extends State<DayScreen>
           actions: [
             TextButton(
               onPressed: () async {
+                final eventProvider = Provider.of<EventProvider>(
+                  context,
+                  listen: false,
+                );
                 await eventProvider.deleteEvent(event.id, deleteAll: false);
                 Navigator.of(context).pop(true);
               },
@@ -403,6 +502,10 @@ class _DayScreenState extends State<DayScreen>
             if (event.repeatDays.isNotEmpty)
               TextButton(
                 onPressed: () async {
+                  final eventProvider = Provider.of<EventProvider>(
+                    context,
+                    listen: false,
+                  );
                   await eventProvider.deleteEvent(event.id, deleteAll: true);
                   Navigator.of(context).pop(true);
                 },
@@ -423,23 +526,16 @@ class _DayScreenState extends State<DayScreen>
     );
   }
 
-  void _showAddEventBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: AddEventBottomSheet(
-          onAddEvent: (event) {
-            widget.onAddEvent(event);
-          },
-          day: widget.day,
-        ),
-      ),
-    );
+  IconData _getPeriodIcon(TimePeriod period) {
+    switch (period) {
+      case TimePeriod.morning:
+        return Icons.wb_sunny;
+      case TimePeriod.afternoon:
+        return Icons.wb_twilight;
+      case TimePeriod.evening:
+        return Icons.nightlight;
+      case TimePeriod.night:
+        return Icons.bedtime;
+    }
   }
 }

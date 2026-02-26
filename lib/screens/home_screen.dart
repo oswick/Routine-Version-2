@@ -1,6 +1,7 @@
-// lib/screens/home_screen.dart - Versión actualizada con Provider
+// lib/screens/home_screen.dart - VERSIÓN OPTIMIZADA
 import 'package:flutter/material.dart';
 import 'package:myapp/l10n/app_localizations.dart';
+import 'package:myapp/models/event.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/services/auth_service.dart';
@@ -15,23 +16,46 @@ class HomeScreen extends StatefulWidget {
   _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with AutomaticKeepAliveClientMixin {
+  // 🆕 Mantener estado entre navegaciones
+  @override
+  bool get wantKeepAlive => true;
+
   final AuthService _authService = AuthService();
   DateTime selectedDate = DateTime.now();
 
+  // 🆕 Estados para conectividad (con cache)
   bool _isOnline = false;
   SyncStatus _syncStatus = SyncStatus.offline;
   SyncInfo? _syncInfo;
   bool _isSyncing = false;
   final ConnectivityService _connectivity = ConnectivityService();
 
+  // 🆕 Cache de eventos del día para evitar recalcular
+  List<dynamic>? _cachedDailyEvents;
+  DateTime? _cachedDate;
+
   @override
   void initState() {
     super.initState();
     _initConnectivity();
+
+    // 🆕 OPTIMIZADO: Solo cargar si realmente es necesario
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshEvents();
+      final eventProvider = Provider.of<EventProvider>(context, listen: false);
+      if (eventProvider.events.isEmpty) {
+        _refreshEvents();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    // Limpiar cache
+    _cachedDailyEvents = null;
+    _cachedDate = null;
+    super.dispose();
   }
 
   Color _getConnectivityBorderColor() {
@@ -47,16 +71,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final syncService = SyncService();
     _syncInfo = syncService.getSyncInfo();
 
-    setState(() {});
+    if (mounted) setState(() {});
 
+    // 🆕 OPTIMIZADO: Throttle de actualizaciones de conectividad
     _connectivity.connectionStream.listen((isConnected) {
-      if (mounted) {
+      if (mounted && _isOnline != isConnected) {
         setState(() => _isOnline = isConnected);
       }
     });
 
     syncService.syncStatusStream.listen((status) {
-      if (mounted) {
+      if (mounted && _syncStatus != status) {
         setState(() {
           _syncStatus = status;
           if (status == SyncStatus.synced || status == SyncStatus.error) {
@@ -70,118 +95,182 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _refreshEvents() async {
     final eventProvider = Provider.of<EventProvider>(context, listen: false);
     await eventProvider.loadEvents();
+
+    // 🆕 Invalidar cache después de refresh
+    _cachedDailyEvents = null;
+    _cachedDate = null;
+  }
+
+  // 🆕 NUEVO: Obtener eventos con cache
+  List<dynamic> _getCachedDailyEvents(EventProvider provider) {
+    // Si la fecha cambió, invalidar cache
+    if (_cachedDate == null ||
+        _cachedDate!.year != selectedDate.year ||
+        _cachedDate!.month != selectedDate.month ||
+        _cachedDate!.day != selectedDate.day) {
+      _cachedDailyEvents = provider.getEventsForDay(selectedDate);
+      _cachedDate = selectedDate;
+    }
+
+    return _cachedDailyEvents ?? [];
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // 🆕 Necesario para AutomaticKeepAliveClientMixin
+
     final user = _authService.currentUser;
 
-    return Consumer<EventProvider>(
-      builder: (context, eventProvider, child) {
-        final dailyEvents = eventProvider.getEventsForDay(selectedDate);
+    // 🆕 OPTIMIZADO: Usar Selector en lugar de Consumer para rebuilds específicos
+    return Selector<EventProvider, _EventsState>(
+      selector: (_, provider) => _EventsState(
+        isLoading: provider.isLoading,
+        eventsCount: provider.events.length,
+        // 🆕 Solo trigger rebuild si los eventos del día específico cambiaron
+        eventsHash: _getEventsHashForDate(provider, selectedDate),
+      ),
+      shouldRebuild: (prev, next) {
+        // 🆕 Solo rebuild si realmente cambió algo relevante
+        return prev.isLoading != next.isLoading ||
+            prev.eventsCount != next.eventsCount ||
+            prev.eventsHash != next.eventsHash;
+      },
+      builder: (context, state, child) {
+        final eventProvider = Provider.of<EventProvider>(
+          context,
+          listen: false,
+        );
+        final dailyEvents = _getCachedDailyEvents(eventProvider);
 
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            elevation: 0,
-            title: Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    getDayName(selectedDate.weekday),
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  Text(
-                    '${selectedDate.day} - ${selectedDate.month.toString().padLeft(2, '0')}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              // Indicador de conectividad
-              if (user != null) ...[
-                Padding(
-                  padding: const EdgeInsets.only(right: 12.0),
-                  child: Container(
-                    padding: const EdgeInsets.all(2), // Borde exterior
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _getConnectivityBorderColor(),
-                        width: 2.5,
-                      ),
-                    ),
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundImage: user.userMetadata?['avatar_url'] != null
-                          ? NetworkImage(user.userMetadata!['avatar_url'])
-                          : null,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.primary.withOpacity(0.2),
-                      child: user.userMetadata?['avatar_url'] == null
-                          ? Text(
-                              user.userMetadata?['full_name']
-                                      ?.toString()
-                                      .substring(0, 1)
-                                      .toUpperCase() ??
-                                  user.email?.substring(0, 1).toUpperCase() ??
-                                  'U',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
+          appBar: _buildAppBar(context, user),
           body: RefreshIndicator(
             onRefresh: _refreshEvents,
-            child: eventProvider.isLoading && dailyEvents.isEmpty
+            child: state.isLoading && dailyEvents.isEmpty
                 ? const Center(child: CircularProgressIndicator())
-                : DayScreen(
-                    day: selectedDate,
-                    events: dailyEvents,
-                    onAddEvent: (event) async {
-                      await eventProvider.addEvent(event);
-                    },
-                    onUpdateEvent: (index, updatedEvent) async {
-                      await eventProvider.updateEvent(updatedEvent);
-                    },
-                    onDeleteEvent: (index, allDays) async {
-                      if (index >= 0 && index < dailyEvents.length) {
-                        final event = dailyEvents[index];
-                        await eventProvider.deleteEvent(
-                          event.id,
-                          deleteAll: allDays,
-                        );
-                      }
-                    },
-                  ),
+                : _buildDayScreen(dailyEvents),
           ),
         );
       },
     );
   }
 
-  // Reemplaza el método getDayName en home_screen.dart con este:
+  // 🆕 NUEVO: Calcular hash de eventos para detectar cambios reales
+  int _getEventsHashForDate(EventProvider provider, DateTime date) {
+    final events = provider.getEventsForDay(date);
+    // Simple hash basado en IDs y timestamps
+    return events.fold(0, (hash, event) {
+      return hash ^ event.id.hashCode ^ event.lastModified.hashCode;
+    });
+  }
+
+  PreferredSizeWidget _buildAppBar(BuildContext context, dynamic user) {
+    return AppBar(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      elevation: 0,
+      title: Padding(
+        padding: const EdgeInsets.only(top: 8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              getDayName(selectedDate.weekday),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              '${selectedDate.day} - ${selectedDate.month.toString().padLeft(2, '0')}',
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        if (user != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: _getConnectivityBorderColor(),
+                  width: 2.5,
+                ),
+              ),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundImage: user.userMetadata?['avatar_url'] != null
+                    ? NetworkImage(user.userMetadata!['avatar_url'])
+                    : null,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withOpacity(0.2),
+                child: user.userMetadata?['avatar_url'] == null
+                    ? Text(
+                        user.userMetadata?['full_name']
+                                ?.toString()
+                                .substring(0, 1)
+                                .toUpperCase() ??
+                            user.email?.substring(0, 1).toUpperCase() ??
+                            'U',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDayScreen(List<dynamic> dailyEvents) {
+    return DayScreen(
+      day: selectedDate,
+events: dailyEvents.map((e) => e as Event).toList(),
+      onAddEvent: (event) async {
+        final eventProvider = Provider.of<EventProvider>(
+          context,
+          listen: false,
+        );
+        await eventProvider.addEvent(event);
+        // Invalidar cache después de agregar
+        _cachedDailyEvents = null;
+      },
+      onUpdateEvent: (index, updatedEvent) async {
+        final eventProvider = Provider.of<EventProvider>(
+          context,
+          listen: false,
+        );
+        await eventProvider.updateEvent(updatedEvent);
+        // Invalidar cache después de actualizar
+        _cachedDailyEvents = null;
+      },
+      onDeleteEvent: (index, allDays) async {
+        if (index >= 0 && index < dailyEvents.length) {
+          final event = dailyEvents[index];
+          final eventProvider = Provider.of<EventProvider>(
+            context,
+            listen: false,
+          );
+          await eventProvider.deleteEvent(event.id, deleteAll: allDays);
+          // Invalidar cache después de eliminar
+          _cachedDailyEvents = null;
+        }
+      },
+    );
+  }
 
   String getDayName(int dayOfWeek) {
     final localizations = AppLocalizations.of(context);
@@ -204,4 +293,30 @@ class _HomeScreenState extends State<HomeScreen> {
         return '';
     }
   }
+}
+
+// 🆕 NUEVO: Clase para estado inmutable de eventos
+class _EventsState {
+  final bool isLoading;
+  final int eventsCount;
+  final int eventsHash;
+
+  const _EventsState({
+    required this.isLoading,
+    required this.eventsCount,
+    required this.eventsHash,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _EventsState &&
+          runtimeType == other.runtimeType &&
+          isLoading == other.isLoading &&
+          eventsCount == other.eventsCount &&
+          eventsHash == other.eventsHash;
+
+  @override
+  int get hashCode =>
+      isLoading.hashCode ^ eventsCount.hashCode ^ eventsHash.hashCode;
 }
