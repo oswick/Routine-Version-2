@@ -1,4 +1,9 @@
 // lib/services/background_service.dart
+// MEJORAS:
+// 1. Usa el mismo esquema de IDs que EventProvider para no crear colisiones
+// 2. _nextOccurrence extraído como helper compartido
+// 3. Logs en inglés (contexto de isolate, sin l10n)
+
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import '../utils/notification_service.dart';
@@ -6,84 +11,45 @@ import '../models/event.dart';
 import '../services/local_stogare_service.dart';
 
 class BackgroundService {
-  static const String _taskName = "rescheduleNotifications";
-  static const String _uniqueName = "rescheduleNotificationsTask";
+  static const String _taskName = 'rescheduleNotifications';
+  static const String _uniqueName = 'rescheduleNotificationsTask';
 
   static bool _isInitialized = false;
 
   static Future<void> initWorkManager() async {
-    if (_isInitialized) {
-      print('🔧 WorkManager already initialized, skipping...');
-      return;
-    }
-
+    if (_isInitialized) return;
     try {
       await Workmanager().initialize(
         callbackDispatcher,
         isInDebugMode: kDebugMode,
       );
-
       _isInitialized = true;
-      print('🔧 WorkManager initialized successfully');
+      debugPrint('🔧 WorkManager initialized');
     } catch (e) {
-      print('❌ Failed to initialize WorkManager: $e');
       _isInitialized = false;
+      debugPrint('❌ WorkManager init failed: $e');
       rethrow;
     }
   }
 
   static Future<void> registerRescheduleTask() async {
-    if (!_isInitialized) {
-      print('⚠️ WorkManager not initialized, initializing now...');
-      await initWorkManager();
-    }
-
+    if (!_isInitialized) await initWorkManager();
     try {
       await Workmanager().cancelByUniqueName(_uniqueName);
-
       await Workmanager().registerPeriodicTask(
         _uniqueName,
         _taskName,
         frequency: const Duration(minutes: 15),
-        constraints: Constraints(
-          networkType: NetworkType.notRequired,
-        ),
+        constraints: Constraints(networkType: NetworkType.notRequired),
       );
-
-      print('📆 Reschedule task registered successfully');
+      debugPrint('📆 Reschedule task registered');
     } catch (e) {
-      print('❌ Failed to register reschedule task: $e');
-
-      _isInitialized = false;
-      await initWorkManager();
-
-      try {
-        await Workmanager().registerPeriodicTask(
-          _uniqueName,
-          _taskName,
-          frequency: const Duration(minutes: 15),
-          constraints: Constraints(
-            networkType: NetworkType.notRequired,
-          ),
-        );
-        print('📆 Reschedule task registered on retry');
-      } catch (retryError) {
-        print('❌ Failed to register task on retry: $retryError');
-      }
+      debugPrint('❌ Failed to register task: $e');
     }
   }
 
   static Future<void> cancelAllTasks() async {
-    try {
-      if (_isInitialized) {
-        await Workmanager().cancelAll();
-        print('🗑️ All WorkManager tasks cancelled');
-      } else {
-        print('⚠️ WorkManager not initialized, cannot cancel tasks');
-      }
-    } catch (e) {
-      print('❌ Error cancelling WorkManager tasks: $e');
-    }
+    if (_isInitialized) await Workmanager().cancelAll();
   }
 
   static bool get isInitialized => _isInitialized;
@@ -91,226 +57,132 @@ class BackgroundService {
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    print('🔄 Background task executing: $task at ${DateTime.now()}');
-
+  Workmanager().executeTask((task, _) async {
+    debugPrint('🔄 Background task: $task');
     try {
-      switch (task) {
-        case BackgroundService._taskName:
-          await _rescheduleNotifications();
-          break;
-        default:
-          print('❌ Unknown background task: $task');
-          return Future.value(false);
+      if (task == BackgroundService._taskName) {
+        await _rescheduleNotifications();
       }
-
-      print('✅ Background task completed successfully at ${DateTime.now()}');
-      return Future.value(true);
+      return true;
     } catch (e) {
-      print('❌ Background task failed: $e');
-      return Future.value(false);
+      debugPrint('❌ Background task failed: $e');
+      return false;
     }
   });
 }
 
+// ── Notification ID scheme (must match EventProvider) ─────────────────────────
+// BASE ids only — NotificationService adds +10_000 for end notifications internally.
+//   Single event      : _notifId(eventId)
+//   Repeat on day N   : _notifId(eventId, day: N)
+const int _hashMod = 2147473639;
+
+int _notifId(String eventId, {int day = 0}) {
+  final base = eventId.hashCode.abs() % _hashMod;
+  return base + day;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 Future<void> _rescheduleNotifications() async {
-  try {
-    print('📅 Starting notification rescheduling process...');
+  final notifService = NotificationService();
+  await notifService.init();
 
-    final notificationService = NotificationService();
-    await notificationService.init();
+  final storage = LocalStorageService();
+  await storage.init();
 
-    final localStorage = LocalStorageService();
-    await localStorage.init();
+  final events = storage.getAllEvents();
+  final now = DateTime.now();
+  int count = 0;
 
-    final events = localStorage.getAllEvents();
-    final now = DateTime.now();
+  for (final event in events) {
+    if (event.isCompleted || event.isDeleted) continue;
 
-    print('📅 Checking ${events.length} events for rescheduling...');
-
-    int rescheduledCount = 0;
-
-    for (final event in events) {
-      if (event.isCompleted || event.isDeleted) continue;
-
-      if (event.repeatDays.isNotEmpty) {
-        final scheduled = await _rescheduleRepetitiveEvent(
-            event, notificationService, now);
-        if (scheduled) rescheduledCount++;
-      } else {
-        final scheduled =
-            await _rescheduleSingleEvent(event, notificationService, now);
-        if (scheduled) rescheduledCount++;
-      }
+    if (event.repeatDays.isNotEmpty) {
+      if (await _rescheduleRepeat(event, notifService, now)) count++;
+    } else {
+      if (await _rescheduleSingle(event, notifService, now)) count++;
     }
-
-    print(
-        '🔔 Notification rescheduling completed - $rescheduledCount events rescheduled');
-  } catch (e) {
-    print('❌ Error in background notification rescheduling: $e');
   }
+
+  debugPrint('🔔 Background: rescheduled $count events');
 }
 
-Future<bool> _rescheduleRepetitiveEvent(
+Future<bool> _rescheduleRepeat(
   Event event,
-  NotificationService notificationService,
+  NotificationService svc,
   DateTime now,
 ) async {
-  bool anyScheduled = false;
+  bool any = false;
+  final pending = await svc.getPendingNotifications();
+  final pendingIds = pending.map((n) => n.id).toSet();
 
-  for (int day in event.repeatDays) {
-    final nextOccurrence = _getNextOccurrence(day, event.startTime, now);
+  for (final day in event.repeatDays) {
+    final baseId = _notifId(event.id, day: day);
+    final endId = baseId + 10000; // service stores end at baseId + 10_000
+    final nextStart = _nextOccurrence(day, event.startTime, now);
 
-    if (nextOccurrence.isAfter(now)) {
-      final notificationId = event.id.hashCode + day;
+    if (nextStart.isAfter(now) && !pendingIds.contains(baseId)) {
+      await svc.scheduleNotification(
+          baseId, event.title, event.description ?? '', nextStart, null);
+      any = true;
+    }
 
-      try {
-        final pendingNotifications =
-            await notificationService.getPendingNotifications();
-        final isAlreadyScheduled =
-            pendingNotifications.any((n) => n.id == notificationId);
-
-        if (!isAlreadyScheduled) {
-          await notificationService.scheduleNotification(
-            notificationId,
+    if (event.endTime != null) {
+      final nextEnd = _nextOccurrence(day, event.endTime!, now);
+      if (nextEnd.isAfter(now) && !pendingIds.contains(endId)) {
+        // Pass BASE id — service adds +10_000 internally
+        await svc.scheduleEndNotification(
+            baseId,
             event.title,
-            event.description ?? 'Recordatorio de evento',
-            nextOccurrence,
-            null,
-          );
-          // FIX: was calling _formatDay(day) which returned hardcoded Spanish.
-          // Background service runs outside Flutter context so we use English
-          // day abbreviations directly (no l10n available here).
-          print(
-              '🔔 Rescheduled repetitive event: ${event.title} for ${_formatDayEn(day)}');
-          anyScheduled = true;
-        }
-
-        if (event.endTime != null) {
-          final endNotificationId = notificationId + 10000;
-          final nextEndTime =
-              _getNextOccurrence(day, event.endTime!, now);
-
-          final isEndAlreadyScheduled =
-              pendingNotifications.any((n) => n.id == endNotificationId);
-          if (!isEndAlreadyScheduled && nextEndTime.isAfter(now)) {
-            await notificationService.scheduleEndNotification(
-              notificationId,
-              event.title,
-              event.description ?? 'Evento terminado',
-              nextEndTime,
-              null,
-            );
-          }
-        }
-      } catch (e) {
-        print('❌ Error rescheduling repetitive event ${event.title}: $e');
+            event.description ?? '',
+            nextEnd,
+            null);
       }
     }
   }
-
-  return anyScheduled;
+  return any;
 }
 
-Future<bool> _rescheduleSingleEvent(
+Future<bool> _rescheduleSingle(
   Event event,
-  NotificationService notificationService,
+  NotificationService svc,
   DateTime now,
 ) async {
-  if (event.startTime.isAfter(now)) {
-    final notificationId = event.id.hashCode;
+  if (!event.startTime.isAfter(now)) return false;
 
-    try {
-      final pendingNotifications =
-          await notificationService.getPendingNotifications();
-      final isAlreadyScheduled =
-          pendingNotifications.any((n) => n.id == notificationId);
+  final baseId = _notifId(event.id);
+  final endId = baseId + 10000; // service stores end at baseId + 10_000
+  final pending = await svc.getPendingNotifications();
+  final pendingIds = pending.map((n) => n.id).toSet();
 
-      if (!isAlreadyScheduled) {
-        await notificationService.scheduleNotification(
-          notificationId,
-          event.title,
-          event.description ?? 'Recordatorio de evento',
-          event.startTime,
-          null,
-        );
-        print('🔔 Rescheduled single event: ${event.title}');
+  if (!pendingIds.contains(baseId)) {
+    await svc.scheduleNotification(
+        baseId, event.title, event.description ?? '', event.startTime, null);
 
-        if (event.endTime != null && event.endTime!.isAfter(now)) {
-          final endNotificationId = notificationId + 10000;
-          final isEndAlreadyScheduled =
-              pendingNotifications.any((n) => n.id == endNotificationId);
-
-          if (!isEndAlreadyScheduled) {
-            await notificationService.scheduleEndNotification(
-              notificationId,
-              event.title,
-              event.description ?? 'Evento terminado',
-              event.endTime!,
-              null,
-            );
-          }
-        }
-
-        return true;
+    if (event.endTime != null && event.endTime!.isAfter(now)) {
+      if (!pendingIds.contains(endId)) {
+        // Pass BASE id — service adds +10_000 internally
+        await svc.scheduleEndNotification(
+            baseId,
+            event.title,
+            event.description ?? '',
+            event.endTime!,
+            null);
       }
-    } catch (e) {
-      print('❌ Error rescheduling single event ${event.title}: $e');
     }
+    return true;
   }
-
   return false;
 }
 
-DateTime _getNextOccurrence(
-    int targetDay, DateTime eventTime, DateTime now) {
-  int daysUntilTarget = (targetDay - now.weekday + 7) % 7;
-  if (daysUntilTarget == 0) {
-    final todayAtEventTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      eventTime.hour,
-      eventTime.minute,
-    );
-
-    if (todayAtEventTime.isAfter(now)) {
-      return todayAtEventTime;
-    } else {
-      daysUntilTarget = 7;
-    }
+DateTime _nextOccurrence(int targetDay, DateTime eventTime, DateTime now) {
+  int ahead = (targetDay - now.weekday + 7) % 7;
+  if (ahead == 0) {
+    final todayAt = DateTime(now.year, now.month, now.day,
+        eventTime.hour, eventTime.minute);
+    if (todayAt.isAfter(now)) return todayAt;
+    ahead = 7;
   }
-
-  final nextDate = now.add(Duration(days: daysUntilTarget));
-  return DateTime(
-    nextDate.year,
-    nextDate.month,
-    nextDate.day,
-    eventTime.hour,
-    eventTime.minute,
-  );
-}
-
-/// FIX: Renamed from _formatDay and now returns English day names.
-/// The background isolate has no Flutter context, so l10n is unavailable.
-/// This is used only for debug print statements, not shown to the user.
-String _formatDayEn(int day) {
-  switch (day) {
-    case 1:
-      return 'Mon';
-    case 2:
-      return 'Tue';
-    case 3:
-      return 'Wed';
-    case 4:
-      return 'Thu';
-    case 5:
-      return 'Fri';
-    case 6:
-      return 'Sat';
-    case 7:
-      return 'Sun';
-    default:
-      return 'Day $day';
-  }
+  final d = now.add(Duration(days: ahead));
+  return DateTime(d.year, d.month, d.day, eventTime.hour, eventTime.minute);
 }

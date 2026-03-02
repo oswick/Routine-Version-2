@@ -1,4 +1,4 @@
-// lib/main.dart - Actualizado con soporte para internacionalización
+// lib/main.dart
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -15,6 +15,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'utils/notification_service.dart';
 import 'utils/app_lifecycle_handler.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+// CRÍTICO: re-exportar el background handler aquí para que el linker de Dart
+// lo incluya en el build. Sin este import el compilador puede eliminarlo.
+// La función está definida en notification_service.dart como top-level.
+// ignore: unused_import
+export 'utils/notification_service.dart' show notificationBackgroundHandler;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -94,7 +100,6 @@ class _MyAppState extends State<MyApp> {
           title: 'Routine',
           debugShowCheckedModeBanner: false,
 
-          // CONFIGURACIÓN DE LOCALIZACIÓN
           localizationsDelegates: const [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
@@ -102,13 +107,10 @@ class _MyAppState extends State<MyApp> {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: const [
-            Locale('en'), // Inglés
-            Locale('es'), // Español
+            Locale('en'),
+            Locale('es'),
           ],
 
-          // El idioma se detectará automáticamente del sistema
-          // También puedes forzar un idioma específico:
-          // locale: Locale('es'), // Forzar español
           theme: ThemeData(
             typography: Typography.material2021(),
             useMaterial3: true,

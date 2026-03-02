@@ -1,4 +1,10 @@
-// lib/widgets/event_card.dart - VERSIÓN ACTUALIZADA CON EVENT PREVIEW SHEET
+// lib/widgets/event_card.dart
+// MEJORAS:
+// 1. Barra de progreso suave con AnimatedBuilder + Tween
+// 2. Muestra tiempo restante en formato legible
+// 3. Colores de progreso dinámicos según porcentaje
+// 4. Estado de evento activo bien distinguido visualmente
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/l10n/app_localizations.dart';
@@ -9,7 +15,7 @@ import 'package:myapp/screens/add_event_screen.dart';
 import 'package:myapp/utils/event_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
-import 'package:myapp/widgets/event_preview_sheet.dart'; // 🆕 NUEVO IMPORT
+import 'package:myapp/widgets/event_preview_sheet.dart';
 
 class EventCard extends StatefulWidget {
   final Event event;
@@ -24,51 +30,66 @@ class EventCard extends StatefulWidget {
   });
 
   @override
-  _EventCardState createState() => _EventCardState();
+  State<EventCard> createState() => _EventCardState();
 }
 
-class _EventCardState extends State<EventCard> {
+class _EventCardState extends State<EventCard>
+    with SingleTickerProviderStateMixin {
   late bool isCompleted;
   String? _currentDateKey;
+
+  // Smooth progress animation
+  late AnimationController _progressAnimController;
+  late Animation<double> _progressAnim;
+  double _lastProgress = 0.0;
 
   @override
   void initState() {
     super.initState();
     _currentDateKey = _getDateKey();
+
+    _progressAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _progressAnim = Tween<double>(begin: 0, end: 0).animate(
+      CurvedAnimation(
+          parent: _progressAnimController, curve: Curves.easeInOut),
+    );
+
     _loadCompletedStatus();
+  }
+
+  @override
+  void dispose() {
+    _progressAnimController.dispose();
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(EventCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     final newDateKey = _getDateKey();
     if (_currentDateKey != newDateKey) {
       _currentDateKey = newDateKey;
       _loadCompletedStatus();
     }
-    
+
     if (oldWidget.event.isCompleted != widget.event.isCompleted) {
       isCompleted = widget.event.isCompleted;
     }
   }
 
+  // ── Completion helpers ────────────────────────────────────────────────────────
   Future<void> _loadCompletedStatus() async {
-    if (_isRepetitiveEvent()) {
-      final provider = Provider.of<EventProvider>(context, listen: false);
-      if (mounted) {
-        setState(() {
-          isCompleted = provider.getEventCompletion(
-            widget.event.id, 
-            DateTime.now()
-          );
-        });
-      }
-    } else {
-      if (mounted) {
-        setState(() {
-          isCompleted = widget.event.isCompleted;
-        });
-      }
+    final provider = Provider.of<EventProvider>(context, listen: false);
+    if (mounted) {
+      setState(() {
+        isCompleted = _isRepetitive()
+            ? provider.getEventCompletion(widget.event.id, DateTime.now())
+            : widget.event.isCompleted;
+      });
     }
   }
 
@@ -77,157 +98,102 @@ class _EventCardState extends State<EventCard> {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
-  bool _isRepetitiveEvent() {
-    return widget.event.repeatDays.isNotEmpty;
+  bool _isRepetitive() => widget.event.repeatDays.isNotEmpty;
+
+  void _updateCompleted(bool value) {
+    if (!mounted) return;
+    setState(() => isCompleted = value);
+
+    final provider = Provider.of<EventProvider>(context, listen: false);
+    provider.updateEventCompletion(widget.event, value, DateTime.now());
   }
 
-  Future<void> _saveCompletedStatus(bool completed) async {
-    if (_isRepetitiveEvent()) {
-      final prefs = await SharedPreferences.getInstance();
-      final key = 'event_${widget.event.id}_completion_$_currentDateKey';
-      await prefs.setBool(key, completed);
-      
-      // Actualizar cache del provider
-      final provider = Provider.of<EventProvider>(context, listen: false);
-      provider.updateEventCompletion(widget.event, completed, DateTime.now());
-      
-      _cleanOldCompletionStates();
-    } else {
-      final updatedEvent = widget.event.copyWith(isCompleted: completed);
-      widget.onUpdateEvent(updatedEvent);
+  // ── Progress helpers ──────────────────────────────────────────────────────────
+  bool _shouldShowProgress() {
+    if (widget.event.endTime == null || isCompleted || widget.pastEvent) {
+      return false;
     }
-  }
-
-  Future<void> _cleanOldCompletionStates() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final keys = prefs.getKeys();
-      final now = DateTime.now();
-      final cutoffDate = now.subtract(const Duration(days: 30));
-
-      final keysToRemove = keys.where((key) {
-        if (key.startsWith('event_${widget.event.id}_completion_')) {
-          final dateStr = key.split('_').last;
-          try {
-            final date = DateTime.parse(dateStr);
-            return date.isBefore(cutoffDate);
-          } catch (e) {
-            return false;
-          }
-        }
-        return false;
-      }).toList();
-
-      for (String key in keysToRemove) {
-        await prefs.remove(key);
-      }
-    } catch (e) {
-      debugPrint('Error cleaning old completion states: $e');
-    }
-  }
-
-  bool _shouldShowProgressIndicator() {
     final now = DateTime.now();
-    if (widget.event.endTime == null) return false;
 
-    if (_isRepetitiveEvent()) {
-      final today = now.weekday;
-      if (!widget.event.repeatDays.contains(today)) return false;
-
-      final todayStart = DateTime(
-        now.year, now.month, now.day,
-        widget.event.startTime.hour, widget.event.startTime.minute,
-      );
-      final todayEnd = DateTime(
-        now.year, now.month, now.day,
-        widget.event.endTime!.hour, widget.event.endTime!.minute,
-      );
-
-      return now.isAfter(todayStart) && now.isBefore(todayEnd);
+    if (_isRepetitive()) {
+      if (!widget.event.repeatDays.contains(now.weekday)) return false;
+      final start = DateTime(now.year, now.month, now.day,
+          widget.event.startTime.hour, widget.event.startTime.minute);
+      final end = DateTime(now.year, now.month, now.day,
+          widget.event.endTime!.hour, widget.event.endTime!.minute);
+      return now.isAfter(start) && now.isBefore(end);
     } else {
       return now.isAfter(widget.event.startTime) &&
           now.isBefore(widget.event.endTime!);
     }
   }
 
-  void _updateCompletedStatus(bool value) {
-    if (mounted) {
-      setState(() {
-        isCompleted = value;
-        _saveCompletedStatus(value);
+  /// Returns human-readable remaining time string.
+  String _remainingTime(double progress) {
+    if (widget.event.endTime == null) return '';
+    final now = DateTime.now();
 
-        if (!_isRepetitiveEvent()) {
-          final updatedEvent = widget.event.copyWith(isCompleted: value);
-          widget.onUpdateEvent(updatedEvent);
-        }
-      });
-    }
-  }
-
-  Widget _buildCompletionIndicator() {
-    if (_isRepetitiveEvent()) {
-      return Tooltip(
-        message: isCompleted
-            ? AppLocalizations.of(context).markAsIncomplete
-            : AppLocalizations.of(context).markAsComplete,
-        child: Checkbox(
-          shape: const CircleBorder(),
-          value: isCompleted,
-          onChanged: (value) => _updateCompletedStatus(value!),
-        ),
-      );
+    DateTime endRef;
+    if (_isRepetitive()) {
+      endRef = DateTime(now.year, now.month, now.day,
+          widget.event.endTime!.hour, widget.event.endTime!.minute);
     } else {
-      return Tooltip(
-        message: isCompleted
-            ? AppLocalizations.of(context).markAsIncomplete
-            : AppLocalizations.of(context).markAsComplete,
-        child: Checkbox(
-          shape: const CircleBorder(),
-          value: isCompleted,
-          onChanged: (value) => _updateCompletedStatus(value!),
-        ),
-      );
+      endRef = widget.event.endTime!;
+    }
+
+    final remaining = endRef.difference(now);
+    if (remaining.isNegative) return '';
+
+    final h = remaining.inHours;
+    final m = remaining.inMinutes.remainder(60);
+    final s = remaining.inSeconds.remainder(60);
+
+    if (h > 0) return '${h}h ${m}m';
+    if (m > 0) return '${m}m ${s}s';
+    return '${s}s';
+  }
+
+  /// Dynamic color for progress bar: green → amber → red as time runs out.
+  Color _progressColor(double progress, BuildContext context) {
+    if (progress < 0.5) {
+      return Color.lerp(Colors.green, Colors.amber, progress * 2)!;
+    } else {
+      return Color.lerp(Colors.amber, Colors.red, (progress - 0.5) * 2)!;
     }
   }
 
+  // ── Status text / icon ────────────────────────────────────────────────────────
   Widget _buildStatusIndicator() {
     if (widget.pastEvent) {
-      if (isCompleted) {
-        return Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 16),
-            const SizedBox(width: 4),
-            Text(
-              AppLocalizations.of(context).accomplished,
-              style: TextStyle(color: Colors.green, fontSize: 12),
-            ),
-          ],
-        );
-      } else {
-        return Row(
-          children: [
-            Icon(Icons.history, color: Colors.grey, size: 16),
-            const SizedBox(width: 4),
-            Text(
-              AppLocalizations.of(context).notAccomplished,
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ],
-        );
-      }
-    }
-
-    if (_isRepetitiveEvent()) {
       return Row(
         children: [
           Icon(
-            Icons.repeat,
-            color: Theme.of(context).colorScheme.primary,
-            size: 16,
+            isCompleted ? Icons.check_circle : Icons.history,
+            color: isCompleted ? Colors.green : Colors.grey,
+            size: 14,
           ),
           const SizedBox(width: 4),
           Text(
-            _getRepeatDaysText(),
+            isCompleted
+                ? AppLocalizations.of(context).accomplished
+                : AppLocalizations.of(context).notAccomplished,
+            style: TextStyle(
+              color: isCompleted ? Colors.green : Colors.grey,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_isRepetitive()) {
+      return Row(
+        children: [
+          Icon(Icons.repeat,
+              color: Theme.of(context).colorScheme.primary, size: 14),
+          const SizedBox(width: 4),
+          Text(
+            _repeatDaysText(),
             style: TextStyle(
               color: Theme.of(context).colorScheme.primary,
               fontSize: 12,
@@ -241,8 +207,8 @@ class _EventCardState extends State<EventCard> {
     return const SizedBox.shrink();
   }
 
-  String _getRepeatDaysText() {
-    final dayNames = [
+  String _repeatDaysText() {
+    final names = [
       '',
       AppLocalizations.of(context).mon,
       AppLocalizations.of(context).tue,
@@ -252,46 +218,64 @@ class _EventCardState extends State<EventCard> {
       AppLocalizations.of(context).sat,
       AppLocalizations.of(context).sun,
     ];
-    final days = widget.event.repeatDays.map((day) => dayNames[day]).join(', ');
-    return days;
+    return widget.event.repeatDays.map((d) => names[d]).join(', ');
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    bool isPast = widget.pastEvent;
-    double cardOpacity = isPast ? 0.5 : (isCompleted ? 0.6 : 1.0);
+    final opacity = widget.pastEvent ? 0.5 : (isCompleted ? 0.65 : 1.0);
 
     return Consumer<EventProvider>(
-      builder: (context, provider, child) {
-        final progress = provider.getEventProgress(widget.event.id);
-        final showProgress = _shouldShowProgressIndicator();
+      builder: (context, provider, _) {
+        final rawProgress = provider.getEventProgress(widget.event.id);
+        final showProgress = _shouldShowProgress();
+
+        // Animate to new progress value when it changes
+        if (showProgress && (rawProgress - _lastProgress).abs() > 0.0005) {
+          _progressAnim = Tween<double>(
+            begin: _progressAnim.value,
+            end: rawProgress,
+          ).animate(CurvedAnimation(
+              parent: _progressAnimController, curve: Curves.easeOut));
+          _progressAnimController
+            ..reset()
+            ..forward();
+          _lastProgress = rawProgress;
+        }
 
         return GestureDetector(
-          onTap: () => _showEventPreview(context), // 🆕 CAMBIO AQUÍ
+          onTap: () => _showPreview(context),
           child: Card(
             color: Theme.of(context).colorScheme.surfaceContainer,
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)
-            ),
+                borderRadius: BorderRadius.circular(12)),
             child: Opacity(
-              opacity: cardOpacity,
+              opacity: opacity,
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
                     Row(
                       children: [
-                        if (widget.event.importance != null)
+                        // Importance bar
+                        if (widget.event.importance != null &&
+                            widget.event.importance! > 0)
                           Container(
                             width: 4,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: getImportanceColor(widget.event.importance!),
+                              color:
+                                  getImportanceColor(widget.event.importance!),
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
-                        const SizedBox(width: 12),
+                        if (widget.event.importance != null &&
+                            widget.event.importance! > 0)
+                          const SizedBox(width: 8),
+
+                        // Category icon
                         if (widget.event.category.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.all(6),
@@ -308,7 +292,10 @@ class _EventCardState extends State<EventCard> {
                               color: Theme.of(context).colorScheme.primary,
                             ),
                           ),
-                        const SizedBox(width: 12),
+                        if (widget.event.category.isNotEmpty)
+                          const SizedBox(width: 12),
+
+                        // Title + status
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,6 +309,9 @@ class _EventCardState extends State<EventCard> {
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w500,
+                                        decoration: isCompleted
+                                            ? TextDecoration.lineThrough
+                                            : null,
                                         color: Theme.of(context)
                                             .colorScheme
                                             .onSurface,
@@ -329,7 +319,7 @@ class _EventCardState extends State<EventCard> {
                                     ),
                                   ),
                                   Text(
-                                    formatTime(widget.event.startTime),
+                                    _formatTime(widget.event.startTime),
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Theme.of(context)
@@ -345,62 +335,111 @@ class _EventCardState extends State<EventCard> {
                             ],
                           ),
                         ),
-                        if (widget.event.endTime != null && 
-                            !isCompleted && 
-                            !isPast)
+
+                        // Pomodoro button
+                        if (widget.event.endTime != null &&
+                            !isCompleted &&
+                            !widget.pastEvent)
                           IconButton(
-                            icon: Icon(
-                              Icons.timer,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      PomodoroScreen(event: widget.event),
-                                ),
-                              );
-                            },
-                          ),
-                        _buildCompletionIndicator(),
-                      ],
-                    ),
-                    
-                    if (showProgress)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Column(
-                          children: [
-                            LinearProgressIndicator(
-                              value: progress,
-                              minHeight: 4,
-                              borderRadius: BorderRadius.circular(2),
-                              backgroundColor: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainer,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Theme.of(context).colorScheme.primary,
+                            icon: Icon(Icons.timer,
+                                color:
+                                    Theme.of(context).colorScheme.primary),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    PomodoroScreen(event: widget.event),
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          ),
+
+                        // Completion checkbox
+                        Tooltip(
+                          message: isCompleted
+                              ? AppLocalizations.of(context).markAsIncomplete
+                              : AppLocalizations.of(context).markAsComplete,
+                          child: Checkbox(
+                            shape: const CircleBorder(),
+                            value: isCompleted,
+                            onChanged: (v) => _updateCompleted(v!),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // ── Real-time progress bar ──────────────────────────────────
+                    if (showProgress)
+                      AnimatedBuilder(
+                        animation: _progressAnim,
+                        builder: (context, _) {
+                          final p = _progressAnim.value;
+                          final color = _progressColor(p, context);
+                          final remaining = _remainingTime(p);
+
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Column(
                               children: [
-                                Text(
-                                  formatTime(widget.event.endTime!),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Theme.of(context)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: p,
+                                    minHeight: 5,
+                                    backgroundColor: Theme.of(context)
                                         .colorScheme
-                                        .onSurface
-                                        .withOpacity(0.5),
+                                        .surfaceContainerHighest,
+                                    valueColor:
+                                        AlwaysStoppedAnimation<Color>(color),
                                   ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    // Elapsed %
+                                    Text(
+                                      '${(p * 100).toStringAsFixed(0)}%',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: color,
+                                      ),
+                                    ),
+                                    // Remaining time
+                                    if (remaining.isNotEmpty)
+                                      Row(
+                                        children: [
+                                          Icon(Icons.schedule,
+                                              size: 11, color: color),
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            remaining,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color: color,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    // End time
+                                    Text(
+                                      _formatTime(widget.event.endTime!),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withOpacity(0.5),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                   ],
                 ),
@@ -412,41 +451,30 @@ class _EventCardState extends State<EventCard> {
     );
   }
 
-  // 🆕 NUEVO MÉTODO - Muestra el preview sheet primero
-  void _showEventPreview(BuildContext context) {
+  // ── Sheet helpers ─────────────────────────────────────────────────────────────
+  void _showPreview(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return EventPreviewSheet(
-          event: widget.event,
-          onEdit: () {
-            // Abrir pantalla de edición después de cerrar el preview
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (context) {
-                return AddEventBottomSheet(
-                  event: widget.event,
-                  onAddEvent: (updatedEvent) {
-                    widget.onUpdateEvent(updatedEvent);
-                  },
-                  day: widget.event.startTime,
-                );
-              },
-            );
-          },
-          onDelete: () {
-            // El delete se maneja dentro del EventPreviewSheet
-          },
-        );
-      },
+      builder: (_) => EventPreviewSheet(
+        event: widget.event,
+        onEdit: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => AddEventBottomSheet(
+              event: widget.event,
+              onAddEvent: widget.onUpdateEvent,
+              day: widget.event.startTime,
+            ),
+          );
+        },
+        onDelete: () {},
+      ),
     );
   }
 
-  String formatTime(DateTime dateTime) {
-    return DateFormat.jm().format(dateTime);
-  }
+  String _formatTime(DateTime dt) => DateFormat.jm().format(dt);
 }
