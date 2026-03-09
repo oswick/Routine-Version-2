@@ -83,64 +83,80 @@ class EventProvider extends ChangeNotifier {
   // Para eventos repetitivos: marca el completado de HOY en SharedPreferences
   // y en el cache de memoria, y notifica a la UI.
   // Para eventos únicos: actualiza isCompleted = true y sincroniza.
-  void markEventDoneFromNotification(String eventId) async {
-    debugPrint('✔️ markEventDoneFromNotification: eventId=$eventId');
+// Replace markEventDoneFromNotification in event_provider.dart
+void markEventDoneFromNotification(String eventId) async {
+  debugPrint('✔️ markEventDoneFromNotification: eventId=$eventId');
 
-    final event = _events.firstWhere(
-      (e) => e.id == eventId,
-      orElse: () => _events.firstWhere(
-        // fallback: buscar también en eventos que podrían estar en Hive
-        // pero no en memoria (edge case raro)
-        (e) => e.id == eventId,
-        orElse: () => throw StateError('Event not found: $eventId'),
-      ),
-    );
+  // FIX: safe lookup — don't throw if event not in memory yet
+  final event = _events.cast<Event?>().firstWhere(
+    (e) => e?.id == eventId,
+    orElse: () => null,
+  );
 
-    final today = DateTime.now();
-    await updateEventCompletion(event, true, today);
-
-    debugPrint('✅ Event "$eventId" marked done from notification');
+  if (event == null) {
+    debugPrint('⚠️ markEventDoneFromNotification: event $eventId not found in memory');
+    return;
   }
+
+  final today = DateTime.now();
+  await updateEventCompletion(event, true, today);
+  debugPrint('✅ Event "$eventId" marked done from notification');
+}
+
 
   // ── Procesar acciones encoladas desde background ─────────────────────────
   //
   // Cuando la app estaba killed y el usuario pulsó "Completado" o "Posponer",
   // notificationBackgroundHandler() guardó la acción en SharedPreferences.
   // Este método las lee y las ejecuta ahora que la app está activa.
-  Future<void> _processPendingBackgroundActions() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final pending = prefs.getStringList('pending_notif_actions') ?? [];
-      if (pending.isEmpty) return;
+Future<void> _processPendingBackgroundActions() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final pending = prefs.getStringList('pending_notif_actions') ?? [];
+    if (pending.isEmpty) return;
 
-      // Limpiar inmediatamente para no procesar dos veces
-      await prefs.remove('pending_notif_actions');
-      debugPrint('📬 Processing ${pending.length} pending background actions');
+    // Clear immediately to avoid double-processing
+    await prefs.remove('pending_notif_actions');
+    debugPrint('📬 Processing ${pending.length} pending background actions');
 
-      for (final entry in pending) {
-        final parts = entry.split(':');
-        if (parts.length != 2) continue;
-        final actionId = parts[0];
-        final firedId = int.tryParse(parts[1]);
-        if (firedId == null) continue;
+    for (final entry in pending) {
+      final parts = entry.split(':');
+      if (parts.length != 2) continue;
+      final actionId = parts[0];
+      final firedId = int.tryParse(parts[1]);
+      if (firedId == null) continue;
 
-        if (actionId == 'mark_done') {
-          // Buscar el evento por notifId
-          final stored = await NotificationService().getNotificationDataById(firedId);
-          if (stored?.eventId != null) {
-            markEventDoneFromNotification(stored!.eventId!);
+      if (actionId == 'mark_done') {
+        // FIX: look up the stored notification data to get the eventId string
+        final stored = await NotificationService().getNotificationDataById(firedId);
+        final eventId = stored?.eventId;
+
+        if (eventId != null) {
+          // FIX: call the logic directly — don't rely on callback being registered
+          final event = _events.cast<Event?>().firstWhere(
+            (e) => e?.id == eventId,
+            orElse: () => null,
+          );
+          if (event != null) {
+            await updateEventCompletion(event, true, DateTime.now());
+            debugPrint('✅ Background mark_done processed for event $eventId');
+          } else {
+            debugPrint('⚠️ Background mark_done: event $eventId not in memory');
           }
-          await NotificationService().cancelSingleNotification(firedId);
-
-        } else if (actionId == 'snooze') {
-          await NotificationService().snoozeNotification(firedId);
+        } else {
+          debugPrint('⚠️ Background mark_done: no eventId for notif $firedId');
         }
-      }
-    } catch (e) {
-      debugPrint('Error processing pending background actions: $e');
-    }
-  }
+        await NotificationService().cancelSingleNotification(firedId);
 
+      } else if (actionId == 'snooze') {
+        await NotificationService().snoozeNotification(firedId);
+        debugPrint('⏸️ Background snooze processed for notif $firedId');
+      }
+    }
+  } catch (e) {
+    debugPrint('Error processing pending background actions: $e');
+  }
+}
   void _startDailyCleanupTimer() {
     final now = DateTime.now();
     final tomorrow = DateTime(now.year, now.month, now.day + 1);

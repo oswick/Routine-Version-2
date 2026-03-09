@@ -159,28 +159,41 @@ class NotificationService {
     }
   }
 
-  Future<void> _handleMarkDone(int firedId) async {
-    debugPrint('✔️ mark_done for notif id=$firedId');
+ // In notification_service.dart — replace _handleMarkDone
+Future<void> _handleMarkDone(int firedId) async {
+  debugPrint('✔️ mark_done for notif id=$firedId');
 
-    // 1. Cancelar SOLO esta notificación específica (no su par)
-    //    Ya disparó, pero puede estar visible en el panel.
-    await flutterLocalNotificationsPlugin.cancel(firedId);
-    await _removeNotificationData(firedId);
-    _invalidateCache();
+  await flutterLocalNotificationsPlugin.cancel(firedId);
+  await _removeNotificationData(firedId);
+  _invalidateCache();
 
-    // 2. Recuperar datos guardados para obtener el eventId
-    final stored = await _getNotificationDataById(firedId);
-    if (stored?.eventId == null) {
-      debugPrint('⚠️ mark_done: no eventId found for notif $firedId');
-      return;
-    }
+  final stored = await _getNotificationDataById(firedId);
 
-    // 3. Delegar al EventProvider (singleton) para actualizar estado en la app
-    //    Importamos aquí para evitar dependencia circular en el archivo
-    //    (EventProvider importa NotificationService, no al revés).
-    //    Usamos dynamic import via callback registrado.
-    _markDoneCallback?.call(stored!.eventId!);
+  if (stored?.eventId == null) {
+    debugPrint('⚠️ mark_done: no eventId stored for notif $firedId — cannot mark done');
+    return;
   }
+
+  if (_markDoneCallback == null) {
+    // FIX: callback not registered yet — queue as pending action so
+    // EventProvider picks it up when it initializes
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pending = prefs.getStringList('pending_notif_actions') ?? [];
+      pending.add('mark_done:$firedId');
+      // Re-save the notification data so _processPendingBackgroundActions
+      // can still look up the eventId
+      await _saveNotificationData(stored!);
+      await prefs.setStringList('pending_notif_actions', pending);
+      debugPrint('📥 mark_done queued (callback not registered yet): $firedId');
+    } catch (e) {
+      debugPrint('Error queuing mark_done: $e');
+    }
+    return;
+  }
+
+  _markDoneCallback!.call(stored!.eventId!);
+}
 
   Future<void> _handleSnooze(int firedId) async {
     debugPrint('⏸️ snooze for notif id=$firedId');

@@ -1,4 +1,4 @@
-// lib/services/sync_service.dart - VERSIÓN OPTIMIZADA
+// lib/services/sync_service.dart
 import 'dart:async';
 import 'package:myapp/services/local_stogare_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,50 +15,47 @@ class SyncService {
   final LocalStorageService _localStorage = LocalStorageService();
   final ConnectivityService _connectivity = ConnectivityService();
   final AuthService _authService = AuthService();
-  
+
   Timer? _syncTimer;
   bool _isSyncing = false;
   DateTime? _lastSyncTime;
-  
-  // 🆕 NUEVO: Realtime subscription
+
   RealtimeChannel? _realtimeChannel;
-  
-  final StreamController<SyncStatus> _syncStatusController = 
+
+  final StreamController<SyncStatus> _syncStatusController =
       StreamController<SyncStatus>.broadcast();
-  
+
   Stream<SyncStatus> get syncStatusStream => _syncStatusController.stream;
 
   Future<void> init() async {
     await _localStorage.init();
     await _connectivity.initialize();
-    
+
     _connectivity.connectionStream.listen((isConnected) {
       if (isConnected) {
         print('🌐 Connection restored - starting sync');
         _startAutoSync();
-        _subscribeToRealtimeChanges(); // 🆕 Suscribirse a cambios en tiempo real
+        _subscribeToRealtimeChanges();
       } else {
         print('📴 Connection lost - stopping sync');
         _stopAutoSync();
-        _unsubscribeFromRealtimeChanges(); // 🆕 Cancelar suscripción
+        _unsubscribeFromRealtimeChanges();
         _syncStatusController.add(SyncStatus.offline);
       }
     });
-    
+
     if (_connectivity.isConnected) {
       _startAutoSync();
       _subscribeToRealtimeChanges();
     }
   }
 
-  // 🆕 NUEVO: Suscribirse a cambios en tiempo real
   void _subscribeToRealtimeChanges() {
     if (!_authService.isAuthenticated) return;
-    
     final userId = _authService.currentUserId;
     if (userId == null) return;
 
-    _unsubscribeFromRealtimeChanges(); // Cancelar suscripción anterior
+    _unsubscribeFromRealtimeChanges();
 
     try {
       _realtimeChannel = supabase
@@ -73,14 +70,14 @@ class SyncService {
               value: userId,
             ),
             callback: (payload) {
-              print('📡 Realtime change detected: ${payload.eventType}');
-              // Sincronizar cuando hay cambios
-              _debouncedSync();
+              print('📡 Realtime change: ${payload.eventType}');
+              // FIX: react immediately to remote changes
+              _debouncedSync(delay: const Duration(milliseconds: 500));
             },
           )
           .subscribe();
 
-      print('📡 Subscribed to realtime changes for user $userId');
+      print('📡 Subscribed to realtime for user $userId');
     } catch (e) {
       print('❌ Failed to subscribe to realtime: $e');
     }
@@ -90,39 +87,26 @@ class SyncService {
     if (_realtimeChannel != null) {
       supabase.removeChannel(_realtimeChannel!);
       _realtimeChannel = null;
-      print('📡 Unsubscribed from realtime changes');
     }
   }
 
-  // 🆕 NUEVO: Debounce para evitar múltiples syncs
   Timer? _debounceTimer;
-  void _debouncedSync() {
+
+  void _debouncedSync({Duration delay = const Duration(seconds: 2)}) {
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(seconds: 2), () {
-      if (!_isSyncing) {
-        syncWithServer();
-      }
+    _debounceTimer = Timer(delay, () {
+      if (!_isSyncing) syncWithServer();
     });
   }
 
   void _startAutoSync() {
     _stopAutoSync();
-    
-    // Sincronizar inmediatamente
-    syncWithServer();
-    
-    // 🆕 CAMBIADO: De 30 segundos a 5 MINUTOS
-    // Con realtime, no necesitamos polling tan frecuente
-    _syncTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+    syncWithServer(); // immediate on start
+
+    // FIX: poll every 60 seconds — ensures second device always gets updates
+    _syncTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
       if (_connectivity.isConnected && !_isSyncing) {
-        // Solo sincronizar si hay cambios sin sincronizar
-        final unsyncedCount = _localStorage.getUnsyncedEvents().length;
-        if (unsyncedCount > 0) {
-          print('📊 Found $unsyncedCount unsynced events - syncing...');
-          syncWithServer();
-        } else {
-          print('✅ No unsynced events, skipping sync');
-        }
+        syncWithServer();
       }
     });
   }
@@ -136,41 +120,34 @@ class SyncService {
 
   Future<List<Event>> getEvents() async {
     final events = _localStorage.getAllEvents();
-    
-    // 🆕 OPTIMIZADO: Solo sincronizar si hace más de 1 minuto desde última sync
-    if (_authService.isAuthenticated && 
-        _connectivity.isConnected && 
+
+    if (_authService.isAuthenticated &&
+        _connectivity.isConnected &&
         !_isSyncing) {
-      
-      final unsyncedCount = _localStorage.getUnsyncedEvents().length;
-      final timeSinceLastSync = _lastSyncTime != null 
+      final timeSinceLastSync = _lastSyncTime != null
           ? DateTime.now().difference(_lastSyncTime!)
           : const Duration(hours: 1);
-      
-      // Sincronizar si:
-      // 1. Hay eventos sin sincronizar, O
-      // 2. Han pasado más de 5 minutos desde la última sync
-      if (unsyncedCount > 0 || timeSinceLastSync.inMinutes > 5) {
-        print('📊 Triggering sync: unsynced=$unsyncedCount, timeSinceLastSync=${timeSinceLastSync.inMinutes}min');
+
+      if (_lastSyncTime == null ||
+          timeSinceLastSync.inSeconds > 60 ||
+          _localStorage.getUnsyncedEvents().isNotEmpty) {
         syncWithServer();
       }
     }
-    
+
     return events;
   }
 
   Future<void> saveEvent(Event event) async {
-    final needsSync = _authService.isAuthenticated && _connectivity.isConnected;
-    
+    // FIX: always needsSync=true — upload loop must never skip this event
     final eventToSave = event.copyWith(
-      needsSync: needsSync,
+      needsSync: true,
       lastModified: DateTime.now(),
     );
-    
+
     await _localStorage.saveEvent(eventToSave);
-    print('💾 Event saved locally: ${eventToSave.title} (needsSync: $needsSync)');
-    
-    // 🆕 OPTIMIZADO: Usar debounce para evitar múltiples syncs rápidos
+    print('💾 Saved locally: ${eventToSave.title}');
+
     if (_authService.isAuthenticated && _connectivity.isConnected) {
       _debouncedSync();
     }
@@ -178,7 +155,6 @@ class SyncService {
 
   Future<void> deleteEvent(String eventId) async {
     await _localStorage.deleteEvent(eventId);
-    
     if (_connectivity.isConnected && !_isSyncing) {
       _debouncedSync();
     }
@@ -189,36 +165,22 @@ class SyncService {
   }
 
   Future<void> syncWithServer() async {
-    if (_isSyncing) {
-      print('⏳ Sync already in progress, skipping...');
-      return;
-    }
-    
-    if (!_connectivity.isConnected) {
-      print('📴 No connection, skipping sync');
-      return;
-    }
-    
-    if (!_authService.isAuthenticated) {
-      print('🔒 Not authenticated, skipping sync');
-      return;
-    }
+    if (_isSyncing) return;
+    if (!_connectivity.isConnected) return;
+    if (!_authService.isAuthenticated) return;
 
     _isSyncing = true;
     _syncStatusController.add(SyncStatus.syncing);
-    print('🔄 Starting sync process...');
-    
+    print('🔄 Sync starting...');
+
     try {
       await _performSync();
       _lastSyncTime = DateTime.now();
       _syncStatusController.add(SyncStatus.synced);
-      print('✅ Sync completed successfully at $_lastSyncTime');
+      print('✅ Sync done at $_lastSyncTime');
     } catch (e) {
       _syncStatusController.add(SyncStatus.error);
       print('❌ Sync failed: $e');
-      if (e is PostgrestException) {
-        print('❌ Supabase error: ${e.message}, Code: ${e.code}');
-      }
     } finally {
       _isSyncing = false;
     }
@@ -226,11 +188,7 @@ class SyncService {
 
   Future<void> _performSync() async {
     final user = _authService.currentUser;
-    if (user == null) {
-      throw Exception('User not found during sync');
-    }
-
-    print('👤 Syncing for user: ${user.id}');
+    if (user == null) throw Exception('User not found during sync');
 
     await _migrateLocalEventsToUser(user.id);
     await _uploadLocalEvents(user.id);
@@ -240,81 +198,58 @@ class SyncService {
   }
 
   Future<void> _migrateLocalEventsToUser(String userId) async {
-    final localEvents = _localStorage.getAllEvents()
-        .where((event) => event.userId == 'local_user')
+    final local = _localStorage
+        .getAllEvents()
+        .where((e) => e.userId == 'local_user')
         .toList();
-    
-    if (localEvents.isNotEmpty) {
-      print('🔄 Migrating ${localEvents.length} local events to user $userId');
-      
-      for (final event in localEvents) {
-        final migratedEvent = event.copyWith(
-          userId: userId,
-          needsSync: true,
-          lastModified: DateTime.now(),
-        );
-        
-        await _localStorage.saveEvent(migratedEvent);
-      }
-      
-      print('✅ Migration completed');
+
+    for (final event in local) {
+      await _localStorage.saveEvent(event.copyWith(
+        userId: userId,
+        needsSync: true,
+        lastModified: DateTime.now(),
+      ));
     }
   }
 
   Future<void> _uploadLocalEvents(String userId) async {
-    final unsyncedEvents = _localStorage.getUnsyncedEvents()
-        .where((event) => !event.isDeleted)
+    final unsynced = _localStorage
+        .getUnsyncedEvents()
+        .where((e) => !e.isDeleted)
         .toList();
 
-    print('⬆️ Uploading ${unsyncedEvents.length} unsynced events...');
+    print('⬆️ Uploading ${unsynced.length} unsynced events...');
 
-    // 🆕 OPTIMIZADO: Procesar en lotes de 10
     const batchSize = 10;
-    for (var i = 0; i < unsyncedEvents.length; i += batchSize) {
-      final batch = unsyncedEvents.skip(i).take(batchSize).toList();
-      
+    for (var i = 0; i < unsynced.length; i += batchSize) {
+      final batch = unsynced.skip(i).take(batchSize).toList();
       await Future.wait(
-        batch.map((event) => _uploadSingleEvent(event, userId)),
-        eagerError: false, // No detener si uno falla
+        batch.map((e) => _uploadSingleEvent(e, userId)),
+        eagerError: false,
       );
     }
   }
 
   Future<void> _uploadSingleEvent(Event event, String userId) async {
     try {
-      final eventToUpload = event.copyWith(
+      final toUpload = event.copyWith(
         userId: userId,
         lastModified: DateTime.now(),
       );
-      
-      print('📤 Uploading event: ${event.title} (ID: ${event.id})');
-      
-      final eventData = eventToUpload.toJson();
-      
       await supabase
           .from('events')
-          .upsert(eventData, onConflict: 'id')
+          .upsert(toUpload.toJson(), onConflict: 'id')
           .select();
-      
       await _localStorage.markAsSynced(event.id);
-      print('⬆️ Successfully uploaded event: ${event.title}');
-      
+      print('⬆️ Uploaded: ${event.title}');
     } catch (e) {
-      print('❌ Failed to upload event ${event.id}: $e');
-      if (e is PostgrestException) {
-        print('❌ Supabase error details:');
-        print('   Message: ${e.message}');
-        print('   Code: ${e.code}');
-      }
+      print('❌ Upload failed for ${event.id}: $e');
     }
   }
 
   Future<void> _syncDeletions(String userId) async {
-    final deletedEvents = _localStorage.getDeletedEvents();
-    
-    print('🗑️ Syncing ${deletedEvents.length} deleted events...');
-
-    for (final event in deletedEvents) {
+    final deleted = _localStorage.getDeletedEvents();
+    for (final event in deleted) {
       try {
         await supabase
             .from('events')
@@ -322,58 +257,51 @@ class SyncService {
             .eq('id', event.id)
             .eq('user_id', userId)
             .select();
-        
         await _localStorage.markAsSynced(event.id);
-        print('🗑️ Deleted event synced: ${event.title}');
       } catch (e) {
-        print('❌ Failed to sync deletion for ${event.id}: $e');
-        continue;
+        print('❌ Deletion sync failed for ${event.id}: $e');
       }
     }
   }
 
   Future<void> _downloadServerEvents(String userId) async {
-    try {
-      print('⬇️ Downloading events from server...');
-      
-      final response = await supabase
-          .from('events')
-          .select()
-          .eq('user_id', userId);
+    print('⬇️ Downloading from server...');
 
-      print('📥 Server response: ${response.length} events');
+    final response = await supabase
+        .from('events')
+        .select()
+        .eq('user_id', userId);
 
-      final serverEvents = (response as List)
-          .map((json) => Event.fromJson(json))
-          .toList();
+    final serverEvents =
+        (response as List).map((json) => Event.fromJson(json)).toList();
 
-      int updatedCount = 0;
-      for (final serverEvent in serverEvents) {
-        final localEvent = _localStorage.getEvent(serverEvent.id);
-        
-        if (localEvent == null || 
-            serverEvent.lastModified.isAfter(localEvent.lastModified)) {
-          final eventToSave = serverEvent.copyWith(needsSync: false);
-          await _localStorage.saveEvent(eventToSave);
-          updatedCount++;
-          print('⬇️ Downloaded/updated event: ${serverEvent.title}');
-        }
+    print('📥 Got ${serverEvents.length} events from server');
+
+    int updated = 0;
+    for (final serverEvent in serverEvents) {
+      final local = _localStorage.getEvent(serverEvent.id);
+
+      // FIX: only keep local if it has unsynced edits newer than server.
+      // If local is already synced (needsSync=false), server always wins —
+      // another device may have updated it.
+      final keepLocal = local != null &&
+          local.needsSync &&
+          local.lastModified.isAfter(serverEvent.lastModified);
+
+      if (!keepLocal) {
+        await _localStorage.saveEvent(serverEvent.copyWith(needsSync: false));
+        updated++;
+        print('⬇️ Saved from server: ${serverEvent.title}');
       }
-      
-      print('📥 Updated $updatedCount events from server');
-      
-    } catch (e) {
-      print('❌ Failed to download server events: $e');
-      rethrow;
     }
+
+    print('📥 Updated $updated events from server');
   }
 
   Future<void> forceSync() async {
     if (!_connectivity.isConnected) {
-      throw Exception('No internet connection available');
+      throw Exception('No internet connection');
     }
-    
-    print('🔄 Force sync requested');
     await syncWithServer();
   }
 
@@ -394,12 +322,7 @@ class SyncService {
   }
 }
 
-enum SyncStatus {
-  offline,
-  syncing,
-  synced,
-  error,
-}
+enum SyncStatus { offline, syncing, synced, error }
 
 class SyncInfo {
   final bool isOnline;

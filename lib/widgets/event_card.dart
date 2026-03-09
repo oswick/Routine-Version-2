@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/screens/pomodoro_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:myapp/models/event.dart';
 import 'package:myapp/screens/add_event_screen.dart';
 import 'package:myapp/utils/event_utils.dart';
