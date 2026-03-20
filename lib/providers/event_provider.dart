@@ -32,20 +32,21 @@ class EventProvider extends ChangeNotifier {
   final StreamController<List<Event>> _eventsController =
       StreamController<List<Event>>.broadcast();
 
+  StreamSubscription<List<Event>>? _remoteChangesSub;
+
   List<Event> get events => List.unmodifiable(_events);
   bool get isLoading => _isLoading;
   String? get error => _error;
   Stream<List<Event>> get eventsStream => _eventsController.stream;
 
-  double getEventProgress(String eventId) {
-    return _progressCache[eventId] ?? 0.0;
-  }
+  double getEventProgress(String eventId) => _progressCache[eventId] ?? 0.0;
 
   bool getEventCompletion(String eventId, DateTime date) {
     final key = _getCompletionCacheKey(eventId, date);
     return _completionCache[key] ?? false;
   }
 
+  // ── Init ──────────────────────────────────────────────────────────────────
   Future<void> init() async {
     await _syncService.init();
     await _cleanOldCompletionStates();
@@ -55,12 +56,15 @@ class EventProvider extends ChangeNotifier {
     _startGlobalTimer();
     _startDailyCleanupTimer();
 
-    // Registrar callback para que NotificationService pueda marcar
-    // eventos como completados cuando el usuario pulsa "Completado"
-    // en la notificación, sin necesidad de un BuildContext.
     NotificationService().registerMarkDoneCallback((eventId) {
       markEventDoneFromNotification(eventId);
     });
+
+    // Subscribe to REMOTE changes only.
+    // SyncService emits on this stream only when another device changed data.
+    // We merge those events surgically into _events without touching local writes.
+    _remoteChangesSub =
+        _syncService.remoteChangesStream.listen(_mergeRemoteChanges);
 
     _authService.authStateChanges.listen((state) {
       if (state.event == AuthChangeEvent.signedIn) {
@@ -70,99 +74,132 @@ class EventProvider extends ChangeNotifier {
       }
     });
 
-    // Procesar acciones que se encolaron mientras la app estaba cerrada
-    // (pulsaciones de botón en notificaciones con la app en background/killed).
     await _processPendingBackgroundActions();
   }
 
-  // ── Acción desde notificación ─────────────────────────────────────────────
-  //
-  // Llamado por NotificationService cuando el usuario pulsa "Completado"
-  // en una notificación. [eventId] es el ID del evento (String UUID).
-  //
-  // Para eventos repetitivos: marca el completado de HOY en SharedPreferences
-  // y en el cache de memoria, y notifica a la UI.
-  // Para eventos únicos: actualiza isCompleted = true y sincroniza.
-// Replace markEventDoneFromNotification in event_provider.dart
-void markEventDoneFromNotification(String eventId) async {
-  debugPrint('✔️ markEventDoneFromNotification: eventId=$eventId');
+  // ── Surgical merge of remote changes ─────────────────────────────────────
+  // Called by SyncService when it downloads events from the server that were
+  // changed by another device.  We update _events in-place so the UI sees the
+  // change instantly without any full reload or blank flash.
+  void _mergeRemoteChanges(List<Event> serverEvents) {
+    if (serverEvents.isEmpty) return;
+    debugPrint(
+        '🔀 EventProvider: merging ${serverEvents.length} remote changes');
 
-  // FIX: safe lookup — don't throw if event not in memory yet
-  final event = _events.cast<Event?>().firstWhere(
-    (e) => e?.id == eventId,
-    orElse: () => null,
-  );
+    bool changed = false;
+    final now = DateTime.now();
 
-  if (event == null) {
-    debugPrint('⚠️ markEventDoneFromNotification: event $eventId not found in memory');
-    return;
-  }
-
-  final today = DateTime.now();
-  await updateEventCompletion(event, true, today);
-  debugPrint('✅ Event "$eventId" marked done from notification');
-}
-
-
-  // ── Procesar acciones encoladas desde background ─────────────────────────
-  //
-  // Cuando la app estaba killed y el usuario pulsó "Completado" o "Posponer",
-  // notificationBackgroundHandler() guardó la acción en SharedPreferences.
-  // Este método las lee y las ejecuta ahora que la app está activa.
-Future<void> _processPendingBackgroundActions() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final pending = prefs.getStringList('pending_notif_actions') ?? [];
-    if (pending.isEmpty) return;
-
-    // Clear immediately to avoid double-processing
-    await prefs.remove('pending_notif_actions');
-    debugPrint('📬 Processing ${pending.length} pending background actions');
-
-    for (final entry in pending) {
-      final parts = entry.split(':');
-      if (parts.length != 2) continue;
-      final actionId = parts[0];
-      final firedId = int.tryParse(parts[1]);
-      if (firedId == null) continue;
-
-      if (actionId == 'mark_done') {
-        // FIX: look up the stored notification data to get the eventId string
-        final stored = await NotificationService().getNotificationDataById(firedId);
-        final eventId = stored?.eventId;
-
-        if (eventId != null) {
-          // FIX: call the logic directly — don't rely on callback being registered
-          final event = _events.cast<Event?>().firstWhere(
-            (e) => e?.id == eventId,
-            orElse: () => null,
-          );
-          if (event != null) {
-            await updateEventCompletion(event, true, DateTime.now());
-            debugPrint('✅ Background mark_done processed for event $eventId');
-          } else {
-            debugPrint('⚠️ Background mark_done: event $eventId not in memory');
-          }
-        } else {
-          debugPrint('⚠️ Background mark_done: no eventId for notif $firedId');
+    for (final serverEvent in serverEvents) {
+      // Deletion flagged by SyncService.
+      if (serverEvent.isDeleted) {
+        final idx = _events.indexWhere((e) => e.id == serverEvent.id);
+        if (idx != -1) {
+          _events.removeAt(idx);
+          _progressCache.remove(serverEvent.id);
+          _completionCache
+              .removeWhere((k, _) => k.startsWith(serverEvent.id));
+          changed = true;
+          debugPrint('🗑️ Merged deletion: ${serverEvent.id}');
         }
-        await NotificationService().cancelSingleNotification(firedId);
+        continue;
+      }
 
-      } else if (actionId == 'snooze') {
-        await NotificationService().snoozeNotification(firedId);
-        debugPrint('⏸️ Background snooze processed for notif $firedId');
+      final idx = _events.indexWhere((e) => e.id == serverEvent.id);
+      if (idx == -1) {
+        // New event from another device — add it.
+        _events.add(serverEvent);
+        if (serverEvent.endTime != null && !serverEvent.isCompleted) {
+          _progressCache[serverEvent.id] =
+              _calculateEventProgress(serverEvent, now);
+        }
+        changed = true;
+        debugPrint('➕ Merged new event: ${serverEvent.title}');
+      } else {
+        // Existing event updated by another device.
+        final local = _events[idx];
+        // Don't overwrite if we have a pending local edit that is newer.
+        if (local.needsSync &&
+            local.lastModified.isAfter(serverEvent.lastModified)) {
+          debugPrint(
+              '⏭️ Skipping merge for ${serverEvent.id} (local edit is newer)');
+          continue;
+        }
+        _events[idx] = serverEvent;
+        if (serverEvent.endTime != null && !serverEvent.isCompleted) {
+          _progressCache[serverEvent.id] =
+              _calculateEventProgress(serverEvent, now);
+        } else {
+          _progressCache.remove(serverEvent.id);
+        }
+        changed = true;
+        debugPrint('✏️ Merged update: ${serverEvent.title}');
       }
     }
-  } catch (e) {
-    debugPrint('Error processing pending background actions: $e');
+
+    if (changed) {
+      _dayCache.clear();
+      _notifyChanges();
+    }
   }
-}
+
+  // ── Notification helpers ──────────────────────────────────────────────────
+  void markEventDoneFromNotification(String eventId) async {
+    debugPrint('✔️ markEventDoneFromNotification: eventId=$eventId');
+    final event = _events.cast<Event?>().firstWhere(
+          (e) => e?.id == eventId,
+          orElse: () => null,
+        );
+    if (event == null) {
+      debugPrint('⚠️ markEventDoneFromNotification: $eventId not in memory');
+      return;
+    }
+    await updateEventCompletion(event, true, DateTime.now());
+  }
+
+  Future<void> _processPendingBackgroundActions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pending = prefs.getStringList('pending_notif_actions') ?? [];
+      if (pending.isEmpty) return;
+
+      await prefs.remove('pending_notif_actions');
+      debugPrint('📬 Processing ${pending.length} pending background actions');
+
+      for (final entry in pending) {
+        final parts = entry.split(':');
+        if (parts.length != 2) continue;
+        final actionId = parts[0];
+        final firedId = int.tryParse(parts[1]);
+        if (firedId == null) continue;
+
+        if (actionId == 'mark_done') {
+          final stored =
+              await NotificationService().getNotificationDataById(firedId);
+          final eventId = stored?.eventId;
+          if (eventId != null) {
+            final event = _events.cast<Event?>().firstWhere(
+                  (e) => e?.id == eventId,
+                  orElse: () => null,
+                );
+            if (event != null) {
+              await updateEventCompletion(event, true, DateTime.now());
+            }
+          }
+          await NotificationService().cancelSingleNotification(firedId);
+        } else if (actionId == 'snooze') {
+          await NotificationService().snoozeNotification(firedId);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error processing pending background actions: $e');
+    }
+  }
+
+  // ── Daily cleanup ─────────────────────────────────────────────────────────
   void _startDailyCleanupTimer() {
     final now = DateTime.now();
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
-    final durationUntilMidnight = tomorrow.difference(now);
-
-    Timer(durationUntilMidnight, () {
+    Timer(tomorrow.difference(now), () {
       _cleanOldCompletionStates();
       _startDailyCleanupTimer();
     });
@@ -171,43 +208,32 @@ Future<void> _processPendingBackgroundActions() async {
   Future<void> _cleanOldCompletionStates() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final keys = prefs.getKeys();
       final today = DateTime.now();
       final todayKey =
           '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-
-      int removedCount = 0;
-
-      for (final key in keys) {
+      int removed = 0;
+      for (final key in prefs.getKeys()) {
         if (key.startsWith('event_') && key.contains('_completion_')) {
           final parts = key.split('_completion_');
           if (parts.length == 2 && parts[1] != todayKey) {
             await prefs.remove(key);
-            removedCount++;
-
+            removed++;
             final eventId = parts[0].replaceAll('event_', '');
             try {
-              final dateParts = parts[1].split('-');
-              if (dateParts.length == 3) {
-                final date = DateTime(
-                  int.parse(dateParts[0]),
-                  int.parse(dateParts[1]),
-                  int.parse(dateParts[2]),
-                );
-                _completionCache.remove(_getCompletionCacheKey(eventId, date));
+              final dp = parts[1].split('-');
+              if (dp.length == 3) {
+                _completionCache.remove(_getCompletionCacheKey(
+                    eventId,
+                    DateTime(int.parse(dp[0]), int.parse(dp[1]),
+                        int.parse(dp[2]))));
               }
-            } catch (e) {
-              debugPrint('Error parsing date during cleanup: $e');
-            }
+            } catch (_) {}
           }
         }
       }
-
-      if (removedCount > 0) {
-        debugPrint('🧹 Cleaned $removedCount old completion states');
-      }
+      if (removed > 0) debugPrint('🧹 Cleaned $removed old completion states');
     } catch (e) {
-      debugPrint('Error cleaning old completion states: $e');
+      debugPrint('Error cleaning completion states: $e');
     }
   }
 
@@ -217,71 +243,64 @@ Future<void> _processPendingBackgroundActions() async {
       final today = DateTime.now();
       final todayKey =
           '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-
-      int loadedCount = 0;
-
+      int loaded = 0;
       for (final key in prefs.getKeys()) {
         if (key.startsWith('event_') && key.contains('_completion_')) {
           final parts = key.split('_completion_');
           if (parts.length == 2 && parts[1] == todayKey) {
             final completed = prefs.getBool(key) ?? false;
             final eventId = parts[0].replaceAll('event_', '');
-            _completionCache[_getCompletionCacheKey(eventId, today)] = completed;
-            loadedCount++;
+            _completionCache[_getCompletionCacheKey(eventId, today)] =
+                completed;
+            loaded++;
           }
         }
       }
-
-      debugPrint('📥 Loaded $loadedCount completion states for today');
+      debugPrint('📥 Loaded $loaded completion states for today');
     } catch (e) {
       debugPrint('Error loading today completion states: $e');
     }
   }
 
+  // ── Cache ─────────────────────────────────────────────────────────────────
   void _pruneCache() {
     if (_progressCache.length > _maxCacheSize) {
-      final keysToRemove = _progressCache.keys.take(100).toList();
-      for (final key in keysToRemove) {
-        _progressCache.remove(key);
+      for (final k in _progressCache.keys.take(100).toList()) {
+        _progressCache.remove(k);
       }
     }
     if (_completionCache.length > _maxCacheSize) {
-      final keysToRemove = _completionCache.keys.take(100).toList();
-      for (final key in keysToRemove) {
-        _completionCache.remove(key);
+      for (final k in _completionCache.keys.take(100).toList()) {
+        _completionCache.remove(k);
       }
     }
     if (_dayCache.length > _maxDayCacheSize) {
-      final keysToRemove = _dayCache.keys.take(10).toList();
-      for (final key in keysToRemove) {
-        _dayCache.remove(key);
+      for (final k in _dayCache.keys.take(10).toList()) {
+        _dayCache.remove(k);
       }
     }
   }
 
+  // ── Progress timer ────────────────────────────────────────────────────────
   void _startGlobalTimer() {
     _globalUpdateTimer?.cancel();
     _scheduleNextUpdate();
   }
 
   void _scheduleNextUpdate() {
-    final nextUpdateTime = _calculateNextUpdateTime();
-
-    if (nextUpdateTime == null) {
-      _globalUpdateTimer = Timer(const Duration(minutes: 1), () {
+    final next = _calculateNextUpdateTime();
+    if (next == null) {
+      _globalUpdateTimer =
+          Timer(const Duration(minutes: 1), () {
         if (mounted) _scheduleNextUpdate();
       });
       return;
     }
-
-    final now = DateTime.now();
-    final duration = nextUpdateTime.difference(now);
-
+    final duration = next.difference(DateTime.now());
     if (duration.isNegative) {
       _scheduleNextUpdate();
       return;
     }
-
     _globalUpdateTimer = Timer(duration, () {
       if (!mounted) return;
       _updateActiveEvents();
@@ -292,86 +311,67 @@ Future<void> _processPendingBackgroundActions() async {
   DateTime? _calculateNextUpdateTime() {
     DateTime? nearest;
     final now = DateTime.now();
-
     for (final event in _events) {
-      if (event.endTime == null || event.isCompleted || event.isDeleted) continue;
-
-      DateTime? eventTime;
-
+      if (event.endTime == null || event.isCompleted || event.isDeleted) {
+        continue;
+      }
+      DateTime? t;
       if (event.repeatDays.isNotEmpty) {
         if (event.repeatDays.contains(now.weekday)) {
-          final todayEnd = DateTime(
-            now.year, now.month, now.day,
-            event.endTime!.hour, event.endTime!.minute,
-          );
-          if (todayEnd.isAfter(now)) eventTime = todayEnd;
+          final todayEnd = DateTime(now.year, now.month, now.day,
+              event.endTime!.hour, event.endTime!.minute);
+          if (todayEnd.isAfter(now)) t = todayEnd;
         }
       } else {
-        if (event.endTime!.isAfter(now)) eventTime = event.endTime;
+        if (event.endTime!.isAfter(now)) t = event.endTime;
       }
-
-      if (eventTime != null && (nearest == null || eventTime.isBefore(nearest))) {
-        nearest = eventTime;
-      }
+      if (t != null && (nearest == null || t.isBefore(nearest))) nearest = t;
     }
-
     return nearest;
   }
 
   void _updateActiveEvents() {
     bool needsUpdate = false;
     final now = DateTime.now();
-
     for (final event in _events) {
       if (event.endTime != null && !event.isCompleted && !event.isDeleted) {
-        final newProgress = _calculateEventProgress(event, now);
-        final currentProgress = _progressCache[event.id] ?? -1.0;
-
-        if ((newProgress - currentProgress).abs() > 0.001) {
-          _progressCache[event.id] = newProgress;
+        final p = _calculateEventProgress(event, now);
+        final cur = _progressCache[event.id] ?? -1.0;
+        if ((p - cur).abs() > 0.001) {
+          _progressCache[event.id] = p;
           needsUpdate = true;
         }
       }
     }
-
     if (needsUpdate) notifyListeners();
   }
 
   double _calculateEventProgress(Event event, DateTime now) {
     if (event.endTime == null) return 0.0;
-
     if (event.repeatDays.isNotEmpty) {
       if (!event.repeatDays.contains(now.weekday)) return 0.0;
-
-      final todayStart = DateTime(
-        now.year, now.month, now.day,
-        event.startTime.hour, event.startTime.minute,
-      );
-      final todayEnd = DateTime(
-        now.year, now.month, now.day,
-        event.endTime!.hour, event.endTime!.minute,
-      );
-
-      if (now.isBefore(todayStart)) return 0.0;
-      if (now.isAfter(todayEnd)) return 1.0;
-
-      final total = todayEnd.difference(todayStart).inMilliseconds;
-      final elapsed = now.difference(todayStart).inMilliseconds;
-      return (elapsed / total).clamp(0.0, 1.0);
+      final s = DateTime(now.year, now.month, now.day,
+          event.startTime.hour, event.startTime.minute);
+      final e = DateTime(now.year, now.month, now.day,
+          event.endTime!.hour, event.endTime!.minute);
+      if (now.isBefore(s)) return 0.0;
+      if (now.isAfter(e)) return 1.0;
+      return (now.difference(s).inMilliseconds /
+              e.difference(s).inMilliseconds)
+          .clamp(0.0, 1.0);
     } else {
       if (now.isBefore(event.startTime)) return 0.0;
       if (now.isAfter(event.endTime!)) return 1.0;
-
-      final total = event.endTime!.difference(event.startTime).inMilliseconds;
-      final elapsed = now.difference(event.startTime).inMilliseconds;
-      return (elapsed / total).clamp(0.0, 1.0);
+      return (now.difference(event.startTime).inMilliseconds /
+              event.endTime!.difference(event.startTime).inMilliseconds)
+          .clamp(0.0, 1.0);
     }
   }
 
-  String _getCompletionCacheKey(String eventId, DateTime date) {
-    return '$eventId-${date.year}-${date.month}-${date.day}';
-  }
+  String _getCompletionCacheKey(String eventId, DateTime date) =>
+      '$eventId-${date.year}-${date.month}-${date.day}';
 
+  // ── CRUD ──────────────────────────────────────────────────────────────────
   Future<void> updateEventCompletion(
       Event event, bool completed, DateTime date) async {
     final key = _getCompletionCacheKey(event.id, date);
@@ -383,31 +383,26 @@ Future<void> _processPendingBackgroundActions() async {
         final prefKey =
             'event_${event.id}_completion_${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
         await prefs.setBool(prefKey, completed);
-        debugPrint('💾 Saved completion state: $prefKey = $completed');
       } catch (e) {
         debugPrint('Error saving completion state: $e');
       }
     } else {
-      final updatedEvent = event.copyWith(isCompleted: completed);
-      await updateEvent(updatedEvent);
+      await updateEvent(event.copyWith(isCompleted: completed));
     }
-
     notifyListeners();
   }
 
   Future<void> loadEvents() async {
     _setLoading(true);
     try {
-      final loadedEvents = await _syncService.getEvents();
-      _updateEvents(loadedEvents);
-
+      final loaded = await _syncService.getEvents();
+      _updateEvents(loaded);
       final now = DateTime.now();
-      for (final event in loadedEvents) {
-        if (event.endTime != null && !event.isCompleted) {
-          _progressCache[event.id] = _calculateEventProgress(event, now);
+      for (final e in loaded) {
+        if (e.endTime != null && !e.isCompleted) {
+          _progressCache[e.id] = _calculateEventProgress(e, now);
         }
       }
-
       await _loadTodayCompletionStates();
       _error = null;
     } catch (e) {
@@ -428,119 +423,121 @@ Future<void> _processPendingBackgroundActions() async {
         needsSync: _authService.isAuthenticated,
       );
 
+      // Optimistic update — add to memory immediately so UI responds instantly.
       _events.add(newEvent);
       _dayCache.clear();
       _notifyChanges();
 
+      // Persist locally and schedule upload (non-blocking).
       await _syncService.saveEvent(newEvent);
 
       if (!newEvent.isCompleted) {
         await _scheduleEventNotifications(newEvent);
       }
-
       _pruneCache();
     } catch (e) {
-      await loadEvents();
+      // Rollback on failure.
+      _events.removeWhere((ev) => ev.title == event.title);
+      _dayCache.clear();
+      _notifyChanges();
       _error = e.toString();
       rethrow;
     }
   }
 
   Future<void> updateEvent(Event updatedEvent) async {
+    final index = _events.indexWhere((e) => e.id == updatedEvent.id);
+    if (index == -1) return;
+
+    final oldEvent = _events[index];
+
+    // Optimistic update.
+    _events[index] = updatedEvent;
+    if (updatedEvent.endTime != null) {
+      _progressCache[updatedEvent.id] =
+          _calculateEventProgress(updatedEvent, DateTime.now());
+    }
+    _dayCache.clear();
+    _notifyChanges();
+
     try {
-      final index = _events.indexWhere((e) => e.id == updatedEvent.id);
-      if (index == -1) return;
-
-      final oldEvent = _events[index];
-      _events[index] = updatedEvent;
-
-      if (updatedEvent.endTime != null) {
-        _progressCache[updatedEvent.id] =
-            _calculateEventProgress(updatedEvent, DateTime.now());
-      }
-
-      _dayCache.clear();
-      _notifyChanges();
-
-      _syncService.saveEvent(updatedEvent).catchError((e) {
-        debugPrint('Error saving event: $e');
-        if (mounted && index < _events.length) {
-          _events[index] = oldEvent;
-          _dayCache.clear();
-          _notifyChanges();
-        }
-      });
-
+      await _syncService.saveEvent(updatedEvent);
       await _cancelAllEventNotifications(oldEvent);
       if (!updatedEvent.isCompleted) {
         await _scheduleEventNotifications(updatedEvent);
       }
     } catch (e) {
+      // Rollback on failure.
+      if (mounted && index < _events.length) {
+        _events[index] = oldEvent;
+        _dayCache.clear();
+        _notifyChanges();
+      }
       _error = e.toString();
       debugPrint('Error updating event: $e');
     }
   }
 
-  Future<void> deleteEvent(String eventId, {bool deleteAll = false}) async {
+  Future<void> deleteEvent(String eventId,
+      {bool deleteAll = false}) async {
+    final idx = _events.indexWhere((e) => e.id == eventId);
+    if (idx == -1) return;
+
+    final event = _events[idx];
+
+    // Optimistic removal — disappears from UI immediately.
+    await _cancelAllEventNotifications(event);
+    _events.removeAt(idx);
+    _progressCache.remove(eventId);
+    _completionCache.removeWhere((k, _) => k.startsWith(eventId));
+    _dayCache.clear();
+
     try {
-      final eventIndex = _events.indexWhere((e) => e.id == eventId);
-      if (eventIndex == -1) return;
-
-      final event = _events[eventIndex];
-      await _cancelAllEventNotifications(event);
-
-      _events.removeAt(eventIndex);
-      _progressCache.remove(eventId);
-      _completionCache.removeWhere((key, _) => key.startsWith(eventId));
-      _dayCache.clear();
-
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final keysToRemove = prefs
-            .getKeys()
-            .where((key) => key.startsWith('event_$eventId'))
-            .toList();
-        for (final key in keysToRemove) {
-          await prefs.remove(key);
-        }
-      } catch (e) {
-        debugPrint('Error cleaning SharedPreferences: $e');
+      final prefs = await SharedPreferences.getInstance();
+      for (final k in prefs
+          .getKeys()
+          .where((k) => k.startsWith('event_$eventId'))
+          .toList()) {
+        await prefs.remove(k);
       }
+    } catch (_) {}
 
-      _notifyChanges();
+    _notifyChanges();
 
+    try {
       if (deleteAll) {
         await _syncService.deleteAllEventInstances(eventId);
       } else {
         await _syncService.deleteEvent(eventId);
       }
     } catch (e) {
-      await loadEvents();
+      // Rollback on failure.
+      _events.insert(idx, event);
+      _dayCache.clear();
+      _notifyChanges();
       _error = e.toString();
       rethrow;
     }
   }
 
+  // ── Query ─────────────────────────────────────────────────────────────────
   List<Event> getEventsForDay(DateTime day) {
     final cacheKey = '${day.year}-${day.month}-${day.day}';
-
     if (_dayCache.containsKey(cacheKey)) return _dayCache[cacheKey]!;
 
     final seen = <String>{};
     final result = _events.where((event) {
       if (seen.contains(event.id)) return false;
-
       bool include;
       if (event.repeatDays.isNotEmpty) {
-        final created = DateTime(
-          event.startTime.year, event.startTime.month, event.startTime.day);
+        final created = DateTime(event.startTime.year,
+            event.startTime.month, event.startTime.day);
         final query = DateTime(day.year, day.month, day.day);
         include = event.repeatDays.contains(day.weekday) &&
             (query.isAtSameMomentAs(created) || query.isAfter(created));
       } else {
         include = _isSameDay(event.startTime, day);
       }
-
       if (include) seen.add(event.id);
       return include;
     }).toList();
@@ -549,10 +546,10 @@ Future<void> _processPendingBackgroundActions() async {
     if (_dayCache.length > _maxDayCacheSize) {
       _dayCache.remove(_dayCache.keys.first);
     }
-
     return result;
   }
 
+  // ── Internal ──────────────────────────────────────────────────────────────
   void _updateEvents(List<Event> newEvents) {
     _events = newEvents;
     _dayCache.clear();
@@ -573,9 +570,7 @@ Future<void> _processPendingBackgroundActions() async {
   }
 
   void _notifyChanges() {
-    if (!_eventsController.isClosed) {
-      _eventsController.add(_events);
-    }
+    if (!_eventsController.isClosed) _eventsController.add(_events);
     notifyListeners();
   }
 
@@ -585,17 +580,8 @@ Future<void> _processPendingBackgroundActions() async {
   bool get mounted => !_eventsController.isClosed;
 
   // ── Notification helpers ──────────────────────────────────────────────────
-  //
-  // ID scheme:
-  //   Evento único      : eventId.hashCode
-  //   Repetitivo día N  : eventId.hashCode + N   (N = 1..7)
-  //
-  // NotificationService añade +10_000 internamente para las notificaciones
-  // de fin. Siempre pasamos el ID base aquí.
-
   Future<void> _scheduleEventNotifications(Event event) async {
     await _cancelAllEventNotifications(event);
-
     if (event.repeatDays.isNotEmpty) {
       for (final day in event.repeatDays) {
         await _scheduleNotificationForDay(event, day);
@@ -608,57 +594,33 @@ Future<void> _processPendingBackgroundActions() async {
   Future<void> _scheduleSingleEventNotification(Event event) async {
     final now = DateTime.now();
     final baseId = event.id.hashCode;
-
     if (event.startTime.isAfter(now)) {
       await NotificationService().scheduleNotification(
-        baseId,
-        event.title,
-        event.description ?? 'Recordatorio de evento',
-        event.startTime,
-        null,
-        eventId: event.id,   // ← para que mark_done sepa qué evento marcar
-      );
+          baseId, event.title, event.description ?? '', event.startTime, null,
+          eventId: event.id);
     }
-
     if (event.endTime != null && event.endTime!.isAfter(now)) {
       await NotificationService().scheduleEndNotification(
-        baseId,             // ← base id; el servicio añade +10_000
-        event.title,
-        event.description ?? 'Evento terminado',
-        event.endTime!,
-        null,
-        eventId: event.id,
-      );
+          baseId, event.title, event.description ?? '', event.endTime!, null,
+          eventId: event.id);
     }
   }
 
   Future<void> _scheduleNotificationForDay(Event event, int day) async {
     final now = DateTime.now();
     final baseId = event.id.hashCode + day;
-    final nextStart = _calculateNotificationTime(day, event.startTime);
-
+    final nextStart = _calcNotifTime(day, event.startTime);
     if (nextStart.isAfter(now)) {
       await NotificationService().scheduleNotification(
-        baseId,
-        event.title,
-        event.description ?? 'Recordatorio de evento',
-        nextStart,
-        null,
-        eventId: event.id,
-      );
+          baseId, event.title, event.description ?? '', nextStart, null,
+          eventId: event.id);
     }
-
     if (event.endTime != null) {
-      final nextEnd = _calculateEndNotificationTime(day, event.endTime!);
+      final nextEnd = _calcNotifTime(day, event.endTime!);
       if (nextEnd.isAfter(now)) {
         await NotificationService().scheduleEndNotification(
-          baseId,           // ← base id; el servicio añade +10_000
-          event.title,
-          event.description ?? 'Evento terminado',
-          nextEnd,
-          null,
-          eventId: event.id,
-        );
+            baseId, event.title, event.description ?? '', nextEnd, null,
+            eventId: event.id);
       }
     }
   }
@@ -670,59 +632,30 @@ Future<void> _processPendingBackgroundActions() async {
     );
   }
 
-  DateTime _calculateNotificationTime(int day, DateTime startTime) {
+  DateTime _calcNotifTime(int day, DateTime t) {
     final now = DateTime.now();
-    int daysUntilNext = (day - now.weekday + 7) % 7;
-
-    if (daysUntilNext == 0) {
-      final todayAtEventTime = DateTime(
-        now.year, now.month, now.day,
-        startTime.hour, startTime.minute,
-      );
-      if (todayAtEventTime.isAfter(now)) return todayAtEventTime;
-      daysUntilNext = 7;
+    int ahead = (day - now.weekday + 7) % 7;
+    if (ahead == 0) {
+      final today = DateTime(now.year, now.month, now.day, t.hour, t.minute);
+      if (today.isAfter(now)) return today;
+      ahead = 7;
     }
-
-    final nextDate = now.add(Duration(days: daysUntilNext));
-    return DateTime(
-      nextDate.year, nextDate.month, nextDate.day,
-      startTime.hour, startTime.minute,
-    );
-  }
-
-  DateTime _calculateEndNotificationTime(int day, DateTime endTime) {
-    final now = DateTime.now();
-    int daysUntilNext = (day - now.weekday + 7) % 7;
-
-    if (daysUntilNext == 0) {
-      final todayAtEventTime = DateTime(
-        now.year, now.month, now.day,
-        endTime.hour, endTime.minute,
-      );
-      if (todayAtEventTime.isAfter(now)) return todayAtEventTime;
-      daysUntilNext = 7;
-    }
-
-    final nextDate = now.add(Duration(days: daysUntilNext));
-    return DateTime(
-      nextDate.year, nextDate.month, nextDate.day,
-      endTime.hour, endTime.minute,
-    );
+    final d = now.add(Duration(days: ahead));
+    return DateTime(d.year, d.month, d.day, t.hour, t.minute);
   }
 
   Future<void> rescheduleAllNotifications() async {
-    debugPrint('🔄 Reprogramando todas las notificaciones...');
     for (final event in _events) {
       if (!event.isCompleted && !event.isDeleted) {
         await _scheduleEventNotifications(event);
       }
     }
-    debugPrint('✅ Notificaciones reprogramadas');
   }
 
   @override
   void dispose() {
     _globalUpdateTimer?.cancel();
+    _remoteChangesSub?.cancel();
     _eventsController.close();
     _progressCache.clear();
     _completionCache.clear();
