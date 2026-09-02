@@ -1,5 +1,7 @@
 // lib/screens/nav_screen.dart
 import 'package:flutter/material.dart';
+import 'package:material_3_expressive/components/navigation_bar/models/m3e_navigation_bar_destination.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/models/event.dart';
 import 'package:provider/provider.dart';
@@ -234,11 +236,8 @@ class _MainHomeScreenState extends State<MainHomeScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (_isCheckingAuth) ...[
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  Theme.of(context).colorScheme.primary,
-                ),
-              ),
+              // DESPUÉS
+              const M3ELoadingIndicator(),
               const SizedBox(height: 16),
               Text(
                 AppLocalizations.of(
@@ -344,24 +343,21 @@ class _MainHomeScreenState extends State<MainHomeScreen>
             },
             children: widgetOptions,
           ),
-          bottomNavigationBar: NavigationBar(
+          // DESPUÉS
+          bottomNavigationBar: M3ENavigationBar(
             selectedIndex: _selectedIndex,
             onDestinationSelected: _onItemTapped,
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             destinations: [
-              NavigationDestination(
+              M3ENavigationBarDestination(
                 icon: const Icon(Icons.home_outlined),
-                selectedIcon: const Icon(Icons.home_rounded),
                 label: AppLocalizations.of(context).home,
               ),
-              NavigationDestination(
+              M3ENavigationBarDestination(
                 icon: const Icon(Icons.calendar_month_outlined),
-                selectedIcon: const Icon(Icons.calendar_month_rounded),
                 label: AppLocalizations.of(context).calendar,
               ),
-              NavigationDestination(
+              M3ENavigationBarDestination(
                 icon: const Icon(Icons.person_outline),
-                selectedIcon: const Icon(Icons.person_rounded),
                 label: AppLocalizations.of(context).profile,
               ),
             ],

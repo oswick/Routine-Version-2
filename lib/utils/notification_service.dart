@@ -148,7 +148,9 @@ class NotificationService {
     }
 
     if (response.notificationResponseType !=
-        NotificationResponseType.selectedNotificationAction) return;
+        NotificationResponseType.selectedNotificationAction) {
+      return;
+    }
 
     final actionId = response.actionId;
 

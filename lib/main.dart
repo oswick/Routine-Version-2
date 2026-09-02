@@ -17,6 +17,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'utils/notification_service.dart';
 import 'utils/app_lifecycle_handler.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 
 // CRÍTICO: re-exportar el background handler aquí para que el linker de Dart
 // lo incluya en el build. Sin este import el compilador puede eliminarlo.
@@ -101,22 +102,18 @@ class _MyAppState extends State<MyApp> {
       builder: (context, themeProvider, _) {
         return DynamicColorBuilder(
           builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-            final lightScheme = themeProvider.useDynamicColor ? lightDynamic : null;
-            final darkScheme = themeProvider.useDynamicColor ? darkDynamic : null;
+            final lightScheme = themeProvider.useDynamicColor
+                ? lightDynamic
+                : null;
+            final darkScheme = themeProvider.useDynamicColor
+                ? darkDynamic
+                : null;
 
             return MaterialApp(
               title: 'Routine',
               debugShowCheckedModeBanner: false,
-              localizationsDelegates: const [
-                AppLocalizations.delegate,
-                GlobalMaterialLocalizations.delegate,
-                GlobalWidgetsLocalizations.delegate,
-                GlobalCupertinoLocalizations.delegate,
-              ],
-              supportedLocales: const [
-                Locale('en'),
-                Locale('es'),
-              ],
+              localizationsDelegates: const [/* igual */],
+              supportedLocales: const [/* igual */],
               theme: AppTheme.lightTheme(
                 dynamicColorScheme: lightScheme,
                 seedColor: themeProvider.currentSeedColor,
@@ -127,7 +124,16 @@ class _MyAppState extends State<MyApp> {
                 isAmoled: themeProvider.isAmoled,
               ),
               themeMode: themeProvider.themeMode,
-              home: const MainHomeScreen(),
+              home: M3ETheme(
+                data: themeProvider.themeMode == ThemeMode.dark
+                    ? M3EThemeData.dark(
+                        seedColor: themeProvider.currentSeedColor,
+                      )
+                    : M3EThemeData.light(
+                        seedColor: themeProvider.currentSeedColor,
+                      ),
+                child: const MainHomeScreen(),
+              ),
             );
           },
         );

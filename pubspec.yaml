@@ -67,6 +67,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   collection: ^1.19.1
+  material_3_expressive: ^1.0.9
 
 
 dev_dependencies:

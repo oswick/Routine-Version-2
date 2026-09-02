@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import '../models/event.dart';
 import '../utils/event_utils.dart';
@@ -239,57 +241,22 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    bool isRequired = false,
-    int maxLines = 1,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color:
-            Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        textCapitalization: TextCapitalization.sentences,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-        decoration: InputDecoration(
-          labelText: isRequired ? '$label *' : label,
-          hintText: hint,
-          prefixIcon: Container(
-            margin: const EdgeInsets.all(10),
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 18,
-                color: Theme.of(context).colorScheme.primary),
-          ),
-          border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          labelStyle: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-            fontWeight: FontWeight.w500,
-          ),
-          hintStyle: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-          ),
-        ),
-      ),
-    );
-  }
-
+Widget _buildTextField({
+  required TextEditingController controller,
+  required String label,
+  required String hint,
+  required IconData icon,
+  bool isRequired = false,
+  int maxLines = 1,
+}) {
+  return M3ETextField(
+    controller: controller,
+    label: isRequired ? '$label *' : label,
+    supportingText: hint,
+    leading: Icon(icon),
+    variant: M3ETextFieldVariant.filled,
+  );
+}
   void _applyTimeShortcut(String shortcut) {
     final now = DateTime.now();
     setState(() {
@@ -1025,24 +992,15 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           ),
         ),
         const SizedBox(width: 10),
-        Expanded(
-          flex: 2,
-          child: ElevatedButton(
-            onPressed: _saveEvent,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-            ),
-            child: Text(
-              isEditing ? l10n.updateEvent : l10n.createEvent,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
+// ANTES: ElevatedButton
+Expanded(
+  flex: 2,
+  child: M3EButton(
+    style: M3EButtonStyle.filled,
+    onPressed: _saveEvent,
+    child: Text(isEditing ? l10n.updateEvent : l10n.createEvent),
+  ),
+),
       ],
     );
   }

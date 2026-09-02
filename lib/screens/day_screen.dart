@@ -1,5 +1,7 @@
 // lib/screens/day_screen.dart - VERSIÓN OPTIMIZADA
 import 'package:flutter/material.dart';
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
@@ -209,13 +211,14 @@ class _DayScreenState extends State<DayScreen>
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
           body: isLoading && widget.events.isEmpty
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: M3ELoadingIndicator())
               : widget.events.isEmpty
-                  ? _buildEmptyState()
-                  : _buildEventsList(nonEmptyPeriods),
-          floatingActionButton: FloatingActionButton(
+              ? _buildEmptyState()
+              : _buildEventsList(nonEmptyPeriods),
+          // DESPUÉS
+          floatingActionButton: M3EFab(
+            icon: const Icon(Icons.add),
             onPressed: _showAddEventBottomSheet,
-            child: const Icon(Icons.add),
           ),
         );
       },
@@ -343,14 +346,15 @@ class _PeriodSection extends StatelessWidget {
             itemCount: events.length,
             separatorBuilder: (context, index) => Padding(
               padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0, vertical: 4.0),
+                horizontal: 16.0,
+                vertical: 4.0,
+              ),
               child: Divider(
                 height: 1,
                 thickness: 0.5,
-                color: Theme.of(context)
-                    .colorScheme
-                    .outlineVariant
-                    .withOpacity(0.3),
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withOpacity(0.3),
               ),
             ),
             itemBuilder: (context, index) {
@@ -388,8 +392,7 @@ class _PeriodSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color:
-                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -454,59 +457,42 @@ class _PeriodSection extends StatelessWidget {
     );
   }
 
-  Future<bool?> _showDeleteConfirmationDialog(
-    BuildContext context,
-    Event event,
-  ) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(AppLocalizations.of(context).deleteConfirmationTitle),
-          content: Text(
-            '${AppLocalizations.of(context).deleteConfirmation} "${event.title}"?',
+ // DESPUÉS
+Future<bool?> _showDeleteConfirmationDialog(BuildContext context, Event event) {
+  return M3EDialog.show<bool>(
+    context,
+    dialog: M3EDialog(
+      title: AppLocalizations.of(context).deleteConfirmationTitle,
+      content: Text('${AppLocalizations.of(context).deleteConfirmation} "${event.title}"?'),
+      actions: [
+        M3EButton(
+          style: M3EButtonStyle.text,
+          onPressed: () async {
+            final eventProvider = Provider.of<EventProvider>(context, listen: false);
+            await eventProvider.deleteEvent(event.id, deleteAll: false);
+            Navigator.of(context).pop(true);
+          },
+          child: Text(AppLocalizations.of(context).delete),
+        ),
+        if (event.repeatDays.isNotEmpty)
+          M3EButton(
+            style: M3EButtonStyle.text,
+            onPressed: () async {
+              final eventProvider = Provider.of<EventProvider>(context, listen: false);
+              await eventProvider.deleteEvent(event.id, deleteAll: true);
+              Navigator.of(context).pop(true);
+            },
+            child: Text(AppLocalizations.of(context).deleteAllDays),
           ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                final eventProvider = Provider.of<EventProvider>(
-                  context,
-                  listen: false,
-                );
-                await eventProvider.deleteEvent(event.id, deleteAll: false);
-                Navigator.of(context).pop(true);
-              },
-              child: Text(
-                AppLocalizations.of(context).delete,
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-            if (event.repeatDays.isNotEmpty)
-              TextButton(
-                onPressed: () async {
-                  final eventProvider = Provider.of<EventProvider>(
-                    context,
-                    listen: false,
-                  );
-                  await eventProvider.deleteEvent(event.id, deleteAll: true);
-                  Navigator.of(context).pop(true);
-                },
-                child: Text(
-                  AppLocalizations.of(context).deleteAllDays,
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-              child: Text(AppLocalizations.of(context).cancel),
-            ),
-          ],
-        );
-      },
-    );
-  }
+        M3EButton(
+          style: M3EButtonStyle.text,
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(AppLocalizations.of(context).cancel),
+        ),
+      ],
+    ),
+  );
+}
 
   IconData _getPeriodIcon(TimePeriod period) {
     switch (period) {

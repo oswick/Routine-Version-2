@@ -1,5 +1,6 @@
 // lib/screens/home_screen.dart - VERSIÓN OPTIMIZADA
 import 'package:flutter/material.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/models/event.dart';
 import 'package:provider/provider.dart';
@@ -145,10 +146,11 @@ class _HomeScreenState extends State<HomeScreen>
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
           appBar: _buildAppBar(context, user),
-          body: RefreshIndicator(
+          // DESPUÉS
+          body: M3ERefreshIndicator.contained(
             onRefresh: _refreshEvents,
             child: state.isLoading && dailyEvents.isEmpty
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: M3ELoadingIndicator())
                 : _buildDayScreen(dailyEvents),
           ),
         );
@@ -238,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildDayScreen(List<dynamic> dailyEvents) {
     return DayScreen(
       day: selectedDate,
-events: dailyEvents.map((e) => e as Event).toList(),
+      events: dailyEvents.map((e) => e as Event).toList(),
       onAddEvent: (event) async {
         final eventProvider = Provider.of<EventProvider>(
           context,
