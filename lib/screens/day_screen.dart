@@ -214,12 +214,8 @@ class _DayScreenState extends State<DayScreen>
                   ? _buildEmptyState()
                   : _buildEventsList(nonEmptyPeriods),
           floatingActionButton: FloatingActionButton(
-            backgroundColor: Theme.of(context).colorScheme.primary,
             onPressed: _showAddEventBottomSheet,
-            child: Icon(
-              Icons.add,
-              color: Theme.of(context).colorScheme.onPrimary,
-            ),
+            child: const Icon(Icons.add),
           ),
         );
       },
@@ -297,7 +293,7 @@ class _DayScreenState extends State<DayScreen>
       builder: (context) => Container(
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: AddEventBottomSheet(
           onAddEvent: (event) {

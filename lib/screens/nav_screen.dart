@@ -344,131 +344,27 @@ class _MainHomeScreenState extends State<MainHomeScreen>
             },
             children: widgetOptions,
           ),
-          bottomNavigationBar: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainer,
-            ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.only(),
-              child: NavigationBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                indicatorColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withOpacity(0.12),
-                selectedIndex: _selectedIndex,
-                onDestinationSelected: _onItemTapped,
-                labelBehavior:
-                    NavigationDestinationLabelBehavior.onlyShowSelected,
-                destinations: [
-                  NavigationDestination(
-                    icon: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _selectedIndex == 0
-                            ? Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        _selectedIndex == 0
-                            ? Icons.home_rounded
-                            : Icons.home_outlined,
-                        color: _selectedIndex == 0
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withOpacity(0.6),
-                        size: 24,
-                      ),
-                    ),
-                    selectedIcon: Container(
-                      padding: const EdgeInsets.all(12),
-                      child: Icon(
-                        Icons.home_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 24,
-                      ),
-                    ),
-                    label: AppLocalizations.of(
-                      context,
-                    ).home, // 'Home' / 'Inicio'
-                  ),
-                  NavigationDestination(
-                    icon: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _selectedIndex == 1
-                            ? Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        _selectedIndex == 1
-                            ? Icons.calendar_month_rounded
-                            : Icons.calendar_month_outlined,
-                        color: _selectedIndex == 1
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withOpacity(0.6),
-                        size: 24,
-                      ),
-                    ),
-                    selectedIcon: Container(
-                      padding: const EdgeInsets.all(12),
-                      child: Icon(
-                        Icons.calendar_month_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 24,
-                      ),
-                    ),
-                    label: AppLocalizations.of(
-                      context,
-                    ).calendar, // 'Calendar' / 'Calendario'
-                  ),
-                  NavigationDestination(
-                    icon: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _selectedIndex == 2
-                            ? Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        _selectedIndex == 2
-                            ? Icons.person
-                            : Icons.person_outline,
-                        color: _selectedIndex == 2
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withOpacity(0.6),
-                        size: 24,
-                      ),
-                    ),
-                    selectedIcon: Container(
-                      padding: const EdgeInsets.all(12),
-                      child: Icon(
-                        Icons.person,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 24,
-                      ),
-                    ),
-                    label: AppLocalizations.of(
-                      context,
-                    ).profile, // 'Profile' / 'Perfil'
-                  ),
-                ],
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: _onItemTapped,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: [
+              NavigationDestination(
+                icon: const Icon(Icons.home_outlined),
+                selectedIcon: const Icon(Icons.home_rounded),
+                label: AppLocalizations.of(context).home,
               ),
-            ),
+              NavigationDestination(
+                icon: const Icon(Icons.calendar_month_outlined),
+                selectedIcon: const Icon(Icons.calendar_month_rounded),
+                label: AppLocalizations.of(context).calendar,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.person_outline),
+                selectedIcon: const Icon(Icons.person_rounded),
+                label: AppLocalizations.of(context).profile,
+              ),
+            ],
           ),
         );
       },

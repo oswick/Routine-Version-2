@@ -246,10 +246,15 @@ class _EventCardState extends State<EventCard>
         return GestureDetector(
           onTap: () => _showPreview(context),
           child: Card(
-            color: Theme.of(context).colorScheme.surfaceContainer,
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
             elevation: 0,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
             child: Opacity(
               opacity: opacity,
               child: Padding(

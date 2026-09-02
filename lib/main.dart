@@ -3,8 +3,10 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:myapp/config/app_config.dart';
+import 'package:myapp/config/app_theme.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/providers/auth_provider.dart';
+import 'package:myapp/providers/theme_provider.dart';
 import 'package:myapp/screens/nav_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
@@ -41,6 +43,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => EventProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
@@ -94,39 +97,39 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return DynamicColorBuilder(
-      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        return MaterialApp(
-          title: 'Routine',
-          debugShowCheckedModeBanner: false,
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        return DynamicColorBuilder(
+          builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+            final lightScheme = themeProvider.useDynamicColor ? lightDynamic : null;
+            final darkScheme = themeProvider.useDynamicColor ? darkDynamic : null;
 
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [
-            Locale('en'),
-            Locale('es'),
-          ],
-
-          theme: ThemeData(
-            typography: Typography.material2021(),
-            useMaterial3: true,
-            useSystemColors: true,
-            brightness: Brightness.light,
-            colorScheme: lightDynamic,
-          ),
-          darkTheme: ThemeData(
-            typography: Typography.material2021(),
-            useMaterial3: true,
-            useSystemColors: true,
-            brightness: Brightness.dark,
-            colorScheme: darkDynamic,
-          ),
-          themeMode: ThemeMode.system,
-          home: const MainHomeScreen(),
+            return MaterialApp(
+              title: 'Routine',
+              debugShowCheckedModeBanner: false,
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: const [
+                Locale('en'),
+                Locale('es'),
+              ],
+              theme: AppTheme.lightTheme(
+                dynamicColorScheme: lightScheme,
+                seedColor: themeProvider.currentSeedColor,
+              ),
+              darkTheme: AppTheme.darkTheme(
+                dynamicColorScheme: darkScheme,
+                seedColor: themeProvider.currentSeedColor,
+                isAmoled: themeProvider.isAmoled,
+              ),
+              themeMode: themeProvider.themeMode,
+              home: const MainHomeScreen(),
+            );
+          },
         );
       },
     );
