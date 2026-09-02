@@ -1,13 +1,20 @@
 // test/widget_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/config/app_theme.dart';
 import 'package:myapp/providers/auth_provider.dart';
 import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/providers/theme_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('App renders MaterialApp with Material 3 Expressive theme', (WidgetTester tester) async {
     await tester.pumpWidget(
       MultiProvider(

@@ -3,13 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myapp/config/app_theme.dart';
 import 'package:myapp/providers/theme_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
 
   group('AppTheme Tests', () {
-    test('Light Theme builds with Material 3 and Expressive color scheme', () {
+    testWidgets('Light Theme builds with Material 3 and Expressive color scheme', (tester) async {
       final theme = AppTheme.lightTheme();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: const Scaffold(body: Center(child: Text('Light'))),
+        ),
+      );
       expect(theme.useMaterial3, isTrue);
       expect(theme.brightness, Brightness.light);
       expect(theme.colorScheme.brightness, Brightness.light);
@@ -17,17 +26,25 @@ void main() {
       expect(theme.floatingActionButtonTheme.shape, isA<RoundedRectangleBorder>());
     });
 
-    test('Dark Theme builds with Material 3 and AMOLED support', () {
+    testWidgets('Dark Theme builds with Material 3 and AMOLED support', (tester) async {
       final standardDark = AppTheme.darkTheme(isAmoled: false);
+      final amoledDark = AppTheme.darkTheme(isAmoled: true);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          darkTheme: amoledDark,
+          themeMode: ThemeMode.dark,
+          home: const Scaffold(body: Center(child: Text('Dark'))),
+        ),
+      );
+
       expect(standardDark.useMaterial3, isTrue);
       expect(standardDark.brightness, Brightness.dark);
-
-      final amoledDark = AppTheme.darkTheme(isAmoled: true);
       expect(amoledDark.colorScheme.surface, Colors.black);
       expect(amoledDark.scaffoldBackgroundColor, Colors.black);
     });
 
-    test('Theme generates properly with custom seeds', () {
+    testWidgets('Theme generates properly with custom seeds', (tester) async {
       for (final seed in AppThemeSeed.values) {
         final light = AppTheme.lightTheme(seedColor: seed.color);
         final dark = AppTheme.darkTheme(seedColor: seed.color);
