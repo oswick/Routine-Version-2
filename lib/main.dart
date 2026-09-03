@@ -1,12 +1,10 @@
 // lib/main.dart
-import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/config/app_config.dart';
-import 'package:myapp/config/app_theme.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/providers/auth_provider.dart';
-import 'package:myapp/providers/theme_provider.dart';
 import 'package:myapp/screens/nav_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
@@ -17,13 +15,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'utils/notification_service.dart';
 import 'utils/app_lifecycle_handler.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:material_3_expressive/material_3_expressive.dart';
 
 // CRÍTICO: re-exportar el background handler aquí para que el linker de Dart
 // lo incluya en el build. Sin este import el compilador puede eliminarlo.
 // La función está definida en notification_service.dart como top-level.
 // ignore: unused_import
 export 'utils/notification_service.dart' show notificationBackgroundHandler;
+
+// TODO: reemplaza esto por el color de marca de tu app (seed color).
+// Si no tienes un color de marca fijo, puedes dejarlo tal cual:
+// dynamicColoring:true hará que el sistema (Material You / Android 12+)
+// lo sobreescriba cuando esté disponible; este seed queda solo como
+// fallback en iOS/desktop o dispositivos sin dynamic color.
+const Color _seedColor = Color(0xFF6750A4);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,7 +48,6 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => EventProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
@@ -98,46 +101,33 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeProvider>(
-      builder: (context, themeProvider, _) {
-        return DynamicColorBuilder(
-          builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-            final lightScheme = themeProvider.useDynamicColor
-                ? lightDynamic
-                : null;
-            final darkScheme = themeProvider.useDynamicColor
-                ? darkDynamic
-                : null;
+    // M3EMaterialApp reemplaza a MaterialApp + DynamicColorBuilder:
+    // ya gestiona internamente el brightness del sistema, el
+    // ThemeMode y el dynamic color (Material You / Android 12+),
+    // así que ya no hace falta envolver el árbol a mano.
+    return M3EMaterialApp(
+      title: 'Routine',
+      debugShowCheckedModeBanner: false,
+      drawUnderSystemBars: true,
 
-            return MaterialApp(
-              title: 'Routine',
-              debugShowCheckedModeBanner: false,
-              localizationsDelegates: const [/* igual */],
-              supportedLocales: const [/* igual */],
-              theme: AppTheme.lightTheme(
-                dynamicColorScheme: lightScheme,
-                seedColor: themeProvider.currentSeedColor,
-              ),
-              darkTheme: AppTheme.darkTheme(
-                dynamicColorScheme: darkScheme,
-                seedColor: themeProvider.currentSeedColor,
-                isAmoled: themeProvider.isAmoled,
-              ),
-              themeMode: themeProvider.themeMode,
-              home: M3ETheme(
-                data: themeProvider.themeMode == ThemeMode.dark
-                    ? M3EThemeData.dark(
-                        seedColor: themeProvider.currentSeedColor,
-                      )
-                    : M3EThemeData.light(
-                        seedColor: themeProvider.currentSeedColor,
-                      ),
-                child: const MainHomeScreen(),
-              ),
-            );
-          },
-        );
-      },
+      // Tema base M3 Expressive (claro), a partir del cual se derivan
+      // el tema oscuro y el dynamic color.
+      data: M3EThemeData.light(seedColor: _seedColor),
+      autoTheming: true, // sigue el brightness del sistema
+      dynamicColoring: true, // usa Material You cuando esté disponible
+
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en'),
+        Locale('es'),
+      ],
+
+      home: const MainHomeScreen(),
     );
   }
 }

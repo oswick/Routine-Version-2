@@ -1,7 +1,7 @@
 // lib/utils/event_sorting_utils.dart
 import '../models/event.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Opciones de ordenamiento disponibles
 enum EventSortOption {

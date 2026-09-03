@@ -1,5 +1,5 @@
 // lib/utils/app_lifecycle_handler.dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/event_provider.dart';
 import '../utils/notification_service.dart';

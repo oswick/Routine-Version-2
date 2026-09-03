@@ -1,5 +1,5 @@
 // lib/screens/home_screen.dart - VERSIÓN OPTIMIZADA
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/models/event.dart';

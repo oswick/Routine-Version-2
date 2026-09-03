@@ -4,7 +4,7 @@
 // ("School", "Home", "Work", etc.). They are only translated for display.
 // Never store localized strings as category values.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 
 // Fixed category keys — these are the values stored in the DB.

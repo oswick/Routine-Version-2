@@ -1,8 +1,6 @@
 // lib/screens/settings_screen.dart
-import 'package:flutter/material.dart';
-import 'package:myapp/config/app_theme.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:myapp/l10n/app_localizations.dart';
-import 'package:myapp/providers/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/auth_provider.dart';
 import 'package:myapp/services/biometric_service.dart';
@@ -509,157 +507,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildThemeSettings(ThemeProvider themeProvider) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Theme Mode Selector (SegmentedButton)
-          SegmentedButton<ThemeMode>(
-            segments: const [
-              ButtonSegment<ThemeMode>(
-                value: ThemeMode.system,
-                icon: Icon(Icons.brightness_auto_outlined),
-                label: Text('Sistema'),
-              ),
-              ButtonSegment<ThemeMode>(
-                value: ThemeMode.light,
-                icon: Icon(Icons.light_mode_outlined),
-                label: Text('Claro'),
-              ),
-              ButtonSegment<ThemeMode>(
-                value: ThemeMode.dark,
-                icon: Icon(Icons.dark_mode_outlined),
-                label: Text('Oscuro'),
-              ),
-            ],
-            selected: {themeProvider.themeMode},
-            onSelectionChanged: (newSelection) {
-              themeProvider.setThemeMode(newSelection.first);
-            },
-          ),
-          const SizedBox(height: 16),
-
-          // AMOLED Pure Black Toggle
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            secondary: Icon(
-              Icons.nightlight_round,
-              color: colorScheme.primary,
-            ),
-            title: const Text(
-              'Negro Puro (AMOLED)',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-            ),
-            subtitle: Text(
-              'Fondo totalmente negro para ahorrar batería',
-              style: TextStyle(
-                fontSize: 12,
-                color: colorScheme.onSurface.withOpacity(0.6),
-              ),
-            ),
-            value: themeProvider.isAmoled,
-            onChanged: (val) => themeProvider.setAmoled(val),
-          ),
-          const Divider(height: 24),
-
-          // Dynamic Colors (Material You) Toggle
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            secondary: Icon(
-              Icons.palette_outlined,
-              color: colorScheme.primary,
-            ),
-            title: const Text(
-              'Color Dinámico (Material You)',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-            ),
-            subtitle: Text(
-              'Usar los colores del fondo de pantalla del sistema',
-              style: TextStyle(
-                fontSize: 12,
-                color: colorScheme.onSurface.withOpacity(0.6),
-              ),
-            ),
-            value: themeProvider.useDynamicColor,
-            onChanged: (val) => themeProvider.setUseDynamicColor(val),
-          ),
-
-          // Expressive Seeds Palette
-          if (!themeProvider.useDynamicColor) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Paleta de Semilla Expresiva',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface.withOpacity(0.8),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: AppThemeSeed.values.map((seed) {
-                final isSelected = themeProvider.selectedSeed == seed;
-                return InkWell(
-                  onTap: () => themeProvider.setSelectedSeed(seed),
-                  borderRadius: BorderRadius.circular(16),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? seed.color.withOpacity(0.18)
-                          : colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected ? seed.color : Colors.transparent,
-                        width: 2,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 18,
-                          height: 18,
-                          decoration: BoxDecoration(
-                            color: seed.color,
-                            shape: BoxShape.circle,
-                          ),
-                          child: isSelected
-                              ? const Icon(Icons.check, size: 12, color: Colors.white)
-                              : null,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          seed.label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: isSelected ? seed.color : colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final themeProvider = Provider.of<ThemeProvider>(context);
     final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -677,30 +527,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // Theme & Appearance Section (Material 3 Expressive)
-          Text(
-            'Aspecto y Tema (Material 3)',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface.withOpacity(0.8),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          Container(
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: colorScheme.outlineVariant.withOpacity(0.3),
-              ),
-            ),
-            child: _buildThemeSettings(themeProvider),
-          ),
-
-          const SizedBox(height: 24),
-
           // Security Section
           Text(
             l10n.security,

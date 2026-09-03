@@ -5,7 +5,7 @@
 // 3. Colores de progreso dinámicos según porcentaje
 // 4. Estado de evento activo bien distinguido visualmente
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/screens/pomodoro_screen.dart';
