@@ -17,7 +17,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.example.myapp"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = flutter.ndkVersion
 
 compileOptions {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -39,17 +39,25 @@ kotlinOptions {
     }
 
     signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = keystoreProperties["storeFile"]?.let { file(it as String) }
-            storePassword = keystoreProperties["storePassword"] as String
+            val storeFilePath = keystoreProperties.getProperty("storeFile")
+            val hasReleaseSigning = listOf("keyAlias", "keyPassword", "storePassword")
+                .all { keystoreProperties.getProperty(it).isNullOrBlank().not() } &&
+                !storeFilePath.isNullOrBlank() &&
+                file(storeFilePath).exists()
+
+            if (hasReleaseSigning) {
+                create("release") {
+                    keyAlias = keystoreProperties.getProperty("keyAlias")
+                    keyPassword = keystoreProperties.getProperty("keyPassword")
+                    storeFile = file(storeFilePath!!)
+                    storePassword = keystoreProperties.getProperty("storePassword")
+                }
         }
     }
 
     buildTypes {
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
         }
