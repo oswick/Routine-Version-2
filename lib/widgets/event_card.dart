@@ -8,6 +8,7 @@
 //    del timer global del provider ni de recargar la pantalla.
 
 import 'dart:async';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/l10n/app_localizations.dart';
@@ -58,8 +59,7 @@ class _EventCardState extends State<EventCard>
       duration: const Duration(milliseconds: 800),
     );
     _progressAnim = Tween<double>(begin: 0, end: 0).animate(
-      CurvedAnimation(
-          parent: _progressAnimController, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _progressAnimController, curve: Curves.easeInOut),
     );
 
     _loadCompletedStatus();
@@ -156,10 +156,20 @@ class _EventCardState extends State<EventCard>
 
     if (_isRepetitive()) {
       if (!widget.event.repeatDays.contains(now.weekday)) return false;
-      final start = DateTime(now.year, now.month, now.day,
-          widget.event.startTime.hour, widget.event.startTime.minute);
-      final end = DateTime(now.year, now.month, now.day,
-          widget.event.endTime!.hour, widget.event.endTime!.minute);
+      final start = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        widget.event.startTime.hour,
+        widget.event.startTime.minute,
+      );
+      final end = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        widget.event.endTime!.hour,
+        widget.event.endTime!.minute,
+      );
       return now.isAfter(start) && now.isBefore(end);
     } else {
       return now.isAfter(widget.event.startTime) &&
@@ -176,14 +186,23 @@ class _EventCardState extends State<EventCard>
 
     if (_isRepetitive()) {
       if (!widget.event.repeatDays.contains(now.weekday)) return 0.0;
-      final s = DateTime(now.year, now.month, now.day,
-          widget.event.startTime.hour, widget.event.startTime.minute);
-      final e = DateTime(now.year, now.month, now.day,
-          widget.event.endTime!.hour, widget.event.endTime!.minute);
+      final s = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        widget.event.startTime.hour,
+        widget.event.startTime.minute,
+      );
+      final e = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        widget.event.endTime!.hour,
+        widget.event.endTime!.minute,
+      );
       if (now.isBefore(s)) return 0.0;
       if (now.isAfter(e)) return 1.0;
-      return (now.difference(s).inMilliseconds /
-              e.difference(s).inMilliseconds)
+      return (now.difference(s).inMilliseconds / e.difference(s).inMilliseconds)
           .clamp(0.0, 1.0);
     } else {
       if (now.isBefore(widget.event.startTime)) return 0.0;
@@ -203,8 +222,13 @@ class _EventCardState extends State<EventCard>
 
     DateTime endRef;
     if (_isRepetitive()) {
-      endRef = DateTime(now.year, now.month, now.day,
-          widget.event.endTime!.hour, widget.event.endTime!.minute);
+      endRef = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        widget.event.endTime!.hour,
+        widget.event.endTime!.minute,
+      );
     } else {
       endRef = widget.event.endTime!;
     }
@@ -257,8 +281,11 @@ class _EventCardState extends State<EventCard>
     if (_isRepetitive()) {
       return Row(
         children: [
-          Icon(Icons.repeat,
-              color: Theme.of(context).colorScheme.primary, size: 14),
+          Icon(
+            Icons.repeat,
+            color: Theme.of(context).colorScheme.primary,
+            size: 14,
+          ),
           const SizedBox(width: 4),
           Text(
             _repeatDaysText(),
@@ -303,11 +330,13 @@ class _EventCardState extends State<EventCard>
 
     // Animate to new progress value when it changes
     if (showProgress && (rawProgress - _lastProgress).abs() > 0.0005) {
-      _progressAnim = Tween<double>(
-        begin: _progressAnim.value,
-        end: rawProgress,
-      ).animate(CurvedAnimation(
-          parent: _progressAnimController, curve: Curves.easeOut));
+      _progressAnim =
+          Tween<double>(begin: _progressAnim.value, end: rawProgress).animate(
+            CurvedAnimation(
+              parent: _progressAnimController,
+              curve: Curves.easeOut,
+            ),
+          );
       _progressAnimController
         ..reset()
         ..forward();
@@ -322,7 +351,9 @@ class _EventCardState extends State<EventCard>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withOpacity(0.3),
             width: 1,
           ),
         ),
@@ -341,8 +372,7 @@ class _EventCardState extends State<EventCard>
                         width: 4,
                         height: 40,
                         decoration: BoxDecoration(
-                          color:
-                              getImportanceColor(widget.event.importance!),
+                          color: getImportanceColor(widget.event.importance!),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -355,10 +385,9 @@ class _EventCardState extends State<EventCard>
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.1),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -387,9 +416,9 @@ class _EventCardState extends State<EventCard>
                                     decoration: isCompleted
                                         ? TextDecoration.lineThrough
                                         : null,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                   ),
                                 ),
                               ),
@@ -397,10 +426,9 @@ class _EventCardState extends State<EventCard>
                                 _formatTime(widget.event.startTime),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withOpacity(0.6),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.6),
                                 ),
                               ),
                             ],
@@ -416,14 +444,14 @@ class _EventCardState extends State<EventCard>
                         !isCompleted &&
                         !widget.pastEvent)
                       IconButton(
-                        icon: Icon(Icons.timer,
-                            color:
-                                Theme.of(context).colorScheme.primary),
+                        icon: Icon(
+                          Icons.timer,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                PomodoroScreen(event: widget.event),
+                            builder: (_) => PomodoroScreen(event: widget.event),
                           ),
                         ),
                       ),
@@ -442,7 +470,7 @@ class _EventCardState extends State<EventCard>
                   ],
                 ),
 
-                // ── Real-time progress bar ──────────────────────────────────
+                // ── Real-time progress bar (Material 3 Expressive) ───────────
                 if (showProgress)
                   AnimatedBuilder(
                     animation: _progressAnim,
@@ -455,22 +483,18 @@ class _EventCardState extends State<EventCard>
                         padding: const EdgeInsets.only(top: 10),
                         child: Column(
                           children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: p,
-                                minHeight: 5,
-                                backgroundColor: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(color),
-                              ),
+                            M3EProgressIndicator.linearWavy(
+                              value: p,
+                              linearSize: M3EProgressIndicatorSize.s,
+                              color: color,
+                              trackColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                             ),
                             const SizedBox(height: 4),
+                            // ... el Row con el % y el tiempo restante sigue igual, sin cambios
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 // Elapsed %
                                 Text(
@@ -485,8 +509,11 @@ class _EventCardState extends State<EventCard>
                                 if (remaining.isNotEmpty)
                                   Row(
                                     children: [
-                                      Icon(Icons.schedule,
-                                          size: 11, color: color),
+                                      Icon(
+                                        Icons.schedule,
+                                        size: 11,
+                                        color: color,
+                                      ),
                                       const SizedBox(width: 2),
                                       Text(
                                         remaining,
@@ -503,10 +530,9 @@ class _EventCardState extends State<EventCard>
                                   _formatTime(widget.event.endTime!),
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withOpacity(0.5),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface.withOpacity(0.5),
                                   ),
                                 ),
                               ],
