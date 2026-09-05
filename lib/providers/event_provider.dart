@@ -424,7 +424,7 @@ class EventProvider extends ChangeNotifier {
       );
 
       // Optimistic update — add to memory immediately so UI responds instantly.
-      _events.add(newEvent);
+      
       _dayCache.clear();
       _notifyChanges();
 
@@ -452,13 +452,18 @@ class EventProvider extends ChangeNotifier {
     final oldEvent = _events[index];
 
     // Optimistic update.
-    _events[index] = updatedEvent;
-    if (updatedEvent.endTime != null) {
-      _progressCache[updatedEvent.id] =
-          _calculateEventProgress(updatedEvent, DateTime.now());
-    }
-    _dayCache.clear();
-    _notifyChanges();
+   _events[index] = updatedEvent;
+
+if (updatedEvent.endTime != null) {
+  _progressCache[updatedEvent.id] =
+      _calculateEventProgress(
+    updatedEvent,
+    DateTime.now(),
+  );
+}
+
+_dayCache.clear();
+_notifyChanges();
 
     try {
       await _syncService.saveEvent(updatedEvent);
