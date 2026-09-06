@@ -1,4 +1,5 @@
 // lib/screens/nav_screen.dart
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_3_expressive/components/navigation_bar/models/m3e_navigation_bar_destination.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
@@ -196,16 +197,13 @@ class _MainHomeScreenState extends State<MainHomeScreen>
           _isCheckingAuth = false;
         });
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
+          if (mounted) {
+          M3ESnackbar.show(
+            context,
+            message:
                 authResult.errorMessage ??
-                    AppLocalizations.of(context).authenticationFailed,
-              ), // Usar traducción
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 4),
-            ),
+                AppLocalizations.of(context).authenticationFailed,
+            duration: const Duration(seconds: 4),
           );
         }
       }
@@ -215,13 +213,11 @@ class _MainHomeScreenState extends State<MainHomeScreen>
         _isCheckingAuth = false;
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(' ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
+         if (mounted) {
+        M3ESnackbar.show(
+          context,
+          message: ' ${e.toString()}',
+          duration: const Duration(seconds: 4),
         );
       }
     }
@@ -281,7 +277,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
                 ),
               ),
               const SizedBox(height: 32),
-              ElevatedButton.icon(
+                         M3EButton.icon(
                 onPressed: _performBiometricAuth,
                 icon: const Icon(Icons.fingerprint),
                 label: Text(
@@ -289,13 +285,8 @@ class _MainHomeScreenState extends State<MainHomeScreen>
                     context,
                   ).authenticateToAccess.replaceAll(' to access the app', ''),
                 ), // Solo "Authenticate" / "Autentícate"
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                  textStyle: const TextStyle(fontSize: 18),
-                ),
+                style: M3EButtonStyle.filled,
+                size: M3EButtonSize.md,
               ),
             ],
           ],
@@ -395,9 +386,9 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     }
 
     // Estado de carga por defecto
-    return Scaffold(
+      return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: const Center(child: CircularProgressIndicator()),
+      body: const Center(child: M3ELoadingIndicator()),
     );
   }
 }

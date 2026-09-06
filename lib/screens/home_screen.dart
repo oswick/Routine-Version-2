@@ -167,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen>
     BuildContext context,
     dynamic user,
   ) {
-    return AppBar(
+      return M3EAppBar.top(
       backgroundColor: Theme.of(context).colorScheme.surface,
       elevation: 0,
 

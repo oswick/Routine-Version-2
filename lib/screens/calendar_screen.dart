@@ -1,4 +1,5 @@
 // lib/screens/calendar_screen.dart - MEJORADA CON TIMELINE Y PREVIEW
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -174,7 +175,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          appBar: AppBar(
+          appBar: M3EAppBar.top(
             backgroundColor: Theme.of(context).colorScheme.surface,
             elevation: 0,
             title: Text(
@@ -188,7 +189,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               // Filtrar completados
          
               // Timeline toggle
-              IconButton(
+              M3EIconButton(
                 icon: Icon(
                   _showTimeline ? Icons.timeline : Icons.timeline_outlined,
                   color: _showTimeline 
@@ -200,7 +201,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               ),
               
               // Ir a hoy
-              IconButton(
+              M3EIconButton(
                 icon: Icon(
                   Icons.today,
                   color: Theme.of(context).colorScheme.primary,
@@ -210,7 +211,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               ),
               
               // Cambiar formato
-              IconButton(
+              M3EIconButton(
                 icon: Icon(
                   _calendarFormat == CalendarFormat.month
                       ? Icons.view_week
@@ -225,7 +226,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             ],
           ),
           body: eventProvider.isLoading && allEvents.isEmpty
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: M3ELoadingIndicator())
               : Column(
                   children: [
                     // Calendario
@@ -319,8 +320,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     ),
 
                     // Divider
-                    Divider(
-                      height: 1,
+                    M3EDivider(
                       thickness: 1,
                       color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
                     ),
@@ -363,7 +363,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
                     // Lista de eventos
                     Expanded(
-                      child: RefreshIndicator(
+                      child: M3ERefreshIndicator(
                         onRefresh: () => eventProvider.loadEvents(),
                         child: filteredEvents.isEmpty
                             ? _buildEmptyState(context)
@@ -744,18 +744,15 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   ) {
     final l10n = AppLocalizations.of(context);
 
-    return showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(l10n.deleteConfirmationTitle),
-          content: Text(l10n.deleteConfirmation),
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          actions: [
-            TextButton(
+ return M3EDialog.show<bool>(
+      context,
+      dialog: Builder(
+        builder: (context) {
+          return M3EDialog(
+            title: l10n.deleteConfirmationTitle,
+            content: Text(l10n.deleteConfirmation),
+            actions: [
+              M3EButton.text(
               onPressed: () async {
                 await eventProvider.deleteEvent(event.id, deleteAll: false);
                 Navigator.of(context).pop(true);
@@ -766,7 +763,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               ),
             ),
             if (event.repeatDays.isNotEmpty)
-              TextButton(
+              M3EButton.text(
                 onPressed: () async {
                   await eventProvider.deleteEvent(event.id, deleteAll: true);
                   Navigator.of(context).pop(true);
@@ -776,7 +773,7 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   style: TextStyle(color: Colors.red),
                 ),
               ),
-            TextButton(
+            M3EButton.text(
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
@@ -785,7 +782,8 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           ],
         );
       },
-    );
+    ),
+ );
   }
 
   IconData _getCategoryIcon(String category) {

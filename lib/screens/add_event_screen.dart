@@ -359,12 +359,12 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
-            TextButton(
+            M3EButton.text(
               onPressed: () => setState(() => _showTimeShortcuts = false),
-              style: TextButton.styleFrom(
+              size: M3EButtonSize.xs,
+              decoration: M3EButtonDecoration(
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(0, 0),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(
                 l10n.hide,
@@ -473,7 +473,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             if (!_showTimeShortcuts)
-              TextButton.icon(
+              M3EButton.icon(
                 onPressed: () => setState(() => _showTimeShortcuts = true),
                 icon: Icon(
                   Icons.bolt,
@@ -488,18 +488,18 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                style: TextButton.styleFrom(
+                style: M3EButtonStyle.tonal,
+                size: M3EButtonSize.xs,
+                decoration: M3EButtonDecoration(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 6,
                   ),
                   minimumSize: const Size(0, 0),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer.withOpacity(0.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  backgroundColor: WidgetStateProperty.all(
+                    Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withOpacity(0.5),
                   ),
                 ),
               ),
@@ -891,7 +891,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
             color: Theme.of(
               context,
             ).colorScheme.surfaceContainer.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(15),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -946,7 +946,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
           color: isActive
               ? Theme.of(context).colorScheme.primaryContainer
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(15),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1011,14 +1011,10 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
     return Row(
       children: [
         Expanded(
-          child: TextButton(
+          child: M3EButton.text(
             onPressed: _closeWithAnimation,
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
+            size: M3EButtonSize.md,
+
             child: Text(
               l10n.cancel,
               style: TextStyle(
@@ -1044,39 +1040,41 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   }
 
   Future<void> _selectTime(bool isStartTime) async {
-    final initialTime = TimeOfDay.fromDateTime(
-      isStartTime ? _startTime : (_endTime ?? _startTime),
-    );
-    final time = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-    );
-    if (time != null) {
-      setState(() {
-        if (isStartTime) {
-          _startTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            time.hour,
-            time.minute,
-          );
-        } else {
-          _endTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            time.hour,
-            time.minute,
-          );
-        }
-      });
-    }
+  final currentTime = isStartTime ? _startTime : (_endTime ?? _startTime);
+  final initialTime = M3ETime(
+    hour: currentTime.hour,
+    minute: currentTime.minute,
+  );
+  final time = await M3ETimePicker.show(
+    context,
+    initialTime: initialTime,
+  );
+  if (time != null) {
+    setState(() {
+      if (isStartTime) {
+        _startTime = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          time.hour,
+          time.minute,
+        );
+      } else {
+        _endTime = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          time.hour,
+          time.minute,
+        );
+      }
+    });
   }
+}
 
   Future<void> _selectDate() async {
-    final date = await showDatePicker(
-      context: context,
+    final date = await M3EDatePicker.show(
+      context,
       initialDate: _selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),

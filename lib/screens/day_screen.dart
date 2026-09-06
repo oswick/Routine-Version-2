@@ -472,8 +472,7 @@ class _PeriodSection
                   vertical: 4.0,
                 ),
 
-                child: Divider(
-                  height: 1,
+                child: M3EDivider(
                   thickness: 0.5,
 
                   color: Theme.of(
