@@ -338,6 +338,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
           bottomNavigationBar: M3ENavigationBar(
             selectedIndex: _selectedIndex,
             onDestinationSelected: _onItemTapped,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             destinations: [
               M3ENavigationBarDestination(
                 icon: const Icon(Icons.home_outlined),

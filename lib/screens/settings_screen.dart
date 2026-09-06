@@ -1,5 +1,6 @@
 // lib/screens/settings_screen.dart
 import 'package:material_ui/material_ui.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/auth_provider.dart';
@@ -56,27 +57,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() => _selectedSortOption = option);
 
         final l10n = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            // FIX: was hardcoded 'Sort preference saved: ...'
-            content: Text(
-              '${l10n.sortPrefSaved}: ${_getSortOptionName(option)}',
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-          ),
+        M3ESnackbar.show(
+          context,
+          // FIX: was hardcoded 'Sort preference saved: ...'
+          message: '${l10n.sortPrefSaved}: ${_getSortOptionName(option)}',
+          duration: const Duration(seconds: 2),
         );
       }
     } catch (e) {
       debugPrint('Error saving sort preference: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${AppLocalizations.of(context).error}: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
+        M3ESnackbar.show(
+          context,
+          message: '${AppLocalizations.of(context).error}: $e',
         );
       }
     }
@@ -123,45 +116,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _showSortOptionsDialog() async {
     final l10n = AppLocalizations.of(context);
 
-    final result = await showDialog<EventSortOption>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          // FIX: was hardcoded 'Event Sorting'
-          title: Text(l10n.eventSorting),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: EventSortOption.values.map((option) {
-                return RadioListTile<EventSortOption>(
-                  title: Text(_getSortOptionName(option)),
-                  subtitle: Text(
-                    _getSortOptionDescription(option),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withOpacity(0.6),
-                    ),
-                  ),
+    final result = await M3EDialog.show<EventSortOption>(
+      context,
+      dialog: M3EDialog(
+        // FIX: was hardcoded 'Event Sorting'
+        title: l10n.eventSorting,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: EventSortOption.values.map((option) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: M3ERadio<EventSortOption>(
                   value: option,
                   groupValue: _selectedSortOption,
                   onChanged: (value) {
                     Navigator.of(context).pop(value);
                   },
-                );
-              }).toList(),
-            ),
+                  label: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_getSortOptionName(option)),
+                      Text(
+                        _getSortOptionDescription(option),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(AppLocalizations.of(context).cancel),
-            ),
-          ],
-        );
-      },
+        ),
+        actions: [
+          M3EButton.text(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(AppLocalizations.of(context).cancel),
+          ),
+        ],
+      ),
     );
 
     if (result != null && result != _selectedSortOption) {
@@ -188,24 +187,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (result.success) {
         await authProvider.setBiometricAuthEnabled(true);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              // FIX: was hardcoded English
-              content: Text(l10n.biometricEnabledSuccessfully),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
+          M3ESnackbar.show(
+            context,
+            // FIX: was hardcoded English
+            message: l10n.biometricEnabledSuccessfully,
           );
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result.errorMessage ?? l10n.authenticationFailed),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-            ),
+          M3ESnackbar.show(
+            context,
+            message: result.errorMessage ?? l10n.authenticationFailed,
+            duration: const Duration(seconds: 4),
           );
         }
       }
@@ -214,26 +207,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (result.success) {
         await authProvider.setBiometricAuthEnabled(false);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              // FIX: was hardcoded English
-              content: Text(l10n.biometricDisabled),
-              backgroundColor: Colors.orange,
-              behavior: SnackBarBehavior.floating,
-            ),
+          M3ESnackbar.show(
+            context,
+            // FIX: was hardcoded English
+            message: l10n.biometricDisabled,
           );
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
+          M3ESnackbar.show(
+            context,
+            message:
                 '${l10n.authRequiredToChangeSettings} ${result.errorMessage ?? ''}',
-              ),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-            ),
+            duration: const Duration(seconds: 4),
           );
         }
       }
@@ -243,33 +229,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _showTimeoutOptionsDialog(AuthProvider authProvider) async {
     final l10n = AppLocalizations.of(context);
 
-    final result = await showDialog<int>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(AppLocalizations.of(context).autoLockTimeout),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: AuthProvider.timeoutOptions.map((minutes) {
-              return RadioListTile<int>(
+    final result = await M3EDialog.show<int>(
+      context,
+      dialog: M3EDialog(
+        title: AppLocalizations.of(context).autoLockTimeout,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: AuthProvider.timeoutOptions.map((minutes) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: M3ERadio<int>(
                 // FIX: pass context so getTimeoutText uses l10n
-                title: Text(AuthProvider.getTimeoutText(minutes, context)),
                 value: minutes,
                 groupValue: authProvider.authTimeoutMinutes,
                 onChanged: (value) {
                   Navigator.of(context).pop(value);
                 },
-              );
-            }).toList(),
+                label: Text(AuthProvider.getTimeoutText(minutes, context)),
+              ),
+            );
+          }).toList(),
+        ),
+        actions: [
+          M3EButton.text(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(AppLocalizations.of(context).cancel),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
 
     if (result != null && result != authProvider.authTimeoutMinutes) {
@@ -279,28 +266,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await authProvider.setLastAuthTime();
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              // FIX: was hardcoded English
-              content: Text(
+          M3ESnackbar.show(
+            context,
+            // FIX: was hardcoded English
+            message:
                 '${l10n.autoLockTimeoutSetTo} ${AuthProvider.getTimeoutText(result, context)}',
-              ),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
           );
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
+          M3ESnackbar.show(
+            context,
+            message:
                 '${l10n.authRequiredToChangeSettings} ${authResult.errorMessage ?? ''}',
-              ),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-            ),
+            duration: const Duration(seconds: 4),
           );
         }
       }
@@ -317,29 +296,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await authProvider.setLastAuthTime();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            // FIX: was hardcoded English
-            content: Text(
+        M3ESnackbar.show(
+          context,
+          // FIX: was hardcoded English
+          message:
               value ? l10n.immediateEnabledMessage : l10n.immediateDisabledMessage,
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ),
+          duration: const Duration(seconds: 3),
         );
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        M3ESnackbar.show(
+          context,
+          message:
               '${l10n.authRequiredToChangeSettings} ${result.errorMessage ?? ''}',
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-          ),
+          duration: const Duration(seconds: 4),
         );
       }
     }
@@ -349,119 +320,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final l10n = AppLocalizations.of(context);
 
     if (_isCheckingBiometric) {
-      return ListTile(
+      return M3EListItem(
         leading: const Icon(Icons.fingerprint),
-        title: Text(l10n.enableBiometricAuthentication),
+        headline: l10n.enableBiometricAuthentication,
         trailing: const SizedBox(
           width: 20,
           height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
+          child: M3ELoadingIndicator(),
         ),
       );
     }
     return Column(
       children: [
-        SwitchListTile(
-          title: Text(
-            l10n.enableBiometricAuthentication,
-            style: TextStyle(
-              color: _isBiometricAvailable
-                  ? Theme.of(context).colorScheme.onSurface
-                  : Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          subtitle: !_isBiometricAvailable
-              ? Text(
-                  l10n.biometricNotAvailableDevice,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                    fontSize: 12,
-                  ),
-                )
-              : authProvider.isBiometricAuthEnabled
-                  ? Text(
-                      l10n.appWillRequireBiometric,
-                      style: TextStyle(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.6),
-                        fontSize: 12,
-                      ),
-                    )
-                  : null,
-          value: authProvider.isBiometricAuthEnabled,
-          onChanged: _isBiometricAvailable ? _toggleBiometricAuth : null,
-          secondary: Icon(
+        M3EListItem(
+          leading: Icon(
             Icons.fingerprint,
             color: _isBiometricAvailable
                 ? Theme.of(context).colorScheme.primary
                 : Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
           ),
+          headline: l10n.enableBiometricAuthentication,
+          supportingText: !_isBiometricAvailable
+              ? l10n.biometricNotAvailableDevice
+              : authProvider.isBiometricAuthEnabled
+                  ? l10n.appWillRequireBiometric
+                  : null,
+          trailing: M3ESwitch(
+            value: authProvider.isBiometricAuthEnabled,
+            onChanged: _isBiometricAvailable ? _toggleBiometricAuth : null,
+          ),
         ),
 
         if (authProvider.isBiometricAuthEnabled && _isBiometricAvailable) ...[
-          const Divider(height: 1),
+          const M3EDivider(),
 
-          ListTile(
+          M3EListItem(
             leading: Icon(
               Icons.timer,
               color: Theme.of(context).colorScheme.primary,
             ),
-            title: Text(
-              // FIX: was hardcoded 'Auto-lock Timeout'
-              l10n.autoLockTimeout,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-            ),
-            subtitle: Text(
-              // FIX: was hardcoded English via getTimeoutText without context
-              '${l10n.currentlySetTo} ${AuthProvider.getTimeoutText(authProvider.authTimeoutMinutes, context)}'
-              '${authProvider.immediateTimeoutEnabled ? ' ${l10n.overriddenByImmediateLock}' : ''}',
-              style: TextStyle(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withOpacity(0.6),
-                fontSize: 12,
-              ),
-            ),
+            // FIX: was hardcoded 'Auto-lock Timeout'
+            headline: l10n.autoLockTimeout,
+            // FIX: was hardcoded English via getTimeoutText without context
+            supportingText:
+                '${l10n.currentlySetTo} ${AuthProvider.getTimeoutText(authProvider.authTimeoutMinutes, context)}'
+                '${authProvider.immediateTimeoutEnabled ? ' ${l10n.overriddenByImmediateLock}' : ''}',
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: authProvider.immediateTimeoutEnabled
                 ? null
                 : () => _showTimeoutOptionsDialog(authProvider),
-            enabled: !authProvider.immediateTimeoutEnabled,
           ),
 
-          const Divider(height: 1),
+          const M3EDivider(),
 
-          SwitchListTile(
-            title: Text(
-              // FIX: was hardcoded 'Immediate Lock'
-              l10n.immediateLock,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
             ),
-            subtitle: Text(
-              // FIX: was hardcoded English
-              authProvider.immediateTimeoutEnabled
-                  ? l10n.appLocksImmediately
-                  : l10n.appUsesTimeoutSetting,
-              style: TextStyle(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withOpacity(0.6),
-                fontSize: 12,
-              ),
-            ),
-            value: authProvider.immediateTimeoutEnabled,
-            onChanged: _toggleImmediateTimeout,
-            secondary: Icon(
-              authProvider.immediateTimeoutEnabled
-                  ? Icons.lock
-                  : Icons.lock_open,
-              color: Theme.of(context).colorScheme.primary,
+            child: Row(
+              children: [
+                Icon(
+                  authProvider.immediateTimeoutEnabled
+                      ? Icons.lock
+                      : Icons.lock_open,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        // FIX: was hardcoded 'Immediate Lock'
+                        l10n.immediateLock,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        // FIX: was hardcoded English
+                        authProvider.immediateTimeoutEnabled
+                            ? l10n.appLocksImmediately
+                            : l10n.appUsesTimeoutSetting,
+                        style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(0.6),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                M3ESwitch(
+                  value: authProvider.immediateTimeoutEnabled,
+                  onChanged: _toggleImmediateTimeout,
+                ),
+              ],
             ),
           ),
         ],
@@ -473,35 +431,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final l10n = AppLocalizations.of(context);
 
     if (_isLoadingSortPreference) {
-      return ListTile(
+      return M3EListItem(
         leading: const Icon(Icons.sort),
         // FIX: was hardcoded 'Event Sorting'
-        title: Text(l10n.eventSorting),
+        headline: l10n.eventSorting,
         trailing: const SizedBox(
           width: 20,
           height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
+          child: M3ELoadingIndicator(),
         ),
       );
     }
 
-    return ListTile(
+    return M3EListItem(
       leading:
           Icon(Icons.sort, color: Theme.of(context).colorScheme.primary),
       // FIX: was hardcoded 'Event Sorting'
-      title: Text(
-        l10n.eventSorting,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-      ),
-      subtitle: Text(
-        // FIX: was hardcoded 'Currently: ...'
-        '${l10n.currentlySorting}: ${_getSortOptionName(_selectedSortOption)}',
-        style: TextStyle(
-          color:
-              Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-          fontSize: 12,
-        ),
-      ),
+      headline: l10n.eventSorting,
+      // FIX: was hardcoded 'Currently: ...'
+      supportingText:
+          '${l10n.currentlySorting}: ${_getSortOptionName(_selectedSortOption)}',
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: _showSortOptionsDialog,
     );
@@ -515,12 +464,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          l10n.settings,
-          style: TextStyle(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
+      appBar: M3EAppBar.top(
+        backgroundColor: colorScheme.surface,
+        elevation: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Text(
+            l10n.settings,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
           ),
         ),
       ),

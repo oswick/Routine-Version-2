@@ -1,7 +1,9 @@
-// lib/screens/pomodoro_screen.dart - Versión actualizada con Provider
+// lib/screens/pomodoro_screen.dart - Versión Material 3 Expressive
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
@@ -32,15 +34,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   bool _isCompleted = false;
 
   // Animation controllers
+  // NOTA M3E: el controller/animación de "press scale" para los botones
+  // circulares de control desapareció — M3EButton ya trae su propio
+  // spring-driven press feedback incorporado, así que ya no hace falta
+  // simularlo a mano con un GestureDetector + AnimationController.
   late AnimationController _pulseController;
   late AnimationController _breathingController;
-  late AnimationController _buttonController;
   late AnimationController _completionController;
 
   // Animations
   late Animation<double> _pulseAnimation;
   late Animation<double> _breathingAnimation;
-  late Animation<double> _buttonScaleAnimation;
   late Animation<double> _completionAnimation;
 
   @override
@@ -80,15 +84,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     );
     _breathingAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(parent: _breathingController, curve: Curves.easeInOut),
-    );
-
-    // Button scale animation
-    _buttonController = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _buttonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _buttonController, curve: Curves.easeInOut),
     );
 
     // Completion animation
@@ -137,7 +132,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _timer?.cancel();
     _pulseController.dispose();
     _breathingController.dispose();
-    _buttonController.dispose();
     _completionController.dispose();
 
     // Desactivar el modo AMOLED al salir de la pantalla
@@ -154,7 +148,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   void _startTimer() {
     if (_isCompleted) return;
-    
+
     _timer?.cancel();
     _pulseController.repeat(reverse: true);
 
@@ -190,12 +184,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   void _onTimerComplete() async {
     _timer?.cancel();
     _pulseController.stop();
-    
+
     // Marcar evento como completado automáticamente
     if (!_isCompleted) {
       await _toggleCompletion();
     }
-    
+
     setState(() {
       _isRunning = false;
     });
@@ -228,9 +222,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         isCompleted: !_isCompleted,
         lastModified: DateTime.now(),
       );
-      
+
       await eventProvider.updateEvent(updatedEvent);
-      
+
       setState(() {
         _isCompleted = !_isCompleted;
       });
@@ -268,21 +262,20 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   void _showCompletionDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.celebration, color: Colors.green, size: 28),
-            const SizedBox(width: 8),
-            const Text('¡Completado!'),
-          ],
-        ),
-        content: Text(
-          '¡Has completado "${widget.event.title}"! 🎉\n\n'
+      // M3EDialog real del paquete, igual que en event_preview_sheet.dart:
+      // header + icono + contenido + acciones ya siguen los tokens M3E.
+      builder: (context) => M3EDialog(
+        icon: const Icon(Icons.celebration, color: Colors.green, size: 32),
+        title: '¡Completado!',
+        content: const Text(
+          '¡Has completado la tarea! 🎉\n\n'
           '¡Excelente trabajo manteniendo el foco!',
+          textAlign: TextAlign.center,
         ),
         actions: [
-          TextButton(
+          M3EButton(
+            style: M3EButtonStyle.filled,
+            size: M3EButtonSize.sm,
             onPressed: () {
               Navigator.of(context).pop();
               Navigator.of(context).pop(); // Salir del Pomodoro
@@ -354,7 +347,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         final currentEvent = eventProvider.events
             .where((e) => e.id == widget.event.id)
             .firstOrNull;
-        
+
         if (currentEvent != null && currentEvent.isCompleted != _isCompleted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
@@ -412,7 +405,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.check_circle, 
+                                Icon(Icons.check_circle,
                                      color: Colors.green, size: 20),
                                 const SizedBox(width: 8),
                                 Text(
@@ -429,53 +422,54 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     ),
                   ),
                 ),
-                // Botón para salir del modo AMOLED
+                // Botón para salir del modo AMOLED — M3EButton icon-only,
+                // tamaño fijo, sobre el scrim negro.
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 10,
                   right: 20,
-                  child: GestureDetector(
-                    onTap: _toggleAmoledMode,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.black.withOpacity(0.5),
-                      ),
-                      child: Icon(
-                        Icons.light_mode,
-                        color: Colors.white,
-                        size: 24,
-                      ),
+                  child: M3EButton(
+                    style: M3EButtonStyle.text,
+                    shape: M3EButtonShape.round,
+                    decoration: M3EButtonDecoration.styleFrom(
+                      backgroundColor: Colors.black.withOpacity(0.5),
+                      foregroundColor: Colors.white,
+                      fixedSize: const Size(40, 40),
+                      padding: EdgeInsets.zero,
                     ),
+                    onPressed: _toggleAmoledMode,
+                    child: const Icon(Icons.light_mode, size: 22),
                   ),
                 ),
                 // Botón de completar (esquina inferior derecha)
                 Positioned(
                   bottom: MediaQuery.of(context).padding.bottom + 20,
                   right: 20,
-                  child: GestureDetector(
-                    onTap: _toggleCompletion,
-                    child: AnimatedBuilder(
-                      animation: _completionAnimation,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: 1.0 + (_completionAnimation.value * 0.1),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _isCompleted 
-                                  ? Colors.green 
-                                  : Colors.white.withOpacity(0.2),
-                            ),
-                            child: Icon(
-                              _isCompleted ? Icons.check : Icons.check_circle_outline,
-                              color: _isCompleted ? Colors.white : Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                        );
-                      },
+                  child: AnimatedBuilder(
+                    animation: _completionAnimation,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scale: 1.0 + (_completionAnimation.value * 0.1),
+                        child: child,
+                      );
+                    },
+                    child: M3EButton(
+                      style: _isCompleted
+                          ? M3EButtonStyle.filled
+                          : M3EButtonStyle.text,
+                      shape: M3EButtonShape.round,
+                      decoration: M3EButtonDecoration.styleFrom(
+                        backgroundColor: _isCompleted
+                            ? Colors.green
+                            : Colors.white.withOpacity(0.2),
+                        foregroundColor: Colors.white,
+                        fixedSize: const Size(52, 52),
+                        padding: EdgeInsets.zero,
+                      ),
+                      onPressed: _toggleCompletion,
+                      child: Icon(
+                        _isCompleted ? Icons.check : Icons.check_circle_outline,
+                        size: 28,
+                      ),
                     ),
                   ),
                 ),
@@ -483,67 +477,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             ),
           );
         } else {
-          // El diseño original
+          // El diseño original, con app bar M3E
           return Scaffold(
             backgroundColor: _backgroundColor,
-            appBar: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              title: Text(
-                widget.event.title,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: _textColor,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-              actions: [
-                // Botón de completar
-                IconButton(
-                  onPressed: _toggleCompletion,
-                  icon: AnimatedBuilder(
-                    animation: _completionAnimation,
-                    builder: (context, child) {
-                      return Transform.scale(
-                        scale: 1.0 + (_completionAnimation.value * 0.1),
-                        child: Icon(
-                          _isCompleted ? Icons.check_circle : Icons.check_circle_outline,
-                          color: _isCompleted ? Colors.green : _textColor,
-                          size: 28,
-                        ),
-                      );
-                    },
-                  ),
-                  tooltip: _isCompleted ? 'Mark as incomplete' : 'Mark as complete',
-                ),
-                // Botón de modo AMOLED
-                Stack(
-                  children: [
-                    IconButton(
-                      onPressed: _toggleAmoledMode,
-                      icon: Icon(
-                        _isAmoledMode ? Icons.light_mode : Icons.dark_mode,
-                        color: _textColor,
-                      ),
-                    ),
-                    if (_isAmoledMode)
-                      Positioned(
-                        right: 8,
-                        top: 8,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
+            appBar: _buildAppBar(context),
             body: AnimatedContainer(
               duration: const Duration(milliseconds: 500),
               decoration: BoxDecoration(
@@ -595,6 +532,81 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     );
   }
 
+  // App bar real de M3E, en vez de un AppBar estándar transparente.
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return M3EAppBar.top(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      title: Text(
+        widget.event.title,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w500,
+          color: _textColor,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+      actions: [
+        // Botón de completar
+        M3EButton(
+          style: M3EButtonStyle.text,
+          shape: M3EButtonShape.round,
+          decoration: M3EButtonDecoration.styleFrom(
+            foregroundColor: _isCompleted ? Colors.green : _textColor,
+            fixedSize: const Size(48, 48),
+            padding: EdgeInsets.zero,
+          ),
+          onPressed: _toggleCompletion,
+          child: AnimatedBuilder(
+            animation: _completionAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: 1.0 + (_completionAnimation.value * 0.1),
+                child: Icon(
+                  _isCompleted ? Icons.check_circle : Icons.check_circle_outline,
+                  size: 26,
+                ),
+              );
+            },
+          ),
+        ),
+        // Botón de modo AMOLED
+        Stack(
+          children: [
+            M3EButton(
+              style: M3EButtonStyle.text,
+              shape: M3EButtonShape.round,
+              decoration: M3EButtonDecoration.styleFrom(
+                foregroundColor: _textColor,
+                fixedSize: const Size(48, 48),
+                padding: EdgeInsets.zero,
+              ),
+              onPressed: _toggleAmoledMode,
+              child: Icon(
+                _isAmoledMode ? Icons.light_mode : Icons.dark_mode,
+                size: 22,
+              ),
+            ),
+            if (_isAmoledMode)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(width: 4),
+      ],
+    );
+  }
+
   Widget _buildTimerWidget() {
     final size = MediaQuery.of(context).size.width * 0.75;
 
@@ -629,6 +641,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           ),
 
           // Progreso circular
+          // NOTA: se mantiene el CustomPainter — no encontré una API
+          // confirmada de círculo wavy dentro del paquete material_3_expressive
+          // que ya está en pubspec (el paquete equivalente con
+          // M3ECircularWavyProgressIndicator es otro paquete, m3e_progress_indicator,
+          // que no está entre las dependencias del proyecto). Si lo agregan,
+          // este painter se puede sustituir 1:1.
           SizedBox(
             width: size,
             height: size,
@@ -670,10 +688,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   color: _primaryColor.withOpacity(0.1),
                 ),
                 child: Text(
-                  _isCompleted 
-                      ? 'Completado' 
-                      : _isRunning 
-                          ? 'En progreso' 
+                  _isCompleted
+                      ? 'Completado'
+                      : _isRunning
+                          ? 'En progreso'
                           : 'Pausado',
                   style: TextStyle(
                     fontSize: 14,
@@ -749,89 +767,67 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Botón de play/pause
-        GestureDetector(
-          onTapDown: (_) => _buttonController.forward(),
-          onTapUp: (_) => _buttonController.reverse(),
-          onTapCancel: () => _buttonController.reverse(),
-          onTap: _isCompleted ? null : () {
-            HapticFeedback.lightImpact();
-            setState(() {
-              if (_isRunning) {
-                _pauseTimer();
-              } else {
-                _startTimer();
-                _isRunning = true;
-              }
-            });
-          },
-          child: AnimatedBuilder(
-            animation: _buttonScaleAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _buttonScaleAnimation.value,
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _isCompleted 
-                        ? Colors.green 
-                        : _primaryColor,
-                    boxShadow: _isAmoledMode
-                        ? null
-                        : [
-                            BoxShadow(
-                              color: _primaryColor.withOpacity(0.3),
-                              blurRadius: 20,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                  ),
-                  child: Icon(
-                    _isCompleted 
-                        ? Icons.check
-                        : _isRunning 
-                            ? Icons.pause 
-                            : Icons.play_arrow,
-                    size: 36,
-                    color: _isAmoledMode ? Colors.black : Colors.white,
-                  ),
-                ),
-              );
-            },
+        // Botón de play/pause — M3EButton filled, forma circular fija de
+        // 80x80. El "press scale" ya no se simula a mano: lo trae el
+        // propio M3EButton (spring-driven press feedback).
+        M3EButton(
+          style: M3EButtonStyle.filled,
+          shape: M3EButtonShape.round,
+          decoration: M3EButtonDecoration.styleFrom(
+            backgroundColor: _isCompleted ? Colors.green : _primaryColor,
+            foregroundColor: _isAmoledMode ? Colors.black : Colors.white,
+            fixedSize: const Size(80, 80),
+            padding: EdgeInsets.zero,
+            elevation: _isAmoledMode
+                  ? 0.0
+                : null,
+          ),
+          onPressed: _isCompleted
+              ? null
+              : () {
+                  HapticFeedback.lightImpact();
+                  setState(() {
+                    if (_isRunning) {
+                      _pauseTimer();
+                    } else {
+                      _startTimer();
+                      _isRunning = true;
+                    }
+                  });
+                },
+          child: Icon(
+            _isCompleted
+                ? Icons.check
+                : _isRunning
+                    ? Icons.pause
+                    : Icons.play_arrow,
+            size: 36,
           ),
         ),
 
         const SizedBox(width: 32),
 
-        // Botón de reset
-        GestureDetector(
-          onTap: _isCompleted ? null : () {
-            HapticFeedback.lightImpact();
-            _resetTimer();
-          },
-          child: Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _isAmoledMode
-                  ? Colors.white.withOpacity(0.1)
-                  : _primaryColor.withOpacity(0.1),
-              border: Border.all(
-                color: _primaryColor.withOpacity(0.3),
-                width: 1,
-              ),
+        // Botón de reset — outlined, tamaño fijo 60x60.
+        M3EButton.outlined(
+          shape: M3EButtonShape.round,
+          decoration: M3EButtonDecoration.styleFrom(
+            foregroundColor: _isCompleted
+                ? _primaryColor.withOpacity(0.5)
+                : _primaryColor,
+            side: BorderSide(
+              color: _primaryColor.withOpacity(0.3),
+              width: 1,
             ),
-            child: Icon(
-              Icons.restart_alt, 
-              size: 28, 
-              color: _isCompleted 
-                  ? _primaryColor.withOpacity(0.5)
-                  : _primaryColor
-            ),
+            fixedSize: const Size(60, 60),
+            padding: EdgeInsets.zero,
           ),
+          onPressed: _isCompleted
+              ? null
+              : () {
+                  HapticFeedback.lightImpact();
+                  _resetTimer();
+                },
+          child: const Icon(Icons.restart_alt, size: 28),
         ),
       ],
     );

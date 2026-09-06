@@ -1,4 +1,6 @@
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/screens/settings_screen.dart';
 import 'package:provider/provider.dart';
@@ -32,12 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        M3ESnackbar.show(context, message: 'Error: ${e.toString()}');
       }
     } finally {
       if (mounted) {
@@ -47,37 +44,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _showSignOutDialog() async {
-    return showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+    return M3EDialog.show<void>(
+      context,
+      dialog: M3EDialog(
+        title: AppLocalizations.of(context).signOut,
+        content: Text(AppLocalizations.of(context).areYouSureSignOut),
+        actions: [
+          M3EButton.text(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              AppLocalizations.of(context).cancel,
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            ),
           ),
-          title: Text(AppLocalizations.of(context).signOut),
-          content: Text(AppLocalizations.of(context).areYouSureSignOut),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                AppLocalizations.of(context).cancel,
-                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-              ),
+          M3EButton.text(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _handleAuthAction();
+            },
+            child: Text(
+              AppLocalizations.of(context).signOut,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _handleAuthAction();
-              },
-              child: Text(
-                AppLocalizations.of(context).signOut,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 
@@ -146,53 +137,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context, eventProvider, child) {
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          appBar: AppBar(
-            title: Row(
-              children: [
-                const SizedBox(width: 12),
-                Text(
-                  AppLocalizations.of(context).profile,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.bold,
-                  ),
+          appBar: M3EAppBar.top(
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            elevation: 0,
+            title: Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                AppLocalizations.of(context).profile,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
-              ],
+              ),
             ),
             actions: [
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'settings') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => SettingsScreen()),
-                    );
-                  } else if (value == 'signout') {
-                    _showSignOutDialog();
-                  }
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  PopupMenuItem<String>(
-                    value: 'settings',
-                    child: ListTile(
-                      leading: Icon(Icons.settings),
-                      title: Text(AppLocalizations.of(context).settings),
-                    ),
+              M3EMenu.entries(
+                anchorBuilder: (context, open) => M3EIconButton(
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: open,
+                ),
+                entries: [
+                  M3EMenuEntry(
+                    label: AppLocalizations.of(context).settings,
+                    leading: const Icon(Icons.settings),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SettingsScreen(),
+                        ),
+                      );
+                    },
                   ),
-                  PopupMenuItem<String>(
-                    value: 'signout',
-                    child: ListTile(
-                      leading: Icon(Icons.logout),
-                      title: Text(AppLocalizations.of(context).signOut),
-                    ),
+                  M3EMenuEntry(
+                    label: AppLocalizations.of(context).signOut,
+                    leading: const Icon(Icons.logout),
+                    onPressed: () {
+                      _showSignOutDialog();
+                    },
                   ),
                 ],
               ),
-           
             ],
           ),
           body: SafeArea(
-            child: RefreshIndicator(
+            child: M3ERefreshIndicator.contained(
               onRefresh: () => eventProvider.loadEvents(),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -208,7 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const Center(
                           child: Padding(
                             padding: EdgeInsets.symmetric(vertical: 40),
-                            child: CircularProgressIndicator(),
+                            child: M3ELoadingIndicator(),
                           ),
                         )
                       else if (eventProvider.events.isNotEmpty)
@@ -238,7 +228,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  AppLocalizations.of(context).startByCreatingFirstEvent,
+                                  AppLocalizations.of(
+                                    context,
+                                  ).startByCreatingFirstEvent,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 14,
@@ -290,7 +282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
                               const SizedBox(height: 24),
-                              ElevatedButton.icon(
+                              M3EButton.icon(
                                 onPressed: _isLoading
                                     ? null
                                     : _handleAuthAction,
@@ -298,18 +290,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 label: Text(
                                   AppLocalizations.of(context).signInWithGoogle,
                                 ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.primary,
-                                  foregroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimary,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
-                                  ),
-                                ),
+                                style: M3EButtonStyle.filled,
+                                size: M3EButtonSize.md,
                               ),
                             ],
                           ),
@@ -327,10 +309,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildUserCard(dynamic user) {
-    return Card(
-      elevation: 0,
+    return M3ECard(
+      variant: M3ECardVariant.filled,
       color: Theme.of(context).colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      borderRadius: BorderRadius.circular(16),
+      padding: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Row(
@@ -423,7 +406,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
-                  child: CircularProgressIndicator(),
+                  child: M3ELoadingIndicator(),
                 ),
               );
             }

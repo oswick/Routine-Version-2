@@ -1,5 +1,7 @@
 // lib/widgets/event_preview_sheet.dart
+import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/l10n/app_localizations.dart';
@@ -8,6 +10,14 @@ import 'package:myapp/utils/event_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
 
+/// Preview sheet, reconstruido sobre los componentes reales de
+/// material_3_expressive:
+/// - M3EBottomSheet para el contenedor (shape, elevación y drag handle).
+/// - M3EButton (filled / outlined / text) para las acciones, con su propio
+///   spring press feedback y shape morphing.
+/// - M3EDialog para la confirmación de borrado.
+/// - Radios de esquina generosos y contenedores tonales para el resto
+///   del contenido, coherentes con esos componentes.
 class EventPreviewSheet extends StatelessWidget {
   final Event event;
   final VoidCallback onEdit;
@@ -22,106 +32,89 @@ class EventPreviewSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 16,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildHeader(context),
+    // Entrada expresiva: overshoot sutil (spring) en vez de una curva lineal.
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.9, end: 1.0),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutBack,
+      builder: (context, scale, child) {
+        return Transform.scale(
+          scale: scale,
+          alignment: Alignment.bottomCenter,
+          child: child,
+        );
+      },
+      // Componente real del paquete: maneja forma, elevación y el
+      // drag handle expresivo por nosotros — ya no lo dibujamos a mano.
+      child: M3EBottomSheet(
+        showDragHandle: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTitleSection(context),
 
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildTitleSection(context),
+              const SizedBox(height: 20),
 
-                const SizedBox(height: 16),
+              if (event.description != null &&
+                  event.description!.isNotEmpty)
+                _buildDescriptionSection(context),
 
-                if (event.description != null && event.description!.isNotEmpty)
-                  _buildDescriptionSection(context),
+              _buildEventInfo(context),
 
-                _buildEventInfo(context),
+              const SizedBox(height: 28),
 
-                const SizedBox(height: 24),
-
-                _buildActionButtons(context),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Column(
-      children: [
-        const SizedBox(height: 12),
-        Center(
-          child: Container(
-            width: 36,
-            height: 3,
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(1.5),
-            ),
+              _buildActionButtons(context),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
-      ],
+      ),
     );
   }
 
   Widget _buildTitleSection(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (event.importance != null && event.importance! > 0)
           Container(
-            width: 4,
-            height: 50,
+            width: 5,
+            height: 52,
             decoration: BoxDecoration(
               color: getImportanceColor(event.importance!),
-              borderRadius: BorderRadius.circular(2),
+              // Extremos redondeados, sin esquinas duras.
+              borderRadius: BorderRadius.circular(100),
             ),
           ),
 
         if (event.importance != null && event.importance! > 0)
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
 
         if (event.category.isNotEmpty)
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(14),
+              // Forma tipo "squircle" expresiva en vez de un cuadrado redondeado clásico.
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
               getCategoryIcon(event.category, context),
-              color: Theme.of(context).colorScheme.primary,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
               size: 24,
             ),
           ),
 
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
 
         Expanded(
           child: Text(
             event.title,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
           ),
@@ -136,13 +129,13 @@ class EventPreviewSheet extends StatelessWidget {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: Theme.of(context)
                 .colorScheme
-                .surfaceContainer
-                .withOpacity(0.5),
-            borderRadius: BorderRadius.circular(12),
+                .secondaryContainer
+                .withOpacity(0.45),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,15 +145,16 @@ class EventPreviewSheet extends StatelessWidget {
                   Icon(
                     Icons.description_outlined,
                     size: 16,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: Theme.of(context).colorScheme.onSecondaryContainer,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     AppLocalizations.of(context).description,
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
                     ),
                   ),
                 ],
@@ -171,13 +165,13 @@ class EventPreviewSheet extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   color: Theme.of(context).colorScheme.onSurface,
-                  height: 1.4,
+                  height: 1.45,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
       ],
     );
   }
@@ -192,7 +186,7 @@ class EventPreviewSheet extends StatelessWidget {
           _formatTimeRange(),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
 
         _buildInfoRow(
           context,
@@ -202,7 +196,7 @@ class EventPreviewSheet extends StatelessWidget {
         ),
 
         if (event.repeatDays.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildInfoRow(
             context,
             Icons.repeat,
@@ -212,7 +206,7 @@ class EventPreviewSheet extends StatelessWidget {
         ],
 
         if (event.importance != null && event.importance! > 0) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildInfoRow(
             context,
             Icons.flag_outlined,
@@ -223,7 +217,7 @@ class EventPreviewSheet extends StatelessWidget {
         ],
 
         if (event.category.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildInfoRow(
             context,
             getCategoryIcon(event.category, context),
@@ -243,20 +237,20 @@ class EventPreviewSheet extends StatelessWidget {
     Color? color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color:
-            Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(10),
+        color: Theme.of(context).colorScheme.surfaceContainerHigh.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color:
-                  (color ?? Theme.of(context).colorScheme.primary).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: (color ?? Theme.of(context).colorScheme.primary)
+                  .withOpacity(0.14),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               icon,
@@ -264,7 +258,7 @@ class EventPreviewSheet extends StatelessWidget {
               color: color ?? Theme.of(context).colorScheme.primary,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,7 +271,8 @@ class EventPreviewSheet extends StatelessWidget {
                         .colorScheme
                         .onSurface
                         .withOpacity(0.6),
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.1,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -286,7 +281,7 @@ class EventPreviewSheet extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     color: color ?? Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -300,94 +295,92 @@ class EventPreviewSheet extends StatelessWidget {
   Widget _buildActionButtons(BuildContext context) {
     return Column(
       children: [
-        // EDITAR
+        // EDITAR — M3EButton filled: spring press feedback y shape
+        // morphing ya vienen resueltos por el propio componente.
         SizedBox(
           width: double.infinity,
-          child: ElevatedButton.icon(
+          child: M3EButton(
+            style: M3EButtonStyle.filled,
+            size: M3EButtonSize.md,
+            shape: M3EButtonShape.round,
             onPressed: () {
               HapticFeedback.lightImpact();
               Navigator.of(context, rootNavigator: true).pop(); // FIX
               onEdit();
             },
-            icon: const Icon(Icons.edit_outlined, size: 20),
-            label: Text(
-              AppLocalizations.of(context).editEvent,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.edit_outlined, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  AppLocalizations.of(context).editEvent,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
 
         const SizedBox(height: 12),
 
-        // ELIMINAR
+        // ELIMINAR — M3EButton.outlined recoloreado a "error" vía decoration.
         SizedBox(
           width: double.infinity,
-          child: OutlinedButton.icon(
+          child: M3EButton.outlined(
+            size: M3EButtonSize.md,
+            shape: M3EButtonShape.round,
+            decoration: M3EButtonDecoration.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.error.withOpacity(0.35),
+                width: 1.5,
+              ),
+            ),
             onPressed: () {
               HapticFeedback.lightImpact();
               Navigator.of(context, rootNavigator: true).pop(); // FIX
               _showDeleteConfirmation(context);
             },
-            icon: const Icon(Icons.delete_outline, size: 20),
-            label: Text(
-              AppLocalizations.of(context).delete,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
-              side: BorderSide(
-                color:
-                    Theme.of(context).colorScheme.error.withOpacity(0.3),
-                width: 1.5,
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.delete_outline, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  AppLocalizations.of(context).delete,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
 
         const SizedBox(height: 12),
 
-        // CANCELAR
+        // CANCELAR — variante "text", de menor énfasis.
         SizedBox(
           width: double.infinity,
-          child: TextButton(
+          child: M3EButton(
+            style: M3EButtonStyle.text,
+            size: M3EButtonSize.sm,
+            shape: M3EButtonShape.round,
             onPressed: () {
               HapticFeedback.lightImpact();
               Navigator.of(context, rootNavigator: true).pop(); // FIX
             },
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
             child: Text(
               AppLocalizations.of(context).cancel,
               style: TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withOpacity(0.7),
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
           ),
@@ -400,40 +393,45 @@ class EventPreviewSheet extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+        // M3EDialog real del paquete: header, icono, divisores y acciones
+        // ya siguen los tokens de forma/color de Material 3 Expressive.
+        return M3EDialog(
+          icon: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(
+              Icons.warning_rounded,
+              color: Theme.of(context).colorScheme.onErrorContainer,
+              size: 28,
+            ),
           ),
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          title: Row(
-            children: [
-              Icon(
-                Icons.warning_rounded,
-                color: Theme.of(context).colorScheme.error,
-                size: 28,
-              ),
-              const SizedBox(width: 12),
-              Text(AppLocalizations.of(context).deleteConfirmationTitle),
-            ],
-          ),
+          title: AppLocalizations.of(context).deleteConfirmationTitle,
           content: Text(
             '${AppLocalizations.of(context).deleteConfirmation} "${event.title}"?',
+            textAlign: TextAlign.center,
           ),
           actions: [
-            TextButton(
+            M3EButton(
+              style: M3EButtonStyle.text,
+              size: M3EButtonSize.sm,
               onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
               child: Text(
                 AppLocalizations.of(context).cancel,
                 style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withOpacity(0.7),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                 ),
               ),
             ),
             if (event.repeatDays.isNotEmpty)
-              TextButton(
+              M3EButton(
+                style: M3EButtonStyle.text,
+                size: M3EButtonSize.sm,
+                decoration: M3EButtonDecoration.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
                 onPressed: () async {
                   final eventProvider =
                       Provider.of<EventProvider>(context, listen: false);
@@ -442,25 +440,25 @@ class EventPreviewSheet extends StatelessWidget {
                 },
                 child: Text(
                   AppLocalizations.of(context).deleteAll,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
-            FilledButton(
+            M3EButton(
+              style: M3EButtonStyle.filled,
+              size: M3EButtonSize.sm,
+              decoration: M3EButtonDecoration.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
               onPressed: () async {
                 final eventProvider =
                     Provider.of<EventProvider>(context, listen: false);
                 await eventProvider.deleteEvent(event.id, deleteAll: false);
                 Navigator.of(context, rootNavigator: true).pop();
               },
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
               child: Text(
                 AppLocalizations.of(context).delete,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
           ],

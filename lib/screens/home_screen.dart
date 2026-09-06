@@ -42,10 +42,7 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      final eventProvider = Provider.of<EventProvider>(
-        context,
-        listen: false,
-      );
+      final eventProvider = Provider.of<EventProvider>(context, listen: false);
 
       if (eventProvider.events.isEmpty) {
         _refreshEvents();
@@ -85,8 +82,7 @@ class _HomeScreenState extends State<HomeScreen>
         setState(() {
           _syncStatus = status;
 
-          if (status == SyncStatus.synced ||
-              status == SyncStatus.error) {
+          if (status == SyncStatus.synced || status == SyncStatus.error) {
             _isSyncing = false;
           }
         });
@@ -97,10 +93,7 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _refreshEvents() async {
     if (!mounted) return;
 
-    final eventProvider = Provider.of<EventProvider>(
-      context,
-      listen: false,
-    );
+    final eventProvider = Provider.of<EventProvider>(context, listen: false);
 
     await eventProvider.loadEvents();
   }
@@ -143,31 +136,21 @@ class _HomeScreenState extends State<HomeScreen>
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
 
-          appBar: _buildAppBar(
-            context,
-            user,
-          ),
+          appBar: _buildAppBar(context, user),
 
           body: M3ERefreshIndicator.contained(
             onRefresh: _refreshEvents,
             child: eventProvider.isLoading && dailyEvents.isEmpty
-                ? const Center(
-                    child: M3ELoadingIndicator(),
-                  )
-                : _buildDayScreen(
-                    dailyEvents,
-                  ),
+                ? const Center(child: M3ELoadingIndicator())
+                : _buildDayScreen(dailyEvents),
           ),
         );
       },
     );
   }
 
-  PreferredSizeWidget _buildAppBar(
-    BuildContext context,
-    dynamic user,
-  ) {
-      return M3EAppBar.top(
+  PreferredSizeWidget _buildAppBar(BuildContext context, dynamic user) {
+    return M3EAppBar.top(
       backgroundColor: Theme.of(context).colorScheme.surface,
       elevation: 0,
 
@@ -190,10 +173,7 @@ class _HomeScreenState extends State<HomeScreen>
               '${selectedDate.month.toString().padLeft(2, '0')}',
               style: TextStyle(
                 fontSize: 16,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withOpacity(0.6),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               ),
             ),
           ],
@@ -219,38 +199,29 @@ class _HomeScreenState extends State<HomeScreen>
               child: CircleAvatar(
                 radius: 18,
 
-                backgroundImage:
-                    user.userMetadata?['avatar_url'] != null
-                        ? NetworkImage(
-                            user.userMetadata!['avatar_url'],
-                          )
-                        : null,
+                backgroundImage: user.userMetadata?['avatar_url'] != null
+                    ? NetworkImage(user.userMetadata!['avatar_url'])
+                    : null,
 
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withOpacity(0.2),
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withOpacity(0.2),
 
-                child:
-                    user.userMetadata?['avatar_url'] == null
-                        ? Text(
-                            user.userMetadata?['full_name']
-                                    ?.toString()
-                                    .substring(0, 1)
-                                    .toUpperCase() ??
-                                user.email
-                                    ?.substring(0, 1)
-                                    .toUpperCase() ??
-                                'U',
+                child: user.userMetadata?['avatar_url'] == null
+                    ? Text(
+                        user.userMetadata?['full_name']
+                                ?.toString()
+                                .substring(0, 1)
+                                .toUpperCase() ??
+                            user.email?.substring(0, 1).toUpperCase() ??
+                            'U',
 
-                            style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
               ),
             ),
           ),
@@ -258,9 +229,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildDayScreen(
-    List<Event> dailyEvents,
-  ) {
+  Widget _buildDayScreen(List<Event> dailyEvents) {
     return DayScreen(
       day: selectedDate,
       events: dailyEvents,
@@ -274,24 +243,16 @@ class _HomeScreenState extends State<HomeScreen>
         await eventProvider.addEvent(event);
       },
 
-      onUpdateEvent: (
-        index,
-        updatedEvent,
-      ) async {
+      onUpdateEvent: (index, updatedEvent) async {
         final eventProvider = Provider.of<EventProvider>(
           context,
           listen: false,
         );
 
-        await eventProvider.updateEvent(
-          updatedEvent,
-        );
+        await eventProvider.updateEvent(updatedEvent);
       },
 
-      onDeleteEvent: (
-        index,
-        allDays,
-      ) async {
+      onDeleteEvent: (index, allDays) async {
         if (index < 0 || index >= dailyEvents.length) {
           return;
         }
@@ -303,10 +264,7 @@ class _HomeScreenState extends State<HomeScreen>
           listen: false,
         );
 
-        await eventProvider.deleteEvent(
-          event.id,
-          deleteAll: allDays,
-        );
+        await eventProvider.deleteEvent(event.id, deleteAll: allDays);
       },
     );
   }
