@@ -15,7 +15,6 @@ import 'focus_history_screen.dart';
 
 class FocusScreen extends StatefulWidget {
   const FocusScreen({super.key});
-
   @override
   State<FocusScreen> createState() => _FocusScreenState();
 }
@@ -39,7 +38,6 @@ class _FocusScreenState extends State<FocusScreen> {
             onExit: () => setState(() => _deepFocus = false),
           );
         }
-
         return Scaffold(
           appBar: AppBar(
             title: const Text('Focus'),
@@ -66,15 +64,9 @@ class _FocusScreenState extends State<FocusScreen> {
 
   Widget _buildState(BuildContext context, FocusProvider focus) {
     final state = focus.state;
-
-    if (state is FocusReady) {
-      return _ReadyView(focus: focus);
-    }
+    if (state is FocusReady) return _ReadyView(focus: focus);
     if (state is FocusActive) {
-      return _ActiveView(
-        focus: focus,
-        onDeepFocus: () => setState(() => _deepFocus = true),
-      );
+      return _ActiveView(focus: focus, onDeepFocus: () => setState(() => _deepFocus = true));
     }
     if (state is FocusBreak) {
       return BreakView(
@@ -85,9 +77,7 @@ class _FocusScreenState extends State<FocusScreen> {
         onSkip: focus.skipBreak,
       );
     }
-    if (state is FocusCompleted) {
-      return _CompletedView(focus: focus);
-    }
+    if (state is FocusCompleted) return _CompletedView(focus: focus);
     return const SizedBox.shrink();
   }
 }
@@ -95,7 +85,6 @@ class _FocusScreenState extends State<FocusScreen> {
 class _ReadyView extends StatelessWidget {
   const _ReadyView({required this.focus});
   final FocusProvider focus;
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -104,20 +93,11 @@ class _ReadyView extends StatelessWidget {
       children: [
         Text('Focus Center', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 8),
-        FocusStats(
-          focusedDuration: focus.timer?.elapsed ?? Duration.zero,
-          sessions: focus.completedFocusSessions,
-        ),
+        const FocusStats(),
         const SizedBox(height: 32),
-        FocusEventSelector(
-          eventId: focus.eventId,
-          onChanged: focus.selectEvent,
-        ),
+        FocusEventSelector(eventId: focus.eventId, onChanged: focus.selectEvent),
         const SizedBox(height: 24),
-        Text(
-          'Suggested · ${FocusConfig.focusDuration.inMinutes} min',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        Text('Suggested · ${FocusConfig.focusDuration.inMinutes} min', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: focus.startFocus,
@@ -133,38 +113,21 @@ class _ActiveView extends StatelessWidget {
   const _ActiveView({required this.focus, required this.onDeepFocus});
   final FocusProvider focus;
   final VoidCallback onDeepFocus;
-
   @override
   Widget build(BuildContext context) {
     return ListView(
       key: const ValueKey('active'),
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
       children: [
-        Text(
-          focus.eventId == null ? 'Free Focus' : 'Focus',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
+        Text(focus.eventId == null ? 'Free Focus' : 'Focus', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 32),
         FocusTimer(remaining: focus.remaining, progress: focus.progress),
         const SizedBox(height: 24),
         FocusProgress(progress: focus.progress),
         const SizedBox(height: 24),
-        FocusControls(
-          isRunning: focus.isRunning,
-          onStart: focus.resume,
-          onPause: focus.pause,
-          onFinish: focus.finishEarly,
-          onAddTime: focus.addFiveMinutes,
-        ),
+        FocusControls(isRunning: focus.isRunning, onStart: focus.resume, onPause: focus.pause, onFinish: focus.finishEarly, onAddTime: focus.addFiveMinutes),
         const SizedBox(height: 16),
-        Center(
-          child: TextButton.icon(
-            onPressed: onDeepFocus,
-            icon: const Icon(Icons.fullscreen_rounded),
-            label: const Text('Deep Focus'),
-          ),
-        ),
+        Center(child: TextButton.icon(onPressed: onDeepFocus, icon: const Icon(Icons.fullscreen_rounded), label: const Text('Deep Focus'))),
       ],
     );
   }
@@ -173,11 +136,10 @@ class _ActiveView extends StatelessWidget {
 class _CompletedView extends StatelessWidget {
   const _CompletedView({required this.focus});
   final FocusProvider focus;
-
   @override
   Widget build(BuildContext context) {
     final phase = focus.phase;
-    final title = phase == FocusPhase.focus ? 'Nice work' : 'Break complete';
+    final isFocus = phase == FocusPhase.focus;
     return Center(
       key: const ValueKey('completed'),
       child: Padding(
@@ -187,13 +149,13 @@ class _CompletedView extends StatelessWidget {
           children: [
             Icon(Icons.check_circle_rounded, size: 72, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 20),
-            Text(title, style: Theme.of(context).textTheme.headlineMedium),
+            Text(isFocus ? 'Nice work' : 'Break complete', style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 12),
             Text('${focus.elapsed.inMinutes} min'),
             const SizedBox(height: 28),
             FilledButton(
-              onPressed: focus.startFocus,
-              child: const Text('Start next focus'),
+              onPressed: focus.startNextPhase,
+              child: Text(isFocus ? 'Start break' : 'Start next focus'),
             ),
             TextButton(onPressed: focus.reset, child: const Text('Return to Focus')),
           ],
