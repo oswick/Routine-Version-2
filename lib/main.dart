@@ -1,6 +1,5 @@
 // lib/main.dart
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/config/app_config.dart';
 import 'package:myapp/l10n/app_localizations.dart';
@@ -27,7 +26,6 @@ export 'utils/notification_service.dart' show notificationBackgroundHandler;
 // dynamicColoring:true hará que el sistema (Material You / Android 12+)
 // lo sobreescriba cuando esté disponible; este seed queda solo como
 // fallback en iOS/desktop o dispositivos sin dynamic color.
-const Color _seedColor = Color(0xFF6750A4);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -109,25 +107,17 @@ class _MyAppState extends State<MyApp> {
       title: 'Routine',
       debugShowCheckedModeBanner: false,
       drawUnderSystemBars: true,
-
-      // Tema base M3 Expressive (claro), a partir del cual se derivan
-      // el tema oscuro y el dynamic color.
-      data: M3EThemeData.light(seedColor: _seedColor),
+      data: M3EThemeData.light(),
       autoTheming: true, // sigue el brightness del sistema
       dynamicColoring: true, // usa Material You cuando esté disponible
 
-      localizationsDelegates: const [
+      localizationsDelegates: [
         AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
+        ...GlobalMaterialLocalizations.delegates,
       ],
-      supportedLocales: const [
-        Locale('en'),
-        Locale('es'),
-      ],
-
+      supportedLocales: const [Locale('en'), Locale('es')],
       home: const MainHomeScreen(),
     );
   }
 }
+       

@@ -342,6 +342,16 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
     });
   }
 
+  bool _isTimeSlotAvailable(int hour) {
+    final now = DateTime.now();
+    final isToday =
+        _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+    if (!isToday) return true; // si es un día futuro, todas las franjas aplican
+    return now.hour < hour;
+  }
+
   Widget _buildTimeShortcuts() {
     if (!_showTimeShortcuts) return const SizedBox.shrink();
     final l10n = AppLocalizations.of(context);
@@ -396,21 +406,24 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               icon: Icons.schedule,
               onTap: () => _applyTimeShortcut('1hour'),
             ),
-            _buildTimeShortcutChip(
-              label: l10n.morningTime,
-              icon: Icons.wb_sunny,
-              onTap: () => _applyTimeShortcut('morning'),
-            ),
-            _buildTimeShortcutChip(
-              label: l10n.afternoonTime,
-              icon: Icons.wb_twilight,
-              onTap: () => _applyTimeShortcut('afternoon'),
-            ),
-            _buildTimeShortcutChip(
-              label: l10n.eveningTime,
-              icon: Icons.nightlight_round,
-              onTap: () => _applyTimeShortcut('evening'),
-            ),
+            if (_isTimeSlotAvailable(9))
+              _buildTimeShortcutChip(
+                label: l10n.morningTime,
+                icon: Icons.wb_sunny,
+                onTap: () => _applyTimeShortcut('morning'),
+              ),
+            if (_isTimeSlotAvailable(14))
+              _buildTimeShortcutChip(
+                label: l10n.afternoonTime,
+                icon: Icons.wb_twilight,
+                onTap: () => _applyTimeShortcut('afternoon'),
+              ),
+            if (_isTimeSlotAvailable(18))
+              _buildTimeShortcutChip(
+                label: l10n.eveningTime,
+                icon: Icons.nightlight_round,
+                onTap: () => _applyTimeShortcut('evening'),
+              ),
           ],
         ),
       ],
@@ -941,7 +954,10 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
         onPressed();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        padding: const EdgeInsets.symmetric(
+          vertical: 8,
+          horizontal: 10,
+        ), // antes: 12 / 16
         decoration: BoxDecoration(
           color: isActive
               ? Theme.of(context).colorScheme.primaryContainer
@@ -955,7 +971,7 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
               children: [
                 Icon(
                   icon,
-                  size: 24,
+                  size: 20, // antes: 24
                   color: isActive
                       ? (color ?? Theme.of(context).colorScheme.primary)
                       : Theme.of(
@@ -989,11 +1005,11 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
                   ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4), // antes: 6
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11, // antes: 12
                 fontWeight: FontWeight.w500,
                 color: isActive
                     ? Theme.of(context).colorScheme.primary
@@ -1040,37 +1056,34 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
   }
 
   Future<void> _selectTime(bool isStartTime) async {
-  final currentTime = isStartTime ? _startTime : (_endTime ?? _startTime);
-  final initialTime = M3ETime(
-    hour: currentTime.hour,
-    minute: currentTime.minute,
-  );
-  final time = await M3ETimePicker.show(
-    context,
-    initialTime: initialTime,
-  );
-  if (time != null) {
-    setState(() {
-      if (isStartTime) {
-        _startTime = DateTime(
-          _selectedDate.year,
-          _selectedDate.month,
-          _selectedDate.day,
-          time.hour,
-          time.minute,
-        );
-      } else {
-        _endTime = DateTime(
-          _selectedDate.year,
-          _selectedDate.month,
-          _selectedDate.day,
-          time.hour,
-          time.minute,
-        );
-      }
-    });
+    final currentTime = isStartTime ? _startTime : (_endTime ?? _startTime);
+    final initialTime = M3ETime(
+      hour: currentTime.hour,
+      minute: currentTime.minute,
+    );
+    final time = await M3ETimePicker.show(context, initialTime: initialTime);
+    if (time != null) {
+      setState(() {
+        if (isStartTime) {
+          _startTime = DateTime(
+            _selectedDate.year,
+            _selectedDate.month,
+            _selectedDate.day,
+            time.hour,
+            time.minute,
+          );
+        } else {
+          _endTime = DateTime(
+            _selectedDate.year,
+            _selectedDate.month,
+            _selectedDate.day,
+            time.hour,
+            time.minute,
+          );
+        }
+      });
+    }
   }
-}
 
   Future<void> _selectDate() async {
     final date = await M3EDatePicker.show(

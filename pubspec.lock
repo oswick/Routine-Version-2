@@ -301,10 +301,10 @@ packages:
     dependency: "direct main"
     description:
       name: dynamic_color
-      sha256: "4aeb76de323e8eb660bab5557d826ad7ebbf1434a598f0c6aa8a11a9696a6757"
+      sha256: "869b3bce0100eb519768ecd71c0111f0b5ea679f5f62e1f59c49d80067e730c5"
       url: "https://pub.dev"
     source: hosted
-    version: "1.9.0"
+    version: "2.1.0"
   equatable:
     dependency: transitive
     description:
@@ -558,7 +558,7 @@ packages:
     source: hosted
     version: "2.0.0"
   hive:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: hive
       sha256: "8dcf6db979d7933da8217edcec84e9df1bdb4e4edc7fc77dbd5aa74356d6d941"
@@ -785,10 +785,10 @@ packages:
     dependency: "direct main"
     description:
       name: material_3_expressive
-      sha256: "46230f3486e061559668581ef57df381fa343009e93b2285efb5aed4b42da11e"
+      sha256: c29f289945ea90161b664dad4b3d2b412534ca61041e87b5f131824ea5461585
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.9"
+    version: "1.1.1"
   material_color_utilities:
     dependency: transitive
     description:
