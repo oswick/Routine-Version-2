@@ -18,23 +18,19 @@ import 'utils/app_lifecycle_handler.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 export 'utils/notification_service.dart' show notificationBackgroundHandler;
-
 const Color _seedColor = Color(0xFF6750A4);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await BackgroundService.initWorkManager();
   await BackgroundService.registerRescheduleTask();
-  await Supabase.initialize(
-    url: AppConfig.supabaseUrl,
-    anonKey: AppConfig.supabaseAnonKey,
-  );
-  await Future.wait([
-    LocalStorageService().init(),
-    FocusStorageService().init(),
-    ConnectivityService().initialize(),
-    EventProvider().init(),
-  ]);
+  await Supabase.initialize(url: AppConfig.supabaseUrl, anonKey: AppConfig.supabaseAnonKey);
+
+  // Hive must be initialized before registering/opening the Focus box.
+  await LocalStorageService().init();
+  await FocusStorageService().init();
+  await ConnectivityService().initialize();
+  await EventProvider().init();
   await NotificationService().init();
   await _requestPermissions();
 
@@ -51,19 +47,14 @@ void main() async {
 
 Future<void> _requestPermissions() async {
   try {
-    Map<Permission, PermissionStatus> statuses = await [
+    final statuses = await [
       Permission.notification,
       Permission.scheduleExactAlarm,
       Permission.ignoreBatteryOptimizations,
     ].request();
     print('Permission statuses: $statuses');
-
-    if (await Permission.scheduleExactAlarm.isDenied) {
-      await Permission.scheduleExactAlarm.request();
-    }
-    if (await Permission.ignoreBatteryOptimizations.isDenied) {
-      await Permission.ignoreBatteryOptimizations.request();
-    }
+    if (await Permission.scheduleExactAlarm.isDenied) await Permission.scheduleExactAlarm.request();
+    if (await Permission.ignoreBatteryOptimizations.isDenied) await Permission.ignoreBatteryOptimizations.request();
   } catch (e) {
     print('Error requesting permissions: $e');
   }
@@ -71,7 +62,6 @@ Future<void> _requestPermissions() async {
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
-
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -80,36 +70,25 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppLifecycleHandler.instance.initialize(context);
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => AppLifecycleHandler.instance.initialize(context));
   }
-
   @override
   void dispose() {
     AppLifecycleHandler.instance.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return M3EMaterialApp(
-      title: 'Routine',
-      debugShowCheckedModeBanner: false,
-      drawUnderSystemBars: true,
-      data: M3EThemeData.light(seedColor: _seedColor),
-      autoTheming: true,
-      dynamicColoring: true,
+      title: 'Routine', debugShowCheckedModeBanner: false, drawUnderSystemBars: true,
+      data: M3EThemeData.light(seedColor: _seedColor), autoTheming: true, dynamicColoring: true,
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('en'),
-        Locale('es'),
-      ],
+      supportedLocales: const [Locale('en'), Locale('es')],
       home: const MainHomeScreen(),
     );
   }
