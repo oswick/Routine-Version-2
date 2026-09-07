@@ -11,22 +11,14 @@ import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/services/connectivity_service.dart';
 import 'package:myapp/services/local_stogare_service.dart';
 import 'package:myapp/services/background_service.dart';
+import 'package:myapp/features/focus/services/focus_storage_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'utils/notification_service.dart';
 import 'utils/app_lifecycle_handler.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-// CRÍTICO: re-exportar el background handler aquí para que el linker de Dart
-// lo incluya en el build. Sin este import el compilador puede eliminarlo.
-// La función está definida en notification_service.dart como top-level.
-// ignore: unused_import
 export 'utils/notification_service.dart' show notificationBackgroundHandler;
 
-// TODO: reemplaza esto por el color de marca de tu app (seed color).
-// Si no tienes un color de marca fijo, puedes dejarlo tal cual:
-// dynamicColoring:true hará que el sistema (Material You / Android 12+)
-// lo sobreescriba cuando esté disponible; este seed queda solo como
-// fallback en iOS/desktop o dispositivos sin dynamic color.
 const Color _seedColor = Color(0xFF6750A4);
 
 void main() async {
@@ -39,6 +31,7 @@ void main() async {
   );
   await Future.wait([
     LocalStorageService().init(),
+    FocusStorageService().init(),
     ConnectivityService().initialize(),
     EventProvider().init(),
   ]);
@@ -68,7 +61,6 @@ Future<void> _requestPermissions() async {
     if (await Permission.scheduleExactAlarm.isDenied) {
       await Permission.scheduleExactAlarm.request();
     }
-
     if (await Permission.ignoreBatteryOptimizations.isDenied) {
       await Permission.ignoreBatteryOptimizations.request();
     }
@@ -101,21 +93,13 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    // M3EMaterialApp reemplaza a MaterialApp + DynamicColorBuilder:
-    // ya gestiona internamente el brightness del sistema, el
-    // ThemeMode y el dynamic color (Material You / Android 12+),
-    // así que ya no hace falta envolver el árbol a mano.
     return M3EMaterialApp(
       title: 'Routine',
       debugShowCheckedModeBanner: false,
       drawUnderSystemBars: true,
-
-      // Tema base M3 Expressive (claro), a partir del cual se derivan
-      // el tema oscuro y el dynamic color.
       data: M3EThemeData.light(seedColor: _seedColor),
-      autoTheming: true, // sigue el brightness del sistema
-      dynamicColoring: true, // usa Material You cuando esté disponible
-
+      autoTheming: true,
+      dynamicColoring: true,
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
@@ -126,7 +110,6 @@ class _MyAppState extends State<MyApp> {
         Locale('en'),
         Locale('es'),
       ],
-
       home: const MainHomeScreen(),
     );
   }
