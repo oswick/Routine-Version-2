@@ -18,11 +18,9 @@ final class FocusCompleted extends FocusState { const FocusCompleted({required t
 
 class FocusProvider extends ChangeNotifier {
   FocusProvider({FocusStorageService? storage}) : _storage = storage ?? FocusStorageService();
-
   final FocusStorageService _storage;
   final Uuid _uuid = const Uuid();
   final NotificationService _notifications = NotificationService();
-
   FocusState _state = const FocusReady();
   FocusTimerEngine? _engine;
   String? _eventId;
@@ -56,7 +54,6 @@ class FocusProvider extends ChangeNotifier {
     _startPhase(_phase);
   }
 
-  /// Starts the correct next phase in the standard Pomodoro cycle.
   void startNextPhase() {
     if (_phase == FocusPhase.focus) {
       final isLong = _completedFocusSessions % FocusConfig.sessionsBeforeLongBreak == 0;
@@ -147,20 +144,19 @@ class FocusProvider extends ChangeNotifier {
     _cancelNotification();
     _completionGuard = Timer(const Duration(milliseconds: 50), () {
       _completionGuard = null;
-      if (_phase == FocusPhase.focus) {
-        _completedFocusSessions++;
-        final session = _buildSession(completed: true, interrupted: false);
-        _currentSession = session;
-        unawaited(_persistSession(session));
-      }
       final session = _phase == FocusPhase.focus
-          ? _currentSession!
+          ? _buildSession(completed: true, interrupted: false)
           : FocusSession(
               id: _uuid.v4(), eventId: _eventId,
               startedAt: DateTime.now().subtract(_durationFor(_phase)),
               endedAt: DateTime.now(), duration: _durationFor(_phase),
               type: _phase, completed: true,
             );
+      if (_phase == FocusPhase.focus) {
+        _completedFocusSessions++;
+        _currentSession = session;
+      }
+      unawaited(_persistSession(session));
       _state = FocusCompleted(phase: _phase, session: session);
       notifyListeners();
     });
@@ -181,12 +177,11 @@ class FocusProvider extends ChangeNotifier {
   void _scheduleNotification() {
     final engine = _engine;
     if (engine == null || !engine.isRunning || engine.remaining <= Duration.zero) return;
-    final when = DateTime.now().add(engine.remaining);
     unawaited(_notifications.scheduleNotification(
       _notificationId,
       _phase == FocusPhase.focus ? 'Focus complete' : 'Break complete',
       _phase == FocusPhase.focus ? 'Your focus session is complete.' : 'Your break is complete.',
-      when,
+      DateTime.now().add(engine.remaining),
       null,
     ));
   }
@@ -196,9 +191,7 @@ class FocusProvider extends ChangeNotifier {
     _scheduleNotification();
   }
 
-  void _cancelNotification() {
-    unawaited(_notifications.cancelNotification(_notificationId));
-  }
+  void _cancelNotification() => unawaited(_notifications.cancelNotification(_notificationId));
 
   Future<void> _persistSession(FocusSession session) => _storage.save(session);
 
