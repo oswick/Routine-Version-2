@@ -3,26 +3,16 @@
 // CONTRATO DE IDs (seguido aquí, en EventProvider y BackgroundService):
 //
 //   scheduleNotification(id, ...)      → registra con el ID exacto
-//   scheduleEndNotification(id, ...)   → registra con (id + 10_000)  ← offset AQUÍ
+//   scheduleEndNotification(id, ...)   → registra con (id + 10_000)
 //   cancelNotification(id)             → cancela id Y (id + 10_000)
 //
 // El caller SIEMPRE pasa el ID base:
 //   Evento único      : eventId.hashCode
 //   Repetitivo día N  : eventId.hashCode + N   (N = 1..7)
-//
-// ── ACCIONES EN NOTIFICACIONES ───────────────────────────────────────────────
-//
-// Para que "Completado" actualice la app, usamos un puerto de comunicación
-// entre el handler de notificaciones (que corre sin contexto Flutter) y
-// EventProvider (que es un singleton accesible directamente).
-//
-// Flujo:
-//   Usuario pulsa acción → _onNotificationResponse(response)
-//     → si mark_done: cancela notif + llama EventProvider().markEventDoneFromNotification(notifId)
-//     → si snooze:    cancela notif + reprograma con mismo ID y título original
 
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -35,7 +25,6 @@ class ScheduledNotificationData {
   final String body;
   final DateTime scheduledDate;
   final bool isEndNotification;
-  // Guardamos el eventId para poder marcar el evento en EventProvider
   final String? eventId;
 
   ScheduledNotificationData({
@@ -63,44 +52,18 @@ class ScheduledNotificationData {
       id: json['id'],
       title: json['title'],
       body: json['body'],
-      scheduledDate: DateTime.fromMillisecondsSinceEpoch(json['scheduledDate']),
+      scheduledDate:
+          DateTime.fromMillisecondsSinceEpoch(json['scheduledDate']),
       isEndNotification: json['isEndNotification'] ?? false,
       eventId: json['eventId'] as String?,
     );
   }
 }
 
-
-// CRÍTICO: debe ser una función TOP-LEVEL (no método de clase) y marcada con
-// @pragma('vm:entry-point'). Android la invoca en un isolate separado cuando
-// la app está cerrada o en background. No puede acceder a singletons de Flutter.
-// Solo hace lo mínimo: guarda la acción en SharedPreferences para que la app
-// la procese al abrirse (o usa el plugin directamente).
-@pragma('vm:entry-point')
-Future<void> notificationBackgroundHandler(NotificationResponse response) async {
-  // En background/killed no podemos acceder a EventProvider ni a singletons de Flutter.
-  // Guardamos la acción pendiente en SharedPreferences; la app la procesará al abrirse.
-  final firedId = int.tryParse(response.payload ?? '');
-  if (firedId == null) return;
-
-  final actionId = response.actionId;
-  if (actionId != 'mark_done' && actionId != 'snooze') return;
-
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    // Formato: "actionId:notifId"  p.ej. "mark_done:12345"
-    final pending = prefs.getStringList('pending_notif_actions') ?? [];
-    pending.add('$actionId:$firedId');
-    await prefs.setStringList('pending_notif_actions', pending);
-    debugPrint('📥 Background action queued: $actionId:$firedId');
-  } catch (e) {
-    debugPrint('Error queuing background action: $e');
-  }
-}
-
 class NotificationService {
   static final NotificationService _notificationService =
       NotificationService._internal();
+
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
@@ -120,9 +83,6 @@ class NotificationService {
     await flutterLocalNotificationsPlugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: _onNotificationResponse,
-      // CRÍTICO: registrar el handler de background.
-      // Sin esto los botones no funcionan cuando la app está en background o cerrada.
-      onDidReceiveBackgroundNotificationResponse: notificationBackgroundHandler,
     );
 
     tz.initializeTimeZones();
@@ -130,119 +90,27 @@ class NotificationService {
     await _cleanOrphanNotifications();
   }
 
-  // ── Handler de acciones ────────────────────────────────────────────────────
-  //
-  // IMPORTANTE: Este método se llama en el isolate PRINCIPAL cuando la app
-  // está en primer plano o background (pero no killed). Aquí sí podemos
-  // acceder al singleton EventProvider.
-  void _onNotificationResponse(NotificationResponse response) async {
-    // El payload siempre es el ID EXACTO con el que se registró la notificación
-    final firedId = int.tryParse(response.payload ?? '');
-    if (firedId == null) return;
-
+  /// Tap sobre una notificación normal.
+  /// No abre la app por sí misma; solo se registra el evento si Flutter está activo.
+  void _onNotificationResponse(NotificationResponse response) {
     if (response.notificationResponseType ==
         NotificationResponseType.selectedNotification) {
-      // Tap simple en la notificación — solo log
+      final firedId = int.tryParse(response.payload ?? '');
       debugPrint('🔔 Notification tapped: $firedId');
-      return;
-    }
-
-    if (response.notificationResponseType !=
-        NotificationResponseType.selectedNotificationAction) {
-      return;
-    }
-
-    final actionId = response.actionId;
-
-    if (actionId == 'mark_done') {
-      await _handleMarkDone(firedId);
-    } else if (actionId == 'snooze') {
-      await _handleSnooze(firedId);
     }
   }
 
- // In notification_service.dart — replace _handleMarkDone
-Future<void> _handleMarkDone(int firedId) async {
-  debugPrint('✔️ mark_done for notif id=$firedId');
-
-  await flutterLocalNotificationsPlugin.cancel(firedId);
-  await _removeNotificationData(firedId);
-  _invalidateCache();
-
-  final stored = await _getNotificationDataById(firedId);
-
-  if (stored?.eventId == null) {
-    debugPrint('⚠️ mark_done: no eventId stored for notif $firedId — cannot mark done');
-    return;
-  }
-
-  if (_markDoneCallback == null) {
-    // FIX: callback not registered yet — queue as pending action so
-    // EventProvider picks it up when it initializes
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final pending = prefs.getStringList('pending_notif_actions') ?? [];
-      pending.add('mark_done:$firedId');
-      // Re-save the notification data so _processPendingBackgroundActions
-      // can still look up the eventId
-      await _saveNotificationData(stored!);
-      await prefs.setStringList('pending_notif_actions', pending);
-      debugPrint('📥 mark_done queued (callback not registered yet): $firedId');
-    } catch (e) {
-      debugPrint('Error queuing mark_done: $e');
-    }
-    return;
-  }
-
-  _markDoneCallback!.call(stored!.eventId!);
-}
-
-  Future<void> _handleSnooze(int firedId) async {
-    debugPrint('⏸️ snooze for notif id=$firedId');
-
-    // 1. Recuperar datos originales ANTES de eliminar
-    final stored = await _getNotificationDataById(firedId);
-
-    // 2. Cancelar la notificación actual
-    await flutterLocalNotificationsPlugin.cancel(firedId);
-    await _removeNotificationData(firedId);
-    _invalidateCache();
-
-    // 3. Reprogramar con el mismo ID y título/body originales
-    final snoozeTime = DateTime.now().add(const Duration(minutes: 5));
-    final notif = ScheduledNotificationData(
-      id: firedId,
-      title: stored?.title ?? '⏰ Recordatorio',
-      body: stored?.body ?? 'Evento pospuesto 5 min',
-      scheduledDate: snoozeTime,
-      isEndNotification: stored?.isEndNotification ?? false,
-      eventId: stored?.eventId,
-    );
-
-    await _showNotificationInternal(notif);
-    await _saveNotificationData(notif);
-    _invalidateCache();
-
-    debugPrint('⏸️ Snoozed notif id=$firedId → rescheduled at $snoozeTime');
-  }
-
-  // ── Callback bridge con EventProvider ─────────────────────────────────────
-  //
-  // EventProvider registra este callback en su init() para que
-  // NotificationService pueda notificarle sin importarlo directamente.
-  //
-  // Uso en EventProvider.init():
-  //   NotificationService().registerMarkDoneCallback((eventId) {
-  //     markEventDoneFromNotification(eventId);
-  //   });
+  // Se conserva esta API porque EventProvider la registra durante su inicialización.
+  // Las acciones de notificación fueron eliminadas para mantener las notificaciones
+  // como recordatorios simples y evitar acciones que no funcionaban de forma fiable
+  // cuando Android ejecutaba la app en segundo plano o bloqueada.
   void Function(String eventId)? _markDoneCallback;
 
   void registerMarkDoneCallback(void Function(String eventId) callback) {
     _markDoneCallback = callback;
-    debugPrint('✅ NotificationService: markDone callback registered');
+    debugPrint('ℹ️ NotificationService: markDone callback registered (legacy)');
   }
 
-  // ── Canal de notificaciones ────────────────────────────────────────────────
   Future<void> _createNotificationChannel() async {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'your_channel_id',
@@ -254,6 +122,7 @@ Future<void> _handleMarkDone(int firedId) async {
       enableLights: true,
       playSound: true,
     );
+
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -273,7 +142,6 @@ Future<void> _handleMarkDone(int firedId) async {
     }
   }
 
-  // ── Limpieza de huérfanas ──────────────────────────────────────────────────
   Future<void> _cleanOrphanNotifications() async {
     try {
       final pending =
@@ -298,10 +166,6 @@ Future<void> _handleMarkDone(int firedId) async {
     }
   }
 
-  // ── Schedule ───────────────────────────────────────────────────────────────
-
-  /// Programa una notificación de inicio.
-  /// [id] es el ID base. [eventId] se guarda para poder marcar el evento done.
   Future<void> scheduleNotification(
     int id,
     String title,
@@ -320,6 +184,7 @@ Future<void> _handleMarkDone(int firedId) async {
         scheduledDate: scheduledDate,
         eventId: eventId,
       );
+
       await _showNotificationInternal(notif);
       await _saveNotificationData(notif);
       _invalidateCache();
@@ -329,8 +194,6 @@ Future<void> _handleMarkDone(int firedId) async {
     }
   }
 
-  /// Programa una notificación de fin.
-  /// Recibe el ID BASE — internamente registra con (id + 10_000).
   Future<void> scheduleEndNotification(
     int id,
     String title,
@@ -352,10 +215,13 @@ Future<void> _handleMarkDone(int firedId) async {
         isEndNotification: true,
         eventId: eventId,
       );
+
       await _showNotificationInternal(notif);
       await _saveNotificationData(notif);
       _invalidateCache();
-      debugPrint('📅 Scheduled end notif baseId=$id → id=$endId at $scheduledDate');
+      debugPrint(
+        '📅 Scheduled end notif baseId=$id → id=$endId at $scheduledDate',
+      );
     } catch (e) {
       debugPrint('Error scheduling end notification: $e');
     }
@@ -380,22 +246,10 @@ Future<void> _handleMarkDone(int firedId) async {
           enableVibration: true,
           styleInformation: DefaultStyleInformation(true, true),
           autoCancel: true,
-          fullScreenIntent: true,
+          fullScreenIntent: false,
           category: AndroidNotificationCategory.reminder,
           visibility: NotificationVisibility.public,
           showWhen: true,
-          actions: <AndroidNotificationAction>[
-            AndroidNotificationAction(
-              'mark_done',
-              '✔️ Completado',
-              showsUserInterface: false,
-            ),
-            AndroidNotificationAction(
-              'snooze',
-              '⏸️ Posponer 5 min',
-              showsUserInterface: false,
-            ),
-          ],
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -403,16 +257,9 @@ Future<void> _handleMarkDone(int firedId) async {
     );
   }
 
-
-  // ── Métodos públicos para procesamiento de acciones background ────────────
-
-  /// Devuelve los datos guardados de una notificación por su ID exacto.
-  /// Usado por EventProvider al procesar acciones encoladas en background.
   Future<ScheduledNotificationData?> getNotificationDataById(int id) =>
       _getNotificationDataById(id);
 
-  /// Cancela SOLO la notificación con este ID exacto (no su par).
-  /// Usar cuando la notificación ya disparó y queremos descartarla del panel.
   Future<void> cancelSingleNotification(int id) async {
     try {
       await flutterLocalNotificationsPlugin.cancel(id);
@@ -424,8 +271,6 @@ Future<void> _handleMarkDone(int firedId) async {
     }
   }
 
-  /// Reprograma una notificación para 5 minutos después, conservando
-  /// el título/body originales. Usado para el snooze desde background.
   Future<void> snoozeNotification(int firedId) async {
     final stored = await _getNotificationDataById(firedId);
     await flutterLocalNotificationsPlugin.cancel(firedId);
@@ -440,16 +285,13 @@ Future<void> _handleMarkDone(int firedId) async {
       isEndNotification: stored?.isEndNotification ?? false,
       eventId: stored?.eventId,
     );
+
     await _showNotificationInternal(notif);
     await _saveNotificationData(notif);
     _invalidateCache();
     debugPrint('⏸️ Snoozed notif id=$firedId → $snoozeTime');
   }
 
-  // ── Cancel ─────────────────────────────────────────────────────────────────
-
-  /// Cancela una notificación por su ID BASE.
-  /// Cancela tanto el ID base (inicio) como (base + 10_000) (fin).
   Future<void> cancelNotification(int id) async {
     try {
       await flutterLocalNotificationsPlugin.cancel(id);
@@ -466,7 +308,6 @@ Future<void> _handleMarkDone(int firedId) async {
     }
   }
 
-  /// Cancela todas las notificaciones de un evento dado su eventId string.
   Future<void> cancelEventNotifications(
     String eventId, {
     List<int>? repeatDays,
@@ -500,7 +341,6 @@ Future<void> _handleMarkDone(int firedId) async {
     }
   }
 
-  // ── Pending & status ───────────────────────────────────────────────────────
   Future<List<PendingNotificationRequest>> getPendingNotifications({
     bool useCache = true,
   }) async {
@@ -510,6 +350,7 @@ Future<void> _handleMarkDone(int firedId) async {
         DateTime.now().difference(_cacheTime!).inSeconds < 5) {
       return _pendingNotificationsCache!;
     }
+
     _pendingNotificationsCache =
         await flutterLocalNotificationsPlugin.pendingNotificationRequests();
     _cacheTime = DateTime.now();
@@ -520,7 +361,9 @@ Future<void> _handleMarkDone(int firedId) async {
     final scheduled = await _getScheduledNotificationsData();
     final pending = await getPendingNotifications(useCache: false);
     final now = DateTime.now();
-    final upcoming = scheduled.where((n) => n.scheduledDate.isAfter(now)).length;
+    final upcoming =
+        scheduled.where((n) => n.scheduledDate.isAfter(now)).length;
+
     return {
       'scheduled_count': upcoming,
       'pending_count': pending.length,
@@ -531,8 +374,9 @@ Future<void> _handleMarkDone(int firedId) async {
   Future<void> ensureScheduledNotificationsExist() async {
     try {
       final notificationsData = await _getScheduledNotificationsData();
-      final pendingIds =
-          (await getPendingNotifications(useCache: false)).map((n) => n.id).toSet();
+      final pendingIds = (await getPendingNotifications(useCache: false))
+          .map((n) => n.id)
+          .toSet();
       final now = DateTime.now();
 
       int rescheduled = 0;
@@ -555,20 +399,22 @@ Future<void> _handleMarkDone(int firedId) async {
 
       if (rescheduled > 0 || stale.isNotEmpty) {
         _invalidateCache();
-        debugPrint('✅ Rescheduled=$rescheduled, removed ${stale.length} stale');
+        debugPrint(
+          '✅ Rescheduled=$rescheduled, removed ${stale.length} stale',
+        );
       }
     } catch (e) {
       debugPrint('Error ensuring scheduled notifications: $e');
     }
   }
 
-  // ── Persistence helpers ────────────────────────────────────────────────────
   static const _prefsKey = 'scheduled_notifications';
 
   Future<List<ScheduledNotificationData>> _getScheduledNotificationsData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getStringList(_prefsKey) ?? [];
+
       return raw
           .map((item) {
             try {
@@ -594,15 +440,17 @@ Future<void> _handleMarkDone(int firedId) async {
     }
   }
 
-  Future<void> _saveNotificationData(ScheduledNotificationData notif) async {
+  Future<void> _saveNotificationData(
+    ScheduledNotificationData notif,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getStringList(_prefsKey) ?? [];
 
-      // Reemplazar si ya existe el mismo ID
       final updated = raw.where((item) {
         try {
-          return ScheduledNotificationData.fromJson(jsonDecode(item)).id != notif.id;
+          return ScheduledNotificationData.fromJson(jsonDecode(item)).id !=
+              notif.id;
         } catch (_) {
           return false;
         }
@@ -619,6 +467,7 @@ Future<void> _handleMarkDone(int firedId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getStringList(_prefsKey) ?? [];
+
       final updated = raw.where((item) {
         try {
           return ScheduledNotificationData.fromJson(jsonDecode(item)).id != id;
@@ -626,6 +475,7 @@ Future<void> _handleMarkDone(int firedId) async {
           return false;
         }
       }).toList();
+
       await prefs.setStringList(_prefsKey, updated);
     } catch (e) {
       debugPrint('Error removing notification data: $e');
