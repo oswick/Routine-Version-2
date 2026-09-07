@@ -5,6 +5,7 @@ import 'package:myapp/config/app_config.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/providers/auth_provider.dart';
 import 'package:myapp/screens/nav_screen.dart';
+import 'package:myapp/screens/onboarding_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
 import 'package:myapp/services/connectivity_service.dart';
@@ -13,19 +14,13 @@ import 'package:myapp/services/background_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'utils/notification_service.dart';
 import 'utils/app_lifecycle_handler.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // CRÍTICO: re-exportar el background handler aquí para que el linker de Dart
 // lo incluya en el build. Sin este import el compilador puede eliminarlo.
 // La función está definida en notification_service.dart como top-level.
 // ignore: unused_import
 export 'utils/notification_service.dart' show notificationBackgroundHandler;
-
-// TODO: reemplaza esto por el color de marca de tu app (seed color).
-// Si no tienes un color de marca fijo, puedes dejarlo tal cual:
-// dynamicColoring:true hará que el sistema (Material You / Android 12+)
-// lo sobreescriba cuando esté disponible; este seed queda solo como
-// fallback en iOS/desktop o dispositivos sin dynamic color.
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,7 +36,6 @@ void main() async {
     EventProvider().init(),
   ]);
   await NotificationService().init();
-  await _requestPermissions();
 
   runApp(
     MultiProvider(
@@ -52,27 +46,6 @@ void main() async {
       child: const MyApp(),
     ),
   );
-}
-
-Future<void> _requestPermissions() async {
-  try {
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.notification,
-      Permission.scheduleExactAlarm,
-      Permission.ignoreBatteryOptimizations,
-    ].request();
-    print('Permission statuses: $statuses');
-
-    if (await Permission.scheduleExactAlarm.isDenied) {
-      await Permission.scheduleExactAlarm.request();
-    }
-
-    if (await Permission.ignoreBatteryOptimizations.isDenied) {
-      await Permission.ignoreBatteryOptimizations.request();
-    }
-  } catch (e) {
-    print('Error requesting permissions: $e');
-  }
 }
 
 class MyApp extends StatefulWidget {
@@ -99,25 +72,57 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    // M3EMaterialApp reemplaza a MaterialApp + DynamicColorBuilder:
-    // ya gestiona internamente el brightness del sistema, el
-    // ThemeMode y el dynamic color (Material You / Android 12+),
-    // así que ya no hace falta envolver el árbol a mano.
     return M3EMaterialApp(
       title: 'Routine',
       debugShowCheckedModeBanner: false,
       drawUnderSystemBars: true,
       data: M3EThemeData.light(),
-      autoTheming: true, // sigue el brightness del sistema
-      dynamicColoring: true, // usa Material You cuando esté disponible
-
+      autoTheming: true,
+      dynamicColoring: true,
       localizationsDelegates: [
         AppLocalizations.delegate,
         ...GlobalMaterialLocalizations.delegates,
       ],
       supportedLocales: const [Locale('en'), Locale('es')],
-      home: const MainHomeScreen(),
+      home: const _StartupGate(),
     );
   }
 }
-       
+
+class _StartupGate extends StatefulWidget {
+  const _StartupGate();
+
+  @override
+  State<_StartupGate> createState() => _StartupGateState();
+}
+
+class _StartupGateState extends State<_StartupGate> {
+  bool? _onboardingCompleted;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOnboardingState();
+  }
+
+  Future<void> _loadOnboardingState() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_onboardingCompleted == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return _onboardingCompleted!
+        ? const MainHomeScreen()
+        : const OnboardingScreen();
+  }
+}
