@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:myapp/screens/nav_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -40,7 +41,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Future<void> _refreshPermissions() async {
-    if (!mounted && !_loading) return;
     try {
       final notification = await Permission.notification.status;
       final battery = await Permission.ignoreBatteryOptimizations.status;
@@ -80,9 +80,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     setState(() => _requesting = true);
     try {
       await Permission.scheduleExactAlarm.request();
-    } catch (_) {
-      // Some Android versions/devices do not expose this permission.
-    }
+    } catch (_) {}
     await _refreshPermissions();
     if (mounted) setState(() => _requesting = false);
   }
@@ -92,7 +90,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     await prefs.setBool('onboarding_completed', true);
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed('/home');
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const MainHomeScreen()),
+    );
   }
 
   @override
