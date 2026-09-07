@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/models/event.dart';
 import 'package:myapp/providers/event_provider.dart';
-import 'package:myapp/screens/add_event_screen.dart';
 import 'package:myapp/screens/calendar_screen.dart';
 import 'package:myapp/screens/day_screen.dart';
 import 'package:myapp/screens/profile_screen.dart';
@@ -23,12 +24,42 @@ class MinimalRoutineScreen extends StatefulWidget {
 
 class _MinimalRoutineScreenState extends State<MinimalRoutineScreen> {
   DateTime _selectedDate = DateTime.now();
+  Timer? _clockTimer;
 
   DateTime get _dayOnly => DateTime(
         _selectedDate.year,
         _selectedDate.month,
         _selectedDate.day,
       );
+
+  @override
+  void initState() {
+    super.initState();
+    _startClock();
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startClock() {
+    // Keeps the single-screen timeline aware of time passing. This is
+    // intentionally lightweight; EventCard owns its per-second progress
+    // animation while this timer handles transitions such as upcoming -> now
+    // and now -> past.
+    _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+
+      final now = DateTime.now();
+      final currentDay = DateTime(now.year, now.month, now.day);
+
+      if (_dayOnly == currentDay) {
+        setState(() {});
+      }
+    });
+  }
 
   void _changeDay(int amount) {
     setState(() {
