@@ -2,6 +2,7 @@
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:myapp/l10n/app_localizations.dart';
+import 'package:myapp/screens/add_event_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:myapp/providers/event_provider.dart';
@@ -718,25 +719,34 @@ class _MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     );
   }
 
-  void _showEventPreview(BuildContext context, Event event) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return EventPreviewSheet(
-          event: event,
-          onEdit: () {
-            // Implementar edición si es necesario
-          },
-          onDelete: () {
-            // El delete se maneja dentro del EventPreviewSheet
-          },
+void _showEventPreview(BuildContext context, Event event) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => EventPreviewSheet(
+      event: event,
+      onEdit: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => AddEventBottomSheet(
+            event: event,
+            onAddEvent: (updatedEvent) async {
+              await Provider.of<EventProvider>(
+                context,
+                listen: false,
+              ).updateEvent(updatedEvent);
+            },
+            day: event.startTime,
+          ),
         );
       },
-    );
-  }
-
+      onDelete: () {},
+    ),
+  );
+}
   Future<bool?> _showDeleteConfirmationDialog(
     BuildContext context,
     Event event,
