@@ -12,7 +12,6 @@ import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/l10n/app_localizations.dart';
-import 'package:myapp/screens/pomodoro_screen.dart';
 import 'package:myapp/models/event.dart';
 import 'package:myapp/screens/add_event_screen.dart';
 import 'package:myapp/utils/event_utils.dart';
@@ -41,12 +40,10 @@ class _EventCardState extends State<EventCard>
   late bool isCompleted;
   String? _currentDateKey;
 
-  // Smooth progress animation
   late AnimationController _progressAnimController;
   late Animation<double> _progressAnim;
   double _lastProgress = 0.0;
 
-  // Tick local de 1 segundo — independiente del timer global del provider.
   Timer? _tickTimer;
 
   @override
@@ -87,16 +84,9 @@ class _EventCardState extends State<EventCard>
       isCompleted = widget.event.isCompleted;
     }
 
-    // El evento pudo cambiar de horario, o pasar de "pasado" a "activo":
-    // reevaluamos si el ticker debe estar corriendo.
     _syncTicker();
   }
 
-  // ── Ticker de 1 segundo ────────────────────────────────────────────────
-  // Prende un Timer.periodic SOLO mientras esta tarjeta debe mostrar
-  // progreso. Cada segundo hace setState(() {}) para que el build vuelva
-  // a calcular el % y el tiempo restante con DateTime.now() actual.
-  // No depende de notifyListeners() del provider ni de recargar pantalla.
   void _syncTicker() {
     final shouldTick = _shouldShowProgress();
 
@@ -110,7 +100,7 @@ class _EventCardState extends State<EventCard>
           _tickTimer?.cancel();
           _tickTimer = null;
         }
-        setState(() {}); // fuerza rebuild -> recalcula progreso y tiempo
+        setState(() {});
       });
     } else if (!shouldTick && _tickTimer != null) {
       _tickTimer?.cancel();
@@ -118,7 +108,6 @@ class _EventCardState extends State<EventCard>
     }
   }
 
-  // ── Completion helpers ────────────────────────────────────────────────────────
   Future<void> _loadCompletedStatus() async {
     final provider = Provider.of<EventProvider>(context, listen: false);
     if (mounted) {
@@ -147,7 +136,6 @@ class _EventCardState extends State<EventCard>
     provider.updateEventCompletion(widget.event, value, DateTime.now());
   }
 
-  // ── Progress helpers ──────────────────────────────────────────────────────────
   bool _shouldShowProgress() {
     if (widget.event.endTime == null || isCompleted || widget.pastEvent) {
       return false;
@@ -177,9 +165,6 @@ class _EventCardState extends State<EventCard>
     }
   }
 
-  /// Calcula el progreso (0.0–1.0) directamente con la hora actual,
-  /// sin depender del cache del provider (que solo se actualiza cada
-  /// 30s). Así el tick de 1s siempre tiene un valor fresco.
   double _calculateCurrentProgress() {
     if (widget.event.endTime == null) return 0.0;
     final now = DateTime.now();
@@ -215,7 +200,6 @@ class _EventCardState extends State<EventCard>
     }
   }
 
-  /// Returns human-readable remaining time string.
   String _remainingTime(double progress) {
     if (widget.event.endTime == null) return '';
     final now = DateTime.now();
@@ -245,7 +229,6 @@ class _EventCardState extends State<EventCard>
     return '${s}s';
   }
 
-  /// Dynamic color for progress bar: green → amber → red as time runs out.
   Color _progressColor(double progress, BuildContext context) {
     if (progress < 0.5) {
       return Color.lerp(Colors.green, Colors.amber, progress * 2)!;
@@ -254,7 +237,6 @@ class _EventCardState extends State<EventCard>
     }
   }
 
-  // ── Status text / icon ────────────────────────────────────────────────────────
   Widget _buildStatusIndicator() {
     if (widget.pastEvent) {
       return Row(
@@ -316,19 +298,62 @@ class _EventCardState extends State<EventCard>
     return widget.event.repeatDays.map((d) => names[d]).join(', ');
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────────
+  String _eventDuration() {
+    final end = widget.event.endTime;
+    if (end == null) return '';
+
+    final startMinutes = widget.event.startTime.hour * 60 +
+        widget.event.startTime.minute;
+    final endMinutes = end.hour * 60 + end.minute;
+    var duration = endMinutes - startMinutes;
+
+    // Supports events that cross midnight without changing event data.
+    if (duration < 0) duration += 24 * 60;
+
+    final hours = duration ~/ 60;
+    final minutes = duration % 60;
+
+    if (hours > 0 && minutes > 0) return '${hours}h ${minutes}m';
+    if (hours > 0) return '${hours}h';
+    return '${minutes}m';
+  }
+
+  Widget _buildDurationIndicator(BuildContext context) {
+    if (widget.event.endTime == null) return const SizedBox.shrink();
+
+    final scheme = Theme.of(context).colorScheme;
+    final duration = _eventDuration();
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.timer_outlined,
+            size: 15,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            duration,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final opacity = widget.pastEvent ? 0.5 : (isCompleted ? 0.65 : 1.0);
-
-    // Progreso calculado localmente con DateTime.now() en cada build.
-    // Como _syncTicker() llama a setState() cada 1s mientras el evento
-    // está activo, este build se re-ejecuta cada segundo y el valor
-    // siempre está fresco — ya no depende del cache del provider.
     final rawProgress = _calculateCurrentProgress();
     final showProgress = _shouldShowProgress();
 
-    // Animate to new progress value when it changes
     if (showProgress && (rawProgress - _lastProgress).abs() > 0.0005) {
       _progressAnim =
           Tween<double>(begin: _progressAnim.value, end: rawProgress).animate(
@@ -351,9 +376,7 @@ class _EventCardState extends State<EventCard>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(
-            color: Theme.of(
-              context,
-            ).colorScheme.outlineVariant.withOpacity(0.3),
+            color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
             width: 1,
           ),
         ),
@@ -365,7 +388,6 @@ class _EventCardState extends State<EventCard>
               children: [
                 Row(
                   children: [
-                    // Importance bar
                     if (widget.event.importance != null &&
                         widget.event.importance! > 0)
                       Container(
@@ -380,14 +402,11 @@ class _EventCardState extends State<EventCard>
                         widget.event.importance! > 0)
                       const SizedBox(width: 8),
 
-                    // Category icon
                     if (widget.event.category.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary.withOpacity(0.1),
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -399,7 +418,6 @@ class _EventCardState extends State<EventCard>
                     if (widget.event.category.isNotEmpty)
                       const SizedBox(width: 12),
 
-                    // Title + status
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,9 +434,7 @@ class _EventCardState extends State<EventCard>
                                     decoration: isCompleted
                                         ? TextDecoration.lineThrough
                                         : null,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
+                                    color: Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                               ),
@@ -426,11 +442,10 @@ class _EventCardState extends State<EventCard>
                                 _formatTime(widget.event.startTime),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.6),
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                                 ),
                               ),
+                              _buildDurationIndicator(context),
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -439,24 +454,6 @@ class _EventCardState extends State<EventCard>
                       ),
                     ),
 
-                    // Pomodoro button
-                    if (widget.event.endTime != null &&
-                        !isCompleted &&
-                        !widget.pastEvent)
-                      IconButton(
-                        icon: Icon(
-                          Icons.timer,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PomodoroScreen(event: widget.event),
-                          ),
-                        ),
-                      ),
-
-                    // Completion checkbox
                     Tooltip(
                       message: isCompleted
                           ? AppLocalizations.of(context).markAsIncomplete
@@ -470,7 +467,6 @@ class _EventCardState extends State<EventCard>
                   ],
                 ),
 
-                // ── Real-time progress bar (Material 3 Expressive) ───────────
                 if (showProgress)
                   AnimatedBuilder(
                     animation: _progressAnim,
@@ -487,52 +483,24 @@ class _EventCardState extends State<EventCard>
                               value: p,
                               linearSize: M3EProgressIndicatorSize.s,
                               color: color,
-                              trackColor: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
+                              trackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                             ),
                             const SizedBox(height: 4),
-                            // ... el Row con el % y el tiempo restante sigue igual, sin cambios
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // Elapsed %
                                 Text(
-                                  '${(p * 100).toStringAsFixed(0)}%',
+                                  '${(p * 100).round()}%',
                                   style: TextStyle(
                                     fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: color,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                                // Remaining time
-                                if (remaining.isNotEmpty)
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.schedule,
-                                        size: 11,
-                                        color: color,
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        remaining,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                          color: color,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                // End time
                                 Text(
-                                  _formatTime(widget.event.endTime!),
+                                  remaining,
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface.withOpacity(0.5),
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ],
@@ -550,7 +518,10 @@ class _EventCardState extends State<EventCard>
     );
   }
 
-  // ── Sheet helpers ─────────────────────────────────────────────────────────────
+  String _formatTime(DateTime time) {
+    return DateFormat('HH:mm').format(time);
+  }
+
   void _showPreview(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -558,22 +529,8 @@ class _EventCardState extends State<EventCard>
       backgroundColor: Colors.transparent,
       builder: (_) => EventPreviewSheet(
         event: widget.event,
-        onEdit: () {
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => AddEventBottomSheet(
-              event: widget.event,
-              onAddEvent: widget.onUpdateEvent,
-              day: widget.event.startTime,
-            ),
-          );
-        },
-        onDelete: () {},
+        onUpdateEvent: widget.onUpdateEvent,
       ),
     );
   }
-
-  String _formatTime(DateTime dt) => DateFormat.jm().format(dt);
 }
