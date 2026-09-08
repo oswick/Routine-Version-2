@@ -5,7 +5,6 @@ My-App is a productivity and event management application for Android, built wit
 ## Key Features
 
 *   **Event Management:** Create, view, and manage your events in a calendar or daily view.
-*   **Pomodoro Timer:** Improve your focus and productivity with a built-in Pomodoro timer.
 *   **Advanced Security:** Protect your app with biometric authentication (fingerprint or Face ID) and auto-lock settings.
 *   **Social Login:** Quickly sign in with your Google account.
 *   **Automatic Synchronization:** Keep your data synchronized across devices. The app works both online and offline.
