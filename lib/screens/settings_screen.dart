@@ -19,7 +19,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isBiometricAvailable = false;
   bool _isCheckingBiometric = true;
-
   EventSortOption _selectedSortOption = EventSortOption.timeAscending;
   bool _isLoadingSortPreference = true;
 
@@ -34,7 +33,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final sortIndex = prefs.getInt('event_sort_option') ?? 0;
-
       if (mounted) {
         setState(() {
           _selectedSortOption = EventSortOption.values[sortIndex];
@@ -43,9 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       debugPrint('Error loading sort preference: $e');
-      if (mounted) {
-        setState(() => _isLoadingSortPreference = false);
-      }
+      if (mounted) setState(() => _isLoadingSortPreference = false);
     }
   }
 
@@ -53,10 +49,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('event_sort_option', option.index);
-
       if (mounted) {
         setState(() => _selectedSortOption = option);
-
         final l10n = AppLocalizations.of(context);
         M3ESnackbar.show(
           context,
@@ -67,10 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       debugPrint('Error saving sort preference: $e');
       if (mounted) {
-        M3ESnackbar.show(
-          context,
-          message: '${AppLocalizations.of(context).error}: $e',
-        );
+        M3ESnackbar.show(context, message: '${AppLocalizations.of(context).error}: $e');
       }
     }
   }
@@ -113,7 +104,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _showSortOptionsDialog() async {
     final l10n = AppLocalizations.of(context);
-
     final result = await M3EDialog.show<EventSortOption>(
       context,
       dialog: M3EDialog(
@@ -127,9 +117,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: M3ERadio<EventSortOption>(
                   value: option,
                   groupValue: _selectedSortOption,
-                  onChanged: (value) {
-                    Navigator.of(context).pop(value);
-                  },
+                  onChanged: (value) => Navigator.of(context).pop(value),
                   label: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -138,10 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _getSortOptionDescription(option),
                         style: TextStyle(
                           fontSize: 12,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withOpacity(0.6),
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         ),
                       ),
                     ],
@@ -154,21 +139,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           M3EButton.text(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(AppLocalizations.of(context).cancel),
+            child: Text(l10n.cancel),
           ),
         ],
       ),
     );
-
-    if (result != null && result != _selectedSortOption) {
-      await _saveSortPreference(result);
-    }
+    if (result != null && result != _selectedSortOption) await _saveSortPreference(result);
   }
 
   Future<void> _showAccentColorDialog() async {
     final themeProvider = context.read<ThemeProvider>();
     final current = themeProvider.selectedAccentColor;
-
     final result = await M3EDialog.show<String>(
       context,
       dialog: M3EDialog(
@@ -183,16 +164,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: M3ERadio<String>(
                   value: entry.key,
                   groupValue: current,
-                  onChanged: Navigator.of(context).pop,
+                  onChanged: (value) => Navigator.of(context).pop(value),
                   label: Row(
                     children: [
                       Container(
                         width: 24,
                         height: 24,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                        ),
+                        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                       ),
                       const SizedBox(width: 12),
                       Text(entry.key),
@@ -211,14 +189,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-
-    if (result != null && result != current) {
-      await themeProvider.setAccentColor(result);
-    }
+    if (result != null && result != current) await themeProvider.setAccentColor(result);
   }
 
   Future<void> _checkBiometricAvailability() async {
-    bool available = await BiometricService.isBiometricAvailable();
+    final available = await BiometricService.isBiometricAvailable();
     if (mounted) {
       setState(() {
         _isBiometricAvailable = available;
@@ -230,42 +205,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleBiometricAuth(bool value) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final l10n = AppLocalizations.of(context);
-
-    if (value) {
-      AuthResult result = await BiometricService.authenticateWithResult();
-      if (result.success) {
-        await authProvider.setBiometricAuthEnabled(true);
-        if (mounted) {
-          M3ESnackbar.show(context, message: l10n.biometricEnabledSuccessfully);
-        }
-      } else if (mounted) {
+    final result = await BiometricService.authenticateWithResult();
+    if (result.success) {
+      await authProvider.setBiometricAuthEnabled(value);
+      if (mounted) {
         M3ESnackbar.show(
           context,
-          message: result.errorMessage ?? l10n.authenticationFailed,
-          duration: const Duration(seconds: 4),
+          message: value ? l10n.biometricEnabledSuccessfully : l10n.biometricDisabled,
         );
       }
-    } else {
-      AuthResult result = await BiometricService.authenticateWithResult();
-      if (result.success) {
-        await authProvider.setBiometricAuthEnabled(false);
-        if (mounted) {
-          M3ESnackbar.show(context, message: l10n.biometricDisabled);
-        }
-      } else if (mounted) {
-        M3ESnackbar.show(
-          context,
-          message:
-              '${l10n.authRequiredToChangeSettings} ${result.errorMessage ?? ''}',
-          duration: const Duration(seconds: 4),
-        );
-      }
+    } else if (mounted) {
+      M3ESnackbar.show(
+        context,
+        message: result.errorMessage ?? l10n.authenticationFailed,
+        duration: const Duration(seconds: 4),
+      );
     }
   }
 
   Future<void> _showTimeoutOptionsDialog(AuthProvider authProvider) async {
     final l10n = AppLocalizations.of(context);
-
     final result = await M3EDialog.show<int>(
       context,
       dialog: M3EDialog(
@@ -294,23 +253,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (result != null && result != authProvider.authTimeoutMinutes) {
-      AuthResult authResult = await BiometricService.authenticateWithResult();
+      final authResult = await BiometricService.authenticateWithResult();
       if (authResult.success) {
         await authProvider.setAuthTimeout(result);
         await authProvider.setLastAuthTime();
-
         if (mounted) {
           M3ESnackbar.show(
             context,
-            message:
-                '${l10n.autoLockTimeoutSetTo} ${AuthProvider.getTimeoutText(result, context)}',
+            message: '${l10n.autoLockTimeoutSetTo} ${AuthProvider.getTimeoutText(result, context)}',
           );
         }
       } else if (mounted) {
         M3ESnackbar.show(
           context,
-          message:
-              '${l10n.authRequiredToChangeSettings} ${authResult.errorMessage ?? ''}',
+          message: '${l10n.authRequiredToChangeSettings} ${authResult.errorMessage ?? ''}',
           duration: const Duration(seconds: 4),
         );
       }
@@ -320,25 +276,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleImmediateTimeout(bool value) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final l10n = AppLocalizations.of(context);
-
-    AuthResult result = await BiometricService.authenticateWithResult();
+    final result = await BiometricService.authenticateWithResult();
     if (result.success) {
       await authProvider.setImmediateTimeout(value);
       await authProvider.setLastAuthTime();
-
       if (mounted) {
         M3ESnackbar.show(
           context,
-          message:
-              value ? l10n.immediateEnabledMessage : l10n.immediateDisabledMessage,
+          message: value ? l10n.immediateEnabledMessage : l10n.immediateDisabledMessage,
           duration: const Duration(seconds: 3),
         );
       }
     } else if (mounted) {
       M3ESnackbar.show(
         context,
-        message:
-            '${l10n.authRequiredToChangeSettings} ${result.errorMessage ?? ''}',
+        message: '${l10n.authRequiredToChangeSettings} ${result.errorMessage ?? ''}',
         duration: const Duration(seconds: 4),
       );
     }
@@ -346,18 +298,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildBiometricSettings(AuthProvider authProvider) {
     final l10n = AppLocalizations.of(context);
-
     if (_isCheckingBiometric) {
       return M3EListItem(
         leading: const Icon(Icons.fingerprint),
         headline: l10n.enableBiometricAuthentication,
-        trailing: const SizedBox(
-          width: 20,
-          height: 20,
-          child: M3ELoadingIndicator(),
-        ),
+        trailing: const SizedBox(width: 20, height: 20, child: M3ELoadingIndicator()),
       );
     }
+
     return Column(
       children: [
         M3EListItem(
@@ -405,7 +353,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(l10n.immediateLock, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                      Text(
+                        l10n.immediateLock,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                      ),
                       Text(
                         authProvider.immediateTimeoutEnabled
                             ? l10n.appLocksImmediately
@@ -433,7 +384,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildAccentColorSettings() {
     final themeProvider = context.watch<ThemeProvider>();
     final color = themeProvider.seedColor;
-
     return M3EListItem(
       leading: Icon(Icons.palette_outlined, color: color),
       headline: 'Accent color',
@@ -447,9 +397,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
+              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
             ),
           ),
           const SizedBox(width: 8),
@@ -462,24 +410,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildSortingSettings() {
     final l10n = AppLocalizations.of(context);
-
     if (_isLoadingSortPreference) {
       return M3EListItem(
         leading: const Icon(Icons.sort),
         headline: l10n.eventSorting,
-        trailing: const SizedBox(
-          width: 20,
-          height: 20,
-          child: M3ELoadingIndicator(),
-        ),
+        trailing: const SizedBox(width: 20, height: 20, child: M3ELoadingIndicator()),
       );
     }
-
     return M3EListItem(
       leading: Icon(Icons.sort, color: Theme.of(context).colorScheme.primary),
       headline: l10n.eventSorting,
-      supportingText:
-          '${l10n.currentlySorting}: ${_getSortOptionName(_selectedSortOption)}',
+      supportingText: '${l10n.currentlySorting}: ${_getSortOptionName(_selectedSortOption)}',
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: _showSortOptionsDialog,
     );
@@ -500,11 +441,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.only(top: 8.0),
           child: Text(
             l10n.settings,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
-            ),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
           ),
         ),
       ),
@@ -513,11 +450,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           Text(
             l10n.security,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface.withOpacity(0.8),
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorScheme.onSurface.withOpacity(0.8)),
           ),
           const SizedBox(height: 12),
           Container(
@@ -531,11 +464,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
           Text(
             l10n.displayAndOrganization,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface.withOpacity(0.8),
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorScheme.onSurface.withOpacity(0.8)),
           ),
           const SizedBox(height: 12),
           Container(
@@ -556,10 +485,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (!_isBiometricAvailable && !_isCheckingBiometric) ...[
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
+              decoration: BoxDecoration(color: colorScheme.errorContainer, borderRadius: BorderRadius.circular(12)),
               child: Row(
                 children: [
                   Icon(Icons.info_outline, color: colorScheme.onErrorContainer, size: 20),
@@ -593,20 +519,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Text(
                           l10n.securityOptions,
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(color: colorScheme.primary, fontSize: 14, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           l10n.securityOptionsDescription,
-                          style: TextStyle(
-                            color: colorScheme.primary.withOpacity(0.8),
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
+                          style: TextStyle(color: colorScheme.primary.withOpacity(0.8), fontSize: 12, height: 1.4),
                         ),
                       ],
                     ),
