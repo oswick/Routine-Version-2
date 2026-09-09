@@ -1,9 +1,9 @@
-// lib/main.dart
 import 'package:material_ui/material_ui.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/config/app_config.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/providers/auth_provider.dart';
+import 'package:myapp/providers/theme_provider.dart';
 import 'package:myapp/screens/nav_screen.dart';
 import 'package:myapp/screens/onboarding_screen.dart';
 import 'package:provider/provider.dart';
@@ -37,11 +37,15 @@ void main() async {
   ]);
   await NotificationService().init();
 
+  final themeProvider = ThemeProvider();
+  await themeProvider.load();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => EventProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider.value(value: themeProvider),
       ],
       child: const MyApp(),
     ),
@@ -72,13 +76,17 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+
     return M3EMaterialApp(
       title: 'Routine',
       debugShowCheckedModeBanner: false,
       drawUnderSystemBars: true,
-      data: M3EThemeData.light(),
+      data: themeProvider.themeData,
       autoTheming: true,
-      dynamicColoring: true,
+      // A user-selected seed is the source of truth for the app accent.
+      // Device dynamic color would otherwise replace it on supported devices.
+      dynamicColoring: false,
       localizationsDelegates: [
         AppLocalizations.delegate,
         ...GlobalMaterialLocalizations.delegates,
