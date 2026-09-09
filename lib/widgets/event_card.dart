@@ -12,7 +12,6 @@ import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/l10n/app_localizations.dart';
-import 'package:myapp/screens/pomodoro_screen.dart';
 import 'package:myapp/models/event.dart';
 import 'package:myapp/screens/add_event_screen.dart';
 import 'package:myapp/utils/event_utils.dart';
@@ -440,22 +439,7 @@ class _EventCardState extends State<EventCard>
                     ),
 
                     // Pomodoro button
-                    if (widget.event.endTime != null &&
-                        !isCompleted &&
-                        !widget.pastEvent)
-                      IconButton(
-                        icon: Icon(
-                          Icons.timer,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PomodoroScreen(event: widget.event),
-                          ),
-                        ),
-                      ),
-
+                 
                     // Completion checkbox
                     Tooltip(
                       message: isCompleted
