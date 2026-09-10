@@ -8,8 +8,6 @@ import 'package:myapp/screens/nav_screen.dart';
 import 'package:myapp/screens/onboarding_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/providers/event_provider.dart';
-import 'package:myapp/services/connectivity_service.dart';
-import 'package:myapp/services/local_stogare_service.dart';
 import 'package:myapp/services/background_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'utils/notification_service.dart';
@@ -17,24 +15,23 @@ import 'utils/app_lifecycle_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // CRÍTICO: re-exportar el background handler aquí para que el linker de Dart
-// lo incluya en el build. Sin este import el compilador puede eliminarlo.
-// La función está definida en notification_service.dart como top-level.
-// ignore: unused_import
+// lo incluya en el build.
 export 'utils/notification_service.dart' show notificationBackgroundHandler;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await BackgroundService.initWorkManager();
   await BackgroundService.registerRescheduleTask();
+
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
   );
-  await Future.wait([
-    LocalStorageService().init(),
-    ConnectivityService().initialize(),
-    EventProvider().init(),
-  ]);
+
+  // EventProvider -> SyncService owns initialization of LocalStorage and
+  // Connectivity. Avoid initializing the same singleton services twice.
+  await EventProvider().init();
   await NotificationService().init();
 
   final themeProvider = ThemeProvider();
@@ -43,7 +40,9 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => EventProvider()),
+        // EventProvider is a singleton initialized before runApp, so Provider
+        // must not take ownership of its lifecycle.
+        ChangeNotifierProvider.value(value: EventProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider.value(value: themeProvider),
       ],
@@ -84,8 +83,6 @@ class _MyAppState extends State<MyApp> {
       drawUnderSystemBars: true,
       data: themeProvider.themeData,
       autoTheming: true,
-      // A user-selected seed is the source of truth for the app accent.
-      // Device dynamic color would otherwise replace it on supported devices.
       dynamicColoring: false,
       localizationsDelegates: [
         AppLocalizations.delegate,
