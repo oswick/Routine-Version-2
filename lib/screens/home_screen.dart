@@ -2,6 +2,7 @@
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
+import 'package:intl/intl.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/models/event.dart';
 import 'package:provider/provider.dart';
@@ -116,6 +117,25 @@ class _HomeScreenState extends State<HomeScreen>
     return Colors.green;
   }
 
+  /// Saludo dinámico según la hora del día, estilo Gmail/Google apps.
+  String _getGreeting(AppLocalizations l10n) {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return l10n.goodMorning;
+    if (hour < 19) return l10n.goodAfternoon;
+    return l10n.goodEvening;
+  }
+
+  /// Fecha legible y localizada, ej: "Miércoles, 9 de septiembre".
+  /// Usa intl.DateFormat con el locale actual de la app.
+  String _getFormattedDate(BuildContext context) {
+    final locale = Localizations.localeOf(context).toString();
+    final formatter = DateFormat('EEEE, d MMMM', locale);
+    final formatted = formatter.format(selectedDate);
+    // Capitaliza la primera letra (algunos locales la devuelven en minúscula)
+    if (formatted.isEmpty) return formatted;
+    return formatted[0].toUpperCase() + formatted.substring(1);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -150,30 +170,36 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context, dynamic user) {
+    final l10n = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+
     return M3EAppBar.top(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: colorScheme.surface,
       elevation: 0,
 
       title: Padding(
         padding: const EdgeInsets.only(top: 8.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
+            // Saludo pequeño y sutil, estilo Gmail ("Hola, ...")
             Text(
-              getDayName(selectedDate.weekday),
+              _getGreeting(l10n),
               style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.primary,
               ),
             ),
-
+            const SizedBox(height: 2),
+            // Fecha completa y legible como título principal
             Text(
-              '${selectedDate.day} - '
-              '${selectedDate.month.toString().padLeft(2, '0')}',
+              _getFormattedDate(context),
               style: TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
               ),
             ),
           ],
@@ -183,45 +209,59 @@ class _HomeScreenState extends State<HomeScreen>
       actions: [
         if (user != null)
           Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: Container(
-              padding: const EdgeInsets.all(2),
+            padding: const EdgeInsets.only(right: 16.0),
+            child: GestureDetector(
+              // Espacio para, si quieres más adelante, abrir un menú de cuenta
+              // (como el avatar de Gmail/Calendar en la esquina superior derecha).
+              onTap: () {},
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 18,
 
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
+                    backgroundImage: user.userMetadata?['avatar_url'] != null
+                        ? NetworkImage(user.userMetadata!['avatar_url'])
+                        : null,
 
-                border: Border.all(
-                  color: _getConnectivityBorderColor(),
-                  width: 2.5,
-                ),
-              ),
+                    backgroundColor: colorScheme.primary.withOpacity(0.2),
 
-              child: CircleAvatar(
-                radius: 18,
+                    child: user.userMetadata?['avatar_url'] == null
+                        ? Text(
+                            user.userMetadata?['full_name']
+                                    ?.toString()
+                                    .substring(0, 1)
+                                    .toUpperCase() ??
+                                user.email?.substring(0, 1).toUpperCase() ??
+                                'U',
 
-                backgroundImage: user.userMetadata?['avatar_url'] != null
-                    ? NetworkImage(user.userMetadata!['avatar_url'])
-                    : null,
+                            style: TextStyle(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
 
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withOpacity(0.2),
-
-                child: user.userMetadata?['avatar_url'] == null
-                    ? Text(
-                        user.userMetadata?['full_name']
-                                ?.toString()
-                                .substring(0, 1)
-                                .toUpperCase() ??
-                            user.email?.substring(0, 1).toUpperCase() ??
-                            'U',
-
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.bold,
+                  // Punto de estado (presencia), estilo Google Meet/Messages,
+                  // en vez del anillo grueso de color alrededor de todo el avatar.
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _getConnectivityBorderColor(),
+                        border: Border.all(
+                          color: colorScheme.surface,
+                          width: 2,
                         ),
-                      )
-                    : null,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

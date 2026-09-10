@@ -186,5 +186,8 @@
   "minuteLabel": "minuto",
   "minutesLabel": "minutos",
   "screenActive": "Pantalla activa",
-  "authenticate": "Autenticar"
+  "authenticate": "Autenticar",
+  "goodAfternoon": "Buenas Tardes",
+  "goodMorning": "Buenos Días",
+  "goodEvening": "Buenas Noches"
 }

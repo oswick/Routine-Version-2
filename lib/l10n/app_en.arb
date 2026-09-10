@@ -208,5 +208,9 @@
   "minuteLabel": "minute",
   "minutesLabel": "minutes",
   "screenActive": "Screen active",
-  "authenticate": "Authenticate"
+  "authenticate": "Authenticate",
+  "goodAfternoon": "Good Afternoon",
+  "goodMorning": "Good Morning",
+  "goodEvening": "Good Evening"
+
 }

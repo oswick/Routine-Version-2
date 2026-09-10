@@ -111,6 +111,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start, // FIX: alinea todas las filas a la izquierda
             children: EventSortOption.values.map((option) {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -157,6 +158,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start, // FIX: alinea los radios a la izquierda
             children: ThemeProvider.accentColors.entries.map((entry) {
               final color = entry.value;
               return Padding(
@@ -231,6 +233,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: l10n.autoLockTimeout,
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start, // FIX: consistencia con los otros diálogos
           children: AuthProvider.timeoutOptions.map((minutes) {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -391,6 +394,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // FIX: se eliminó la llamada recursiva a _buildAccentColorSettings() que había aquí
           Container(
             width: 28,
             height: 28,
@@ -454,6 +458,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 12),
           Container(
+            clipBehavior: Clip.antiAlias, // FIX: recorta hijos según el borderRadius
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(16),
@@ -468,6 +473,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 12),
           Container(
+            clipBehavior: Clip.antiAlias, // FIX: evita que el ripple/fondo de los ListItem sobresalga de las esquinas
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(16),

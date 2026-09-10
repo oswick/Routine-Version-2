@@ -589,4 +589,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authenticate => 'Authenticate';
+
+  @override
+  String get goodAfternoon => 'Good Afternoon';
+
+  @override
+  String get goodMorning => 'Good Morning';
+
+  @override
+  String get goodEvening => 'Good Evening';
 }

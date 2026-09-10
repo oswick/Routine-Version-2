@@ -596,4 +596,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get authenticate => 'Autenticar';
+
+  @override
+  String get goodAfternoon => 'Buenas Tardes';
+
+  @override
+  String get goodMorning => 'Buenos Días';
+
+  @override
+  String get goodEvening => 'Buenas Noches';
 }

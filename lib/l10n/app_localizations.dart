@@ -1219,6 +1219,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Authenticate'**
   String get authenticate;
+
+  /// No description provided for @goodAfternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Good Afternoon'**
+  String get goodAfternoon;
+
+  /// No description provided for @goodMorning.
+  ///
+  /// In en, this message translates to:
+  /// **'Good Morning'**
+  String get goodMorning;
+
+  /// No description provided for @goodEvening.
+  ///
+  /// In en, this message translates to:
+  /// **'Good Evening'**
+  String get goodEvening;
 }
 
 class _AppLocalizationsDelegate
