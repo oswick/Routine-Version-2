@@ -17,55 +17,94 @@ class SyncService {
   final AuthService _authService = AuthService();
 
   Timer? _syncTimer;
+  Timer? _debounceTimer;
+  Timer? _uploadTimer;
   bool _isSyncing = false;
+  bool _isInitialized = false;
   DateTime? _lastSyncTime;
   RealtimeChannel? _realtimeChannel;
+  StreamSubscription<bool>? _connectivitySubscription;
+  StreamSubscription<AuthState>? _authSubscription;
 
-  // While > 0, Realtime echoes of our own writes are suppressed.
-  int _localWriteInProgress = 0;
+  // IDs written by this client. Realtime echoes for these IDs are ignored.
+  // Unlike a time-based counter, this cannot accidentally suppress unrelated
+  // remote changes just because a network request took longer than expected.
+  final Set<String> _locallyWrittenEventIds = <String>{};
 
-  // ── Streams ───────────────────────────────────────────────────────────────
   final StreamController<SyncStatus> _syncStatusController =
       StreamController<SyncStatus>.broadcast();
   Stream<SyncStatus> get syncStatusStream => _syncStatusController.stream;
 
-  // Emits ONLY when the server sent us events from another device.
-  // Carries the list of changed/deleted events so EventProvider can merge
-  // them into its in-memory list surgically (no full reload needed).
   final StreamController<List<Event>> _remoteChangesController =
       StreamController<List<Event>>.broadcast();
   Stream<List<Event>> get remoteChangesStream =>
       _remoteChangesController.stream;
 
-  // ── Init ──────────────────────────────────────────────────────────────────
   Future<void> init() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
     await _localStorage.init();
     await _connectivity.initialize();
 
-    _connectivity.connectionStream.listen((isConnected) {
-      if (isConnected) {
-        _startAutoSync();
-        _subscribeToRealtimeChanges();
-      } else {
-        _stopAutoSync();
-        _unsubscribeFromRealtimeChanges();
-        _syncStatusController.add(SyncStatus.offline);
-      }
-    });
+    _connectivitySubscription = _connectivity.connectionStream.listen(
+      _handleConnectivityChange,
+    );
+
+    _authSubscription = _authService.authStateChanges.listen(
+      _handleAuthStateChange,
+    );
 
     if (_connectivity.isConnected) {
       _startAutoSync();
-      _subscribeToRealtimeChanges();
+      await _refreshRealtimeSubscription();
     }
   }
 
-  // ── Realtime ──────────────────────────────────────────────────────────────
-  void _subscribeToRealtimeChanges() {
-    if (!_authService.isAuthenticated) return;
+  Future<void> _handleConnectivityChange(bool isConnected) async {
+    if (isConnected) {
+      _startAutoSync();
+      await _refreshRealtimeSubscription();
+    } else {
+      _stopAutoSync();
+      await _unsubscribeFromRealtimeChanges();
+      _syncStatusController.add(SyncStatus.offline);
+    }
+  }
+
+  Future<void> _handleAuthStateChange(AuthState state) async {
+    switch (state.event) {
+      case AuthChangeEvent.signedIn:
+      case AuthChangeEvent.tokenRefreshed:
+      case AuthChangeEvent.userUpdated:
+        await _refreshRealtimeSubscription();
+        if (_connectivity.isConnected) {
+          await _syncRemoteOnly();
+        }
+        break;
+      case AuthChangeEvent.signedOut:
+        await _unsubscribeFromRealtimeChanges();
+        _stopAutoSync();
+        break;
+      default:
+        break;
+    }
+  }
+
+  /// Rebuilds the user-filtered Realtime channel using the current Supabase
+  /// session. This is safe to call after login, logout, token refresh, or
+  /// reconnecting to the network.
+  Future<void> refreshRealtimeSubscription() async {
+    await _refreshRealtimeSubscription();
+  }
+
+  Future<void> _refreshRealtimeSubscription() async {
+    await _unsubscribeFromRealtimeChanges();
+
+    if (!_connectivity.isConnected || !_authService.isAuthenticated) return;
+
     final userId = _authService.currentUserId;
     if (userId == null) return;
-
-    _unsubscribeFromRealtimeChanges();
 
     try {
       _realtimeChannel = supabase
@@ -80,10 +119,12 @@ class SyncService {
               value: userId,
             ),
             callback: (payload) {
-              if (_localWriteInProgress > 0) {
-                print('📡 Realtime: own-write echo suppressed');
+              final eventId = _eventIdFromPayload(payload);
+              if (eventId != null && _locallyWrittenEventIds.contains(eventId)) {
+                print('📡 Realtime: own-write echo suppressed for $eventId');
                 return;
               }
+
               print('📡 Realtime: remote change – syncing');
               _debouncedRemoteSync();
             },
@@ -101,39 +142,57 @@ class SyncService {
     }
   }
 
-  void _unsubscribeFromRealtimeChanges() {
-    if (_realtimeChannel != null) {
-      supabase.removeChannel(_realtimeChannel!);
-      _realtimeChannel = null;
+  String? _eventIdFromPayload(PostgresPostgresChangePayload payload) {
+    final newRecord = payload.newRecord;
+    final oldRecord = payload.oldRecord;
+    return newRecord['id']?.toString() ?? oldRecord['id']?.toString();
+  }
+
+  Future<void> _unsubscribeFromRealtimeChanges() async {
+    final channel = _realtimeChannel;
+    _realtimeChannel = null;
+    if (channel != null) {
+      try {
+        await supabase.removeChannel(channel);
+      } catch (e) {
+        print('⚠️ Failed to remove Realtime channel: $e');
+      }
     }
   }
 
-  // ── Debounce helpers ──────────────────────────────────────────────────────
-  Timer? _debounceTimer;
-  Timer? _uploadTimer;
-
-  void _debouncedRemoteSync(
-      {Duration delay = const Duration(milliseconds: 400)}) {
+  void _debouncedRemoteSync({
+    Duration delay = const Duration(milliseconds: 400),
+  }) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(delay, () {
-      if (!_isSyncing) _syncRemoteOnly();
+      if (!_isSyncing) {
+        unawaited(_syncRemoteOnly());
+      }
     });
   }
 
-  void _debouncedUpload(
-      {Duration delay = const Duration(milliseconds: 300)}) {
+  void _debouncedUpload({
+    Duration delay = const Duration(milliseconds: 300),
+  }) {
     _uploadTimer?.cancel();
     _uploadTimer = Timer(delay, () {
-      if (!_isSyncing) _uploadPendingEvents();
+      if (!_isSyncing) {
+        unawaited(_syncRemoteOnly());
+      }
     });
   }
 
-  // ── Auto-sync (fallback poll) ─────────────────────────────────────────────
   void _startAutoSync() {
     _stopAutoSync();
-    _syncRemoteOnly();
+    if (_authService.isAuthenticated) {
+      unawaited(_syncRemoteOnly());
+    }
     _syncTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (_connectivity.isConnected && !_isSyncing) _syncRemoteOnly();
+      if (_connectivity.isConnected &&
+          _authService.isAuthenticated &&
+          !_isSyncing) {
+        unawaited(_syncRemoteOnly());
+      }
     });
   }
 
@@ -146,7 +205,6 @@ class SyncService {
     _uploadTimer = null;
   }
 
-  // ── Public API ────────────────────────────────────────────────────────────
   List<Event> getLocalEvents() => _localStorage.getAllEvents();
 
   Future<List<Event>> getEvents() async {
@@ -154,7 +212,7 @@ class SyncService {
     if (_authService.isAuthenticated &&
         _connectivity.isConnected &&
         !_isSyncing) {
-      _syncRemoteOnly();
+      unawaited(_syncRemoteOnly());
     }
     return events;
   }
@@ -168,30 +226,26 @@ class SyncService {
     print('💾 Saved locally: ${eventToSave.title}');
 
     if (_authService.isAuthenticated && _connectivity.isConnected) {
-      _localWriteInProgress++;
+      _locallyWrittenEventIds.add(eventToSave.id);
       _debouncedUpload();
-      Future.delayed(const Duration(seconds: 3), () {
-        _localWriteInProgress = (_localWriteInProgress - 1).clamp(0, 999);
-      });
     }
   }
 
   Future<void> deleteEvent(String eventId) async {
     await _localStorage.deleteEvent(eventId);
-    if (_connectivity.isConnected) {
-      _localWriteInProgress++;
+    if (_authService.isAuthenticated && _connectivity.isConnected) {
+      _locallyWrittenEventIds.add(eventId);
       _debouncedUpload();
-      Future.delayed(const Duration(seconds: 3), () {
-        _localWriteInProgress = (_localWriteInProgress - 1).clamp(0, 999);
-      });
     }
   }
 
-  Future<void> deleteAllEventInstances(String eventId) =>
-      deleteEvent(eventId);
+  Future<void> deleteAllEventInstances(String eventId) => deleteEvent(eventId);
 
   Future<void> forceSync() async {
-    if (!_connectivity.isConnected) throw Exception('No internet connection');
+    if (!_connectivity.isConnected) {
+      throw Exception('No internet connection');
+    }
+    if (!_authService.isAuthenticated) return;
     await _syncRemoteOnly();
   }
 
@@ -207,35 +261,22 @@ class SyncService {
 
   void dispose() {
     _stopAutoSync();
-    _unsubscribeFromRealtimeChanges();
+    unawaited(_unsubscribeFromRealtimeChanges());
+    unawaited(_connectivitySubscription?.cancel());
+    unawaited(_authSubscription?.cancel());
+    _connectivitySubscription = null;
+    _authSubscription = null;
     _syncStatusController.close();
     _remoteChangesController.close();
+    _isInitialized = false;
   }
 
-  // ── Upload-only (local → server, no UI notification) ─────────────────────
-  Future<void> _uploadPendingEvents() async {
-    if (!_authService.isAuthenticated || !_connectivity.isConnected) return;
-    final user = _authService.currentUser;
-    if (user == null) return;
-
-    _syncStatusController.add(SyncStatus.syncing);
-    try {
-      await _migrateLocalEventsToUser(user.id);
-      await _uploadLocalEvents(user.id);
-      await _syncDeletions(user.id);
-      _lastSyncTime = DateTime.now();
-      _syncStatusController.add(SyncStatus.synced);
-      print('⬆️ Upload done');
-    } catch (e) {
-      _syncStatusController.add(SyncStatus.error);
-      print('❌ Upload failed: $e');
-    }
-  }
-
-  // ── Remote sync (server → local → UI) ────────────────────────────────────
   Future<void> _syncRemoteOnly() async {
-    if (_isSyncing) return;
-    if (!_connectivity.isConnected || !_authService.isAuthenticated) return;
+    if (_isSyncing ||
+        !_connectivity.isConnected ||
+        !_authService.isAuthenticated) {
+      return;
+    }
 
     _isSyncing = true;
     _syncStatusController.add(SyncStatus.syncing);
@@ -267,18 +308,21 @@ class SyncService {
     }
   }
 
-  // ── Internals ─────────────────────────────────────────────────────────────
   Future<void> _migrateLocalEventsToUser(String userId) async {
     final local = _localStorage
         .getAllEvents()
         .where((e) => e.userId == 'local_user')
         .toList();
+
     for (final event in local) {
+      // Keep the original local modification time. Authentication migration
+      // changes ownership, not the event's actual modification time.
       await _localStorage.saveEvent(event.copyWith(
         userId: userId,
         needsSync: true,
-        lastModified: DateTime.now(),
+        lastModified: event.lastModified,
       ));
+      _locallyWrittenEventIds.add(event.id);
     }
   }
 
@@ -287,34 +331,45 @@ class SyncService {
         .getUnsyncedEvents()
         .where((e) => !e.isDeleted)
         .toList();
+
     if (unsynced.isEmpty) return;
+
     print('⬆️ Uploading ${unsynced.length} events…');
     const batchSize = 10;
+
     for (var i = 0; i < unsynced.length; i += batchSize) {
       final batch = unsynced.skip(i).take(batchSize).toList();
-      await Future.wait(
-          batch.map((e) => _uploadSingleEvent(e, userId)),
-          eagerError: false);
+      await Future.wait(batch.map((e) => _uploadSingleEvent(e, userId)));
     }
   }
 
   Future<void> _uploadSingleEvent(Event event, String userId) async {
     try {
-      final toUpload =
-          event.copyWith(userId: userId, lastModified: DateTime.now());
+      // IMPORTANT: never replace lastModified during upload. It represents
+      // when the user actually modified the event on the local device.
+      final toUpload = event.copyWith(
+        userId: userId,
+        lastModified: event.lastModified,
+        needsSync: true,
+      );
+
       await supabase
           .from('events')
           .upsert(toUpload.toJson(), onConflict: 'id')
           .select();
+
       await _localStorage.markAsSynced(event.id);
+      _locallyWrittenEventIds.remove(event.id);
       print('⬆️ Uploaded: ${event.title}');
     } catch (e) {
       print('❌ Upload failed for ${event.id}: $e');
+      rethrow;
     }
   }
 
   Future<void> _syncDeletions(String userId) async {
     final deleted = _localStorage.getDeletedEvents();
+
     for (final event in deleted) {
       try {
         await supabase
@@ -324,17 +379,17 @@ class SyncService {
             .eq('user_id', userId)
             .select();
         await _localStorage.markAsSynced(event.id);
+        _locallyWrittenEventIds.remove(event.id);
       } catch (e) {
         print('❌ Deletion sync failed for ${event.id}: $e');
+        rethrow;
       }
     }
   }
 
-  // Returns only events genuinely changed by a remote device.
   Future<List<Event>> _downloadServerEvents(String userId) async {
     print('⬇️ Downloading from server…');
-    final response =
-        await supabase.from('events').select().eq('user_id', userId);
+    final response = await supabase.from('events').select().eq('user_id', userId);
     final serverEvents =
         (response as List).map((json) => Event.fromJson(json)).toList();
     print('📥 Server: ${serverEvents.length} events');
@@ -344,19 +399,23 @@ class SyncService {
     for (final serverEvent in serverEvents) {
       final local = _localStorage.getEvent(serverEvent.id);
 
-      // Our own unsynced edits take priority if they are newer.
       if (local != null &&
           local.needsSync &&
           local.lastModified.isAfter(serverEvent.lastModified)) {
         continue;
       }
 
-      // Only treat as changed if the data is meaningfully different.
       final isDifferent = local == null ||
-          local.lastModified.isBefore(
-              serverEvent.lastModified.subtract(const Duration(seconds: 1))) ||
+          local.lastModified != serverEvent.lastModified ||
+          local.title != serverEvent.title ||
+          local.description != serverEvent.description ||
+          local.startTime != serverEvent.startTime ||
+          local.endTime != serverEvent.endTime ||
+          !_sameIntList(local.repeatDays, serverEvent.repeatDays) ||
+          local.importance != serverEvent.importance ||
+          local.category != serverEvent.category ||
           local.isCompleted != serverEvent.isCompleted ||
-          local.title != serverEvent.title;
+          local.userId != serverEvent.userId;
 
       if (isDifferent) {
         await _localStorage.saveEvent(serverEvent.copyWith(needsSync: false));
@@ -367,12 +426,12 @@ class SyncService {
       }
     }
 
-    // Detect server-side deletions.
     final serverIds = serverEvents.map((e) => e.id).toSet();
     for (final local in _localStorage.getAllEvents()) {
       if (!serverIds.contains(local.id) &&
           !local.needsSync &&
-          !local.isDeleted) {
+          !local.isDeleted &&
+          local.userId == userId) {
         await _localStorage.deleteEvent(local.id, permanent: true);
         changed.add(local.copyWith(isDeleted: true));
         print('🗑️ Removed locally (deleted on server): ${local.id}');
@@ -380,6 +439,14 @@ class SyncService {
     }
 
     return changed;
+  }
+
+  bool _sameIntList(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 }
 
