@@ -26,9 +26,6 @@ class SyncService {
   StreamSubscription<bool>? _connectivitySubscription;
   StreamSubscription<AuthState>? _authSubscription;
 
-  // IDs written by this client. Realtime echoes for these IDs are ignored.
-  // Unlike a time-based counter, this cannot accidentally suppress unrelated
-  // remote changes just because a network request took longer than expected.
   final Set<String> _locallyWrittenEventIds = <String>{};
 
   final StreamController<SyncStatus> _syncStatusController =
@@ -50,7 +47,6 @@ class SyncService {
     _connectivitySubscription = _connectivity.connectionStream.listen(
       _handleConnectivityChange,
     );
-
     _authSubscription = _authService.authStateChanges.listen(
       _handleAuthStateChange,
     );
@@ -91,9 +87,6 @@ class SyncService {
     }
   }
 
-  /// Rebuilds the user-filtered Realtime channel using the current Supabase
-  /// session. This is safe to call after login, logout, token refresh, or
-  /// reconnecting to the network.
   Future<void> refreshRealtimeSubscription() async {
     await _refreshRealtimeSubscription();
   }
@@ -120,7 +113,8 @@ class SyncService {
             ),
             callback: (payload) {
               final eventId = _eventIdFromPayload(payload);
-              if (eventId != null && _locallyWrittenEventIds.contains(eventId)) {
+              if (eventId != null &&
+                  _locallyWrittenEventIds.contains(eventId)) {
                 print('📡 Realtime: own-write echo suppressed for $eventId');
                 return;
               }
@@ -142,9 +136,9 @@ class SyncService {
     }
   }
 
-  String? _eventIdFromPayload(PostgresPostgresChangePayload payload) {
-    final newRecord = payload.newRecord;
-    final oldRecord = payload.oldRecord;
+  String? _eventIdFromPayload(dynamic payload) {
+    final newRecord = payload.newRecord as Map<String, dynamic>;
+    final oldRecord = payload.oldRecord as Map<String, dynamic>;
     return newRecord['id']?.toString() ?? oldRecord['id']?.toString();
   }
 
@@ -165,9 +159,7 @@ class SyncService {
   }) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(delay, () {
-      if (!_isSyncing) {
-        unawaited(_syncRemoteOnly());
-      }
+      if (!_isSyncing) unawaited(_syncRemoteOnly());
     });
   }
 
@@ -176,9 +168,7 @@ class SyncService {
   }) {
     _uploadTimer?.cancel();
     _uploadTimer = Timer(delay, () {
-      if (!_isSyncing) {
-        unawaited(_syncRemoteOnly());
-      }
+      if (!_isSyncing) unawaited(_syncRemoteOnly());
     });
   }
 
@@ -262,8 +252,16 @@ class SyncService {
   void dispose() {
     _stopAutoSync();
     unawaited(_unsubscribeFromRealtimeChanges());
-    unawaited(_connectivitySubscription?.cancel());
-    unawaited(_authSubscription?.cancel());
+
+    final connectivitySubscription = _connectivitySubscription;
+    if (connectivitySubscription != null) {
+      unawaited(connectivitySubscription.cancel());
+    }
+    final authSubscription = _authSubscription;
+    if (authSubscription != null) {
+      unawaited(authSubscription.cancel());
+    }
+
     _connectivitySubscription = null;
     _authSubscription = null;
     _syncStatusController.close();
@@ -315,8 +313,6 @@ class SyncService {
         .toList();
 
     for (final event in local) {
-      // Keep the original local modification time. Authentication migration
-      // changes ownership, not the event's actual modification time.
       await _localStorage.saveEvent(event.copyWith(
         userId: userId,
         needsSync: true,
@@ -345,8 +341,6 @@ class SyncService {
 
   Future<void> _uploadSingleEvent(Event event, String userId) async {
     try {
-      // IMPORTANT: never replace lastModified during upload. It represents
-      // when the user actually modified the event on the local device.
       final toUpload = event.copyWith(
         userId: userId,
         lastModified: event.lastModified,
