@@ -7,7 +7,6 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// Cargar propiedades del keystore
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
@@ -15,20 +14,19 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.myapp"
+    namespace = "com.homolabs.routine"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "28.2.13676358"
 
-compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-    isCoreLibraryDesugaringEnabled = true
-}
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
+    }
 
-kotlinOptions {
-    jvmTarget = JavaVersion.VERSION_17.toString()
-}
-
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17.toString()
+    }
 
     defaultConfig {
         applicationId = "com.homolabs.routine"
@@ -39,25 +37,26 @@ kotlinOptions {
     }
 
     signingConfigs {
-            val storeFilePath = keystoreProperties.getProperty("storeFile")
-            val hasReleaseSigning = listOf("keyAlias", "keyPassword", "storePassword")
-                .all { keystoreProperties.getProperty(it).isNullOrBlank().not() } &&
-                !storeFilePath.isNullOrBlank() &&
-                file(storeFilePath).exists()
+        val storeFilePath = keystoreProperties.getProperty("storeFile")
+        val hasReleaseSigning = listOf("keyAlias", "keyPassword", "storePassword")
+            .all { keystoreProperties.getProperty(it).isNullOrBlank().not() } &&
+            !storeFilePath.isNullOrBlank() &&
+            file(storeFilePath).exists()
 
-            if (hasReleaseSigning) {
-                create("release") {
-                    keyAlias = keystoreProperties.getProperty("keyAlias")
-                    keyPassword = keystoreProperties.getProperty("keyPassword")
-                    storeFile = file(storeFilePath!!)
-                    storePassword = keystoreProperties.getProperty("storePassword")
-                }
+        if (hasReleaseSigning) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(storeFilePath!!)
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
         }
     }
 
     buildTypes {
         getByName("release") {
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
         }
