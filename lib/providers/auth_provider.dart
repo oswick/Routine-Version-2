@@ -27,25 +27,20 @@ class AuthProvider with ChangeNotifier {
 
   static const List<int> timeoutOptions = [1, 2, 5, 10, 30];
 
-  /// FIX: now accepts a BuildContext so it can use l10n instead of hardcoded English.
-  /// Usage: AuthProvider.getTimeoutText(minutes, context)
   static String getTimeoutText(int minutes, [BuildContext? context]) {
     if (context != null) {
       final l10n = AppLocalizations.of(context);
       final label = minutes == 1 ? l10n.minuteLabel : l10n.minutesLabel;
       return '$minutes $label';
     }
-    // Fallback for callers without context (e.g. non-UI code)
     return '$minutes ${minutes == 1 ? 'minute' : 'minutes'}';
   }
 
   AuthProvider() {
-    print('🔐 AuthProvider: Constructor called');
     _loadFromPrefs();
   }
 
   Future<void> _loadFromPrefs() async {
-    print('🔐 AuthProvider: Loading preferences...');
     final prefs = await SharedPreferences.getInstance();
 
     _isBiometricAuthEnabled = prefs.getBool(_biometricKey) ?? false;
@@ -53,19 +48,17 @@ class AuthProvider with ChangeNotifier {
         prefs.getInt(_authTimeoutKey) ?? _defaultTimeoutMinutes;
     _immediateTimeoutEnabled =
         prefs.getBool(_immediateTimeoutKey) ?? _defaultImmediateTimeout;
-    _sessionAuthenticated = prefs.getBool(_sessionAuthKey) ?? false;
 
-    print('🔐 AuthProvider: Biometric enabled = $_isBiometricAuthEnabled');
-    print('🔐 AuthProvider: Timeout minutes = $_authTimeoutMinutes');
-    print('🔐 AuthProvider: Immediate timeout = $_immediateTimeoutEnabled');
-    print('🔐 AuthProvider: Session authenticated = $_sessionAuthenticated');
-
+    // A biometric session is process-local. Never restore it from disk.
+    _sessionAuthenticated = false;
     _isCurrentlyAuthenticated = false;
+    await prefs.setBool(_sessionAuthKey, false);
+    await prefs.setBool(_appStateKey, false);
+
     notifyListeners();
   }
 
   Future<void> setBiometricAuthEnabled(bool isEnabled) async {
-    print('🔐 AuthProvider: Setting biometric enabled = $isEnabled');
     _isBiometricAuthEnabled = isEnabled;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_biometricKey, isEnabled);
@@ -107,58 +100,33 @@ class AuthProvider with ChangeNotifier {
     _sessionAuthenticated = true;
     await prefs.setBool(_appStateKey, true);
     await prefs.setBool(_sessionAuthKey, true);
-
-    print('🔐 AuthProvider: ✅ Marked as authenticated');
-    print('🔐 AuthProvider: Session authenticated = true');
     notifyListeners();
   }
 
   Future<bool> needsAuthAgain() async {
-    print('🔐 AuthProvider: Checking if auth needed...');
-
     if (!_isBiometricAuthEnabled) return false;
+    if (_sessionAuthenticated) return false;
 
-    if (_sessionAuthenticated) {
-      print('🔐 AuthProvider: ✅ Session already authenticated, no auth needed');
-      return false;
-    }
+    if (_immediateTimeoutEnabled) return true;
 
     final prefs = await SharedPreferences.getInstance();
     final lastAuthTime = prefs.getInt(_lastAuthTimeKey);
-
-    if (lastAuthTime == null) {
-      print('🔐 AuthProvider: No previous auth time, auth required');
-      return true;
-    }
-
-    if (_immediateTimeoutEnabled) {
-      print('🔐 AuthProvider: Immediate timeout enabled, checking session');
-      return !_sessionAuthenticated;
-    }
+    if (lastAuthTime == null) return true;
 
     final lastAuth = DateTime.fromMillisecondsSinceEpoch(lastAuthTime);
-    final now = DateTime.now();
-    final timeDifference = now.difference(lastAuth);
-    final timeoutDuration = Duration(minutes: _authTimeoutMinutes);
-
-    print('🔐 AuthProvider: Time since auth = ${timeDifference.inSeconds}s');
-    bool needsAuth = timeDifference >= timeoutDuration;
-
-    print('🔐 AuthProvider: Needs auth = $needsAuth');
-    return needsAuth;
+    return DateTime.now().difference(lastAuth) >=
+        Duration(minutes: _authTimeoutMinutes);
   }
 
   Future<void> onAppPaused() async {
-    print('🔐 AuthProvider: App paused');
-    if (_isBiometricAuthEnabled) {
-      _isCurrentlyAuthenticated = false;
-      _sessionAuthenticated = false;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_appStateKey, false);
-      await prefs.setBool(_sessionAuthKey, false);
-      print('🔐 AuthProvider: Session cleared on pause');
-      notifyListeners();
-    }
+    if (!_isBiometricAuthEnabled) return;
+
+    _isCurrentlyAuthenticated = false;
+    _sessionAuthenticated = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_appStateKey, false);
+    await prefs.setBool(_sessionAuthKey, false);
+    notifyListeners();
   }
 
   Future<void> markAsUnauthenticated() async {
@@ -171,10 +139,6 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> checkAuthOnResume() async {
-    print('🔐 AuthProvider: ===============================================');
-    print('🔐 AuthProvider: CHECKING AUTH ON APP RESUME');
-    print('🔐 AuthProvider: ===============================================');
-
     if (!_isBiometricAuthEnabled) {
       _isCurrentlyAuthenticated = true;
       _sessionAuthenticated = true;
@@ -183,7 +147,6 @@ class AuthProvider with ChangeNotifier {
     }
 
     final needsAuth = await needsAuthAgain();
-
     if (needsAuth) {
       _isCurrentlyAuthenticated = false;
       _sessionAuthenticated = false;
@@ -191,18 +154,16 @@ class AuthProvider with ChangeNotifier {
       await prefs.setBool(_appStateKey, false);
       await prefs.setBool(_sessionAuthKey, false);
       notifyListeners();
-      print('🔐 AuthProvider: ❌ Auth required');
       return true;
-    } else {
-      _isCurrentlyAuthenticated = true;
-      _sessionAuthenticated = true;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_appStateKey, true);
-      await prefs.setBool(_sessionAuthKey, true);
-      notifyListeners();
-      print('🔐 AuthProvider: ✅ Already authenticated');
-      return false;
     }
+
+    _isCurrentlyAuthenticated = true;
+    _sessionAuthenticated = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_appStateKey, true);
+    await prefs.setBool(_sessionAuthKey, true);
+    notifyListeners();
+    return false;
   }
 
   Future<void> printDebugInfo() async {
