@@ -1,5 +1,6 @@
 // lib/screens/nav_screen.dart
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/models/event.dart';
@@ -11,6 +12,10 @@ import 'package:myapp/screens/calendar_screen.dart';
 import 'package:myapp/screens/home_screen.dart';
 import 'package:myapp/screens/profile_screen.dart';
 
+/// Root screen of the app once the user is inside it.
+/// Handles:
+///  - Bottom navigation between Home / Calendar / Profile.
+///  - Biometric re-authentication when the app is backgrounded and resumed.
 class MainHomeScreen extends StatefulWidget {
   const MainHomeScreen({super.key});
 
@@ -20,21 +25,22 @@ class MainHomeScreen extends StatefulWidget {
 
 class _MainHomeScreenState extends State<MainHomeScreen>
     with WidgetsBindingObserver {
+  // Index of the currently selected bottom nav tab.
   int _selectedIndex = 0;
   final PageController _pageController = PageController();
 
-  // Estados para la autenticación biométrica
-  bool _isCheckingAuth = false;
-  bool _isAuthenticated = false;
-  bool _authenticationRequired = false;
+  // --- Biometric auth state ---
+  bool _isCheckingAuth =
+      false; // true while we're verifying/awaiting biometrics
+  bool _isAuthenticated = false; // true once the user has passed auth
+  bool _authenticationRequired = false; // true when the lock screen must show
 
   @override
   void initState() {
     super.initState();
-    print('🏠 NavScreen: initState called');
     WidgetsBinding.instance.addObserver(this);
 
-    // Verificar autenticación al iniciar
+    // Check biometric auth status right after the first frame is drawn.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkBiometricAuth();
     });
@@ -42,74 +48,51 @@ class _MainHomeScreenState extends State<MainHomeScreen>
 
   @override
   void dispose() {
-    print('🏠 NavScreen: dispose called');
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
   }
 
+  /// Reacts to the app going to background/foreground so we can
+  /// lock/unlock the screen with biometrics as needed.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    print('🏠 NavScreen: App lifecycle changed to $state');
-
     if (state == AppLifecycleState.resumed) {
-      // Cuando la app vuelve del background, verificar auth
       _onAppResumed();
     } else if (state == AppLifecycleState.paused) {
-      // Cuando la app va a background, notificar al provider
       _onAppPaused();
     }
   }
 
+  /// Called when the app comes back to the foreground.
+  /// Asks AuthProvider whether re-authentication is needed (e.g. enough
+  /// time has passed since the app was paused) and updates UI state.
   Future<void> _onAppResumed() async {
-    print('🏠 NavScreen: ===============================================');
-    print('🏠 NavScreen: APP RESUMED - CHECKING AUTHENTICATION');
-    print('🏠 NavScreen: ===============================================');
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // Usar el nuevo método que verifica si necesita auth
     bool needsAuth = await authProvider.checkAuthOnResume();
 
-    if (needsAuth) {
-      print('🏠 NavScreen: 🔒 SHOWING AUTH SCREEN - Authentication required');
-      setState(() {
-        _isAuthenticated = false;
-        _authenticationRequired = true;
-        _isCheckingAuth = false;
-      });
-    } else {
-      print('🏠 NavScreen: ✅ CONTINUING TO APP - No authentication required');
-      setState(() {
-        _isAuthenticated = true;
-        _authenticationRequired = false;
-        _isCheckingAuth = false;
-      });
-    }
-
-    print('🏠 NavScreen: Current UI state:');
-    print('  - _isAuthenticated: $_isAuthenticated');
-    print('  - _authenticationRequired: $_authenticationRequired');
-    print('  - _isCheckingAuth: $_isCheckingAuth');
-    print('🏠 NavScreen: ===============================================');
-  }
-
-  Future<void> _onAppPaused() async {
-    print('🏠 NavScreen: ===============================================');
-    print('🏠 NavScreen: APP PAUSED - NOTIFYING AUTH PROVIDER');
-    print('🏠 NavScreen: ===============================================');
-
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    await authProvider.onAppPaused();
-
-    print('🏠 NavScreen: App pause notification sent to AuthProvider');
-    print('🏠 NavScreen: ===============================================');
-  }
-
-  Future<void> _checkBiometricAuth() async {
     if (!mounted) return;
 
-    print('🏠 NavScreen: Checking biometric auth...');
+    setState(() {
+      _isAuthenticated = !needsAuth;
+      _authenticationRequired = needsAuth;
+      _isCheckingAuth = false;
+    });
+  }
+
+  /// Called when the app goes to background.
+  /// Lets AuthProvider record the pause time so it can decide later
+  /// whether re-authentication is required.
+  Future<void> _onAppPaused() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.onAppPaused();
+  }
+
+  /// Initial auth check performed on screen load.
+  /// Skips the lock screen entirely if biometric auth isn't enabled.
+  Future<void> _checkBiometricAuth() async {
+    if (!mounted) return;
 
     setState(() {
       _isCheckingAuth = true;
@@ -118,12 +101,8 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      // Debug info
-      await authProvider.printDebugInfo();
-
-      // Si la biometría no está habilitada, permitir acceso directo
+      // Biometric auth disabled by the user -> go straight into the app.
       if (!authProvider.isBiometricAuthEnabled) {
-        print('🏠 NavScreen: Biometric not enabled, allowing access');
         setState(() {
           _isAuthenticated = true;
           _authenticationRequired = false;
@@ -132,29 +111,15 @@ class _MainHomeScreenState extends State<MainHomeScreen>
         return;
       }
 
-      print('🏠 NavScreen: Biometric is enabled, checking if auth needed');
-
-      // Usar el nuevo método que verifica correctamente el tiempo
       bool needsAuth = await authProvider.checkAuthOnResume();
 
-      print('🏠 NavScreen: Needs auth = $needsAuth');
-
-      if (needsAuth) {
-        setState(() {
-          _authenticationRequired = true;
-          _isAuthenticated = false;
-          _isCheckingAuth = false;
-        });
-      } else {
-        print('🏠 NavScreen: No auth needed, allowing access');
-        setState(() {
-          _isAuthenticated = true;
-          _authenticationRequired = false;
-          _isCheckingAuth = false;
-        });
-      }
+      setState(() {
+        _authenticationRequired = needsAuth;
+        _isAuthenticated = !needsAuth;
+        _isCheckingAuth = false;
+      });
     } catch (e) {
-      print('🏠 NavScreen: Error checking auth: $e');
+      // On any failure, default to requiring auth (fail closed).
       setState(() {
         _authenticationRequired = true;
         _isAuthenticated = false;
@@ -163,65 +128,64 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     }
   }
 
+  /// Triggers the platform biometric prompt and updates UI state
+  /// based on the result.
   Future<void> _performBiometricAuth() async {
-    print('🏠 NavScreen: Performing biometric authentication...');
+    HapticFeedback.mediumImpact(); // confirms the auth attempt was triggered
 
     setState(() {
       _isCheckingAuth = true;
     });
 
     try {
-      // Intentar autenticación biométrica
       AuthResult authResult = await BiometricService.authenticateWithResult();
 
-      print('🏠 NavScreen: Biometric auth result = ${authResult.success}');
-
       if (authResult.success) {
-        print('🏠 NavScreen: Authentication successful');
-        // Autenticación exitosa
+        HapticFeedback.lightImpact(); // success feedback
+
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         await authProvider.setLastAuthTime();
 
+        if (!mounted) return;
         setState(() {
           _isAuthenticated = true;
           _authenticationRequired = false;
           _isCheckingAuth = false;
         });
       } else {
-        print(
-          '🏠 NavScreen: Authentication failed: ${authResult.errorMessage}',
-        );
+        HapticFeedback.vibrate(); // failure feedback
+
+        if (!mounted) return;
         setState(() {
           _isCheckingAuth = false;
         });
 
-          if (mounted) {
-          M3ESnackbar.show(
-            context,
-            message:
-                authResult.errorMessage ??
-                AppLocalizations.of(context).authenticationFailed,
-            duration: const Duration(seconds: 4),
-          );
-        }
+        M3ESnackbar.show(
+          context,
+          message:
+              authResult.errorMessage ??
+              AppLocalizations.of(context).authenticationFailed,
+          duration: const Duration(seconds: 4),
+        );
       }
     } catch (e) {
-      print('🏠 NavScreen: Exception in authentication: $e');
+      HapticFeedback.vibrate(); // error feedback
+
+      if (!mounted) return;
       setState(() {
         _isCheckingAuth = false;
       });
 
-         if (mounted) {
-        M3ESnackbar.show(
-          context,
-          message: ' ${e.toString()}',
-          duration: const Duration(seconds: 4),
-        );
-      }
+      M3ESnackbar.show(
+        context,
+        message: ' ${e.toString()}',
+        duration: const Duration(seconds: 4),
+      );
     }
   }
 
-  // Construir la pantalla de autenticación requerida
+  /// Lock screen shown while checking auth status or when
+  /// re-authentication is required.
   Widget _buildAuthRequiredScreen() {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -230,13 +194,10 @@ class _MainHomeScreenState extends State<MainHomeScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (_isCheckingAuth) ...[
-              // DESPUÉS
               const M3ELoadingIndicator(),
               const SizedBox(height: 16),
               Text(
-                AppLocalizations.of(
-                  context,
-                ).authenticating, // 'Authenticating...' / 'Autenticando...'
+                AppLocalizations.of(context).authenticating,
                 style: TextStyle(
                   color: Theme.of(
                     context,
@@ -252,9 +213,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                AppLocalizations.of(
-                  context,
-                ).authenticationRequired, // 'Authentication Required' / 'Autenticación Requerida'
+                AppLocalizations.of(context).authenticationRequired,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 24,
@@ -263,9 +222,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
               ),
               const SizedBox(height: 8),
               Text(
-                AppLocalizations.of(
-                  context,
-                ).authenticateToAccess, // 'Please authenticate to access the app' / 'Autentícate para acceder a la aplicación'
+                AppLocalizations.of(context).authenticateToAccess,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Theme.of(
@@ -275,14 +232,14 @@ class _MainHomeScreenState extends State<MainHomeScreen>
                 ),
               ),
               const SizedBox(height: 32),
-                         M3EButton.icon(
+              M3EButton.icon(
                 onPressed: _performBiometricAuth,
                 icon: const Icon(Icons.fingerprint),
                 label: Text(
                   AppLocalizations.of(
                     context,
                   ).authenticateToAccess.replaceAll(' to access the app', ''),
-                ), // Solo "Authenticate" / "Autentícate"
+                ),
                 style: M3EButtonStyle.filled,
                 size: M3EButtonSize.md,
               ),
@@ -293,31 +250,14 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     );
   }
 
-  // Construir la pantalla principal con navegación
+  /// Main app UI: PageView with Home / Calendar / Profile and the
+  /// bottom navigation bar that drives it.
   Widget _buildMainScreen() {
     return Consumer<EventProvider>(
       builder: (context, eventProvider, child) {
         final List<Widget> widgetOptions = [
           const HomeScreen(),
-          MonthlyCalendarScreen(
-            fromHomeScreen: true,
-            events: eventProvider.events,
-            onAddEvent: (Event event) => eventProvider.addEvent(event),
-            onUpdateEvent: (int index, Event event) {
-              // Usar index para localizar el evento y actualizarlo
-              final events = eventProvider.events;
-              if (index >= 0 && index < events.length) {
-                eventProvider.updateEvent(event);
-              }
-            },
-            onDeleteEvent: (int index, bool deleteAll) async {
-              final events = eventProvider.events;
-              if (index >= 0 && index < events.length) {
-                final event = events[index];
-                await eventProvider.deleteEvent(event.id, deleteAll: deleteAll);
-              }
-            },
-          ),
+          const MonthlyCalendarScreen(fromHomeScreen: true),
           const ProfileScreen(),
         ];
 
@@ -326,13 +266,14 @@ class _MainHomeScreenState extends State<MainHomeScreen>
           body: PageView(
             controller: _pageController,
             onPageChanged: (index) {
+              // Keeps the nav bar in sync when the user swipes between pages
+              // instead of tapping a destination.
               setState(() {
                 _selectedIndex = index;
               });
             },
             children: widgetOptions,
           ),
-          // DESPUÉS
           bottomNavigationBar: M3ENavigationBar(
             selectedIndex: _selectedIndex,
             onDestinationSelected: _onItemTapped,
@@ -357,7 +298,11 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     );
   }
 
+  /// Handles bottom nav taps: updates selected index and animates the
+  /// PageView to the matching page.
   void _onItemTapped(int index) {
+    HapticFeedback.selectionClick(); // tactile confirmation of tab switch
+
     setState(() {
       _selectedIndex = index;
     });
@@ -370,22 +315,18 @@ class _MainHomeScreenState extends State<MainHomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    print(
-      '🏠 NavScreen: Building - isChecking=$_isCheckingAuth, isAuth=$_isAuthenticated, reqAuth=$_authenticationRequired',
-    );
-
-    // Si se está verificando la autenticación o es requerida, mostrar pantalla de auth
+    // Auth check in progress or re-auth required -> show lock screen.
     if (_isCheckingAuth || _authenticationRequired) {
       return _buildAuthRequiredScreen();
     }
 
-    // Si está autenticado o no se requiere, mostrar la app principal
+    // Authenticated (or auth not required) -> show the main app.
     if (_isAuthenticated) {
       return _buildMainScreen();
     }
 
-    // Estado de carga por defecto
-      return Scaffold(
+    // Fallback loading state (shouldn't normally be reached).
+    return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: const Center(child: M3ELoadingIndicator()),
     );

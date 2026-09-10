@@ -1,5 +1,7 @@
 // lib/screens/home_screen.dart
 
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:intl/intl.dart';
@@ -51,38 +53,25 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
+  StreamSubscription? _connectivitySub;
+  StreamSubscription? _syncStatusSub;
 
   Future<void> _initConnectivity() async {
     _isOnline = await _connectivity.testInternetConnection();
-
     final syncService = SyncService();
     _syncInfo = syncService.getSyncInfo();
+    if (mounted) setState(() {});
 
-    if (mounted) {
-      setState(() {});
-    }
-
-    _connectivity.connectionStream.listen((isConnected) {
+    _connectivitySub = _connectivity.connectionStream.listen((isConnected) {
       if (!mounted) return;
-
-      if (_isOnline != isConnected) {
-        setState(() {
-          _isOnline = isConnected;
-        });
-      }
+      if (_isOnline != isConnected) setState(() => _isOnline = isConnected);
     });
 
-    syncService.syncStatusStream.listen((status) {
+    _syncStatusSub = syncService.syncStatusStream.listen((status) {
       if (!mounted) return;
-
       if (_syncStatus != status) {
         setState(() {
           _syncStatus = status;
-
           if (status == SyncStatus.synced || status == SyncStatus.error) {
             _isSyncing = false;
           }
@@ -90,6 +79,14 @@ class _HomeScreenState extends State<HomeScreen>
       }
     });
   }
+
+@override
+void dispose() {
+  _connectivitySub?.cancel();
+  _syncStatusSub?.cancel();
+  super.dispose();
+}
+
 
   Future<void> _refreshEvents() async {
     if (!mounted) return;

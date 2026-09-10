@@ -13,18 +13,10 @@ import '../widgets/event_preview_sheet.dart';
 
 class MonthlyCalendarScreen extends StatefulWidget {
   final bool fromHomeScreen;
-  final Function(Event) onAddEvent;
-  final Function(int, Event) onUpdateEvent;
-  final List<Event> events;
-  final Function(int, bool) onDeleteEvent;
 
   const MonthlyCalendarScreen({
     super.key,
     required this.fromHomeScreen,
-    required this.onAddEvent,
-    required this.onUpdateEvent,
-    required this.events,
-    required this.onDeleteEvent,
   });
 
   @override

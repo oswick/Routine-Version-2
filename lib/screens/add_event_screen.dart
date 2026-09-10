@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import '../models/event.dart';
@@ -262,173 +261,110 @@ class _AddEventBottomSheetState extends State<AddEventBottomSheet>
       variant: M3ETextFieldVariant.filled,
     );
   }
+  bool _isSameDate(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
 
-  void _applyTimeShortcut(String shortcut) {
-    final now = DateTime.now();
-    setState(() {
-      switch (shortcut) {
-        case '5min':
-          _startTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            now.hour,
-            now.minute,
-          ).add(const Duration(minutes: 5));
-          break;
-        case '30min':
-          _startTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            now.hour,
-            now.minute,
-          ).add(const Duration(minutes: 30));
-          break;
-        case '1hour':
-          _startTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            now.hour,
-            now.minute,
-          ).add(const Duration(hours: 1));
-          break;
-        case 'morning':
-          DateTime morningTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            9,
-            0,
-          );
-          if (now.hour >= 9 && _selectedDate.day == now.day) {
-            morningTime = morningTime.add(const Duration(days: 1));
-            _selectedDate = _selectedDate.add(const Duration(days: 1));
-          }
-          _startTime = morningTime;
-          _endTime = morningTime.add(const Duration(hours: 1));
-          break;
-        case 'afternoon':
-          DateTime afternoonTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            14,
-            0,
-          );
-          if (now.hour >= 14 && _selectedDate.day == now.day) {
-            afternoonTime = afternoonTime.add(const Duration(days: 1));
-            _selectedDate = _selectedDate.add(const Duration(days: 1));
-          }
-          _startTime = afternoonTime;
-          break;
-        case 'evening':
-          DateTime eveningTime = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            18,
-            0,
-          );
-          if (now.hour >= 18 && _selectedDate.day == now.day) {
-            eveningTime = eveningTime.add(const Duration(days: 1));
-            _selectedDate = _selectedDate.add(const Duration(days: 1));
-          }
-          _startTime = eveningTime;
-          break;
-      }
-      _showTimeShortcuts = false;
-    });
-  }
+bool get _isSelectedDateToday => _isSameDate(_selectedDate, DateTime.now());
 
-  bool _isTimeSlotAvailable(int hour) {
-    final now = DateTime.now();
-    final isToday =
-        _selectedDate.year == now.year &&
-        _selectedDate.month == now.month &&
-        _selectedDate.day == now.day;
-    if (!isToday) return true; // si es un día futuro, todas las franjas aplican
-    return now.hour < hour;
-  }
 
-  Widget _buildTimeShortcuts() {
-    if (!_showTimeShortcuts) return const SizedBox.shrink();
-    final l10n = AppLocalizations.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              l10n.quickTime,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-              ),
-            ),
-            M3EButton.text(
-              onPressed: () => setState(() => _showTimeShortcuts = false),
-              size: M3EButtonSize.xs,
-              decoration: M3EButtonDecoration(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 0),
-              ),
-              child: Text(
-                l10n.hide,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-          ],
+
+ void _applyTimeShortcut(String shortcut) {
+  final now = DateTime.now();
+  setState(() {
+    switch (shortcut) {
+      case '5min':
+        _startTime = now.add(const Duration(minutes: 5));
+        break;
+      case '30min':
+        _startTime = now.add(const Duration(minutes: 30));
+        break;
+      case '1hour':
+        _startTime = now.add(const Duration(hours: 1));
+        break;
+      case 'morning':
+        DateTime t = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 9, 0);
+        if (_isSelectedDateToday && now.hour >= 9) {
+          t = t.add(const Duration(days: 1));
+          _selectedDate = _selectedDate.add(const Duration(days: 1));
+        }
+        _startTime = t;
+        _endTime = t.add(const Duration(hours: 1));
+        break;
+      case 'afternoon':
+        DateTime t = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 14, 0);
+        if (_isSelectedDateToday && now.hour >= 14) {
+          t = t.add(const Duration(days: 1));
+          _selectedDate = _selectedDate.add(const Duration(days: 1));
+        }
+        _startTime = t;
+        break;
+      case 'evening':
+        DateTime t = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 18, 0);
+        if (_isSelectedDateToday && now.hour >= 18) {
+          t = t.add(const Duration(days: 1));
+          _selectedDate = _selectedDate.add(const Duration(days: 1));
+        }
+        _startTime = t;
+        break;
+    }
+    _showTimeShortcuts = false;
+  });
+}
+
+ bool _isTimeSlotAvailable(int hour) {
+  if (!_isSelectedDateToday) return true;
+  return DateTime.now().hour < hour;
+}
+
+Widget _buildTimeShortcuts() {
+  if (!_showTimeShortcuts) return const SizedBox.shrink();
+  final l10n = AppLocalizations.of(context);
+
+  final chips = <Widget>[
+    if (_isSelectedDateToday) ...[
+      _buildTimeShortcutChip(label: l10n.in5min, icon: Icons.schedule, onTap: () => _applyTimeShortcut('5min')),
+      _buildTimeShortcutChip(label: l10n.in30min, icon: Icons.access_time, onTap: () => _applyTimeShortcut('30min')),
+      _buildTimeShortcutChip(label: l10n.in1hour, icon: Icons.schedule, onTap: () => _applyTimeShortcut('1hour')),
+    ],
+    if (_isTimeSlotAvailable(9))
+      _buildTimeShortcutChip(label: l10n.morningTime, icon: Icons.wb_sunny, onTap: () => _applyTimeShortcut('morning')),
+    if (_isTimeSlotAvailable(14))
+      _buildTimeShortcutChip(label: l10n.afternoonTime, icon: Icons.wb_twilight, onTap: () => _applyTimeShortcut('afternoon')),
+    if (_isTimeSlotAvailable(18))
+      _buildTimeShortcutChip(label: l10n.eveningTime, icon: Icons.nightlight_round, onTap: () => _applyTimeShortcut('evening')),
+  ];
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(l10n.quickTime, style: TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+          )),
+          M3EButton.text(
+            onPressed: () => setState(() => _showTimeShortcuts = false),
+            size: M3EButtonSize.xs,
+            decoration: M3EButtonDecoration(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+            child: Text(l10n.hide, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary)),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      SizedBox(
+        height: 38,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: chips.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, i) => chips[i],
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _buildTimeShortcutChip(
-              label: l10n.in5min,
-              icon: Icons.schedule,
-              onTap: () => _applyTimeShortcut('5min'),
-            ),
-            _buildTimeShortcutChip(
-              label: l10n.in30min,
-              icon: Icons.access_time,
-              onTap: () => _applyTimeShortcut('30min'),
-            ),
-            _buildTimeShortcutChip(
-              label: l10n.in1hour,
-              icon: Icons.schedule,
-              onTap: () => _applyTimeShortcut('1hour'),
-            ),
-            if (_isTimeSlotAvailable(9))
-              _buildTimeShortcutChip(
-                label: l10n.morningTime,
-                icon: Icons.wb_sunny,
-                onTap: () => _applyTimeShortcut('morning'),
-              ),
-            if (_isTimeSlotAvailable(14))
-              _buildTimeShortcutChip(
-                label: l10n.afternoonTime,
-                icon: Icons.wb_twilight,
-                onTap: () => _applyTimeShortcut('afternoon'),
-              ),
-            if (_isTimeSlotAvailable(18))
-              _buildTimeShortcutChip(
-                label: l10n.eveningTime,
-                icon: Icons.nightlight_round,
-                onTap: () => _applyTimeShortcut('evening'),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _buildTimeShortcutChip({
     required String label,
