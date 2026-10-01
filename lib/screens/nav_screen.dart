@@ -283,6 +283,15 @@ class _MainHomeScreenState extends State<MainHomeScreen>
               margin: const EdgeInsets.only(bottom: 8),
               selectedIndex: _selectedIndex,
               onChanged: _onItemTapped,
+              itemStyle: LiquidGlassTabItemStyle(
+                selectedColor: Theme.of(context).colorScheme.onSurface,
+                unselectedColor:
+                    Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              pillStyle: const LiquidGlassTabPillStyle(
+                animated: true,
+                animationDuration: Duration(milliseconds: 280),
+              ),
               items: [
                 LiquidGlassTabBarItem(
                   icon: Icons.home_outlined,
