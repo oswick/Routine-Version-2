@@ -282,14 +282,11 @@ class _MainHomeScreenState extends State<MainHomeScreen>
               ),
               Positioned(
                 left: 16,
-                right: 16,
-                bottom: 8,
-                child: SafeArea(
-                  top: false,
-                  child: LiquidGlassTabBar.withImpeller(
-                    width: double.infinity,
-                    height: 64,
-                    margin: EdgeInsets.zero,
+                bottom: 8 + MediaQuery.paddingOf(context).bottom,
+                child: LiquidGlassTabBar.withImpeller(
+                  width: MediaQuery.sizeOf(context).width - 32,
+                  height: 64,
+                  margin: EdgeInsets.zero,
                     selectedIndex: _selectedIndex,
                     onChanged: _onItemTapped,
                     itemStyle: LiquidGlassTabItemStyle(
@@ -301,24 +298,23 @@ class _MainHomeScreenState extends State<MainHomeScreen>
                       animated: true,
                       animationDuration: Duration(milliseconds: 280),
                     ),
-                    items: [
-                      LiquidGlassTabBarItem(
-                        icon: Icons.home_outlined,
-                        selectedIcon: Icons.home,
-                        label: AppLocalizations.of(context).home,
-                      ),
-                      LiquidGlassTabBarItem(
-                        icon: Icons.calendar_month_outlined,
-                        selectedIcon: Icons.calendar_month,
-                        label: AppLocalizations.of(context).calendar,
-                      ),
-                      LiquidGlassTabBarItem(
-                        icon: Icons.person_outline,
-                        selectedIcon: Icons.person,
-                        label: AppLocalizations.of(context).profile,
-                      ),
-                    ],
-                  ),
+                  items: [
+                    LiquidGlassTabBarItem(
+                      icon: Icons.home_outlined,
+                      selectedIcon: Icons.home,
+                      label: AppLocalizations.of(context).home,
+                    ),
+                    LiquidGlassTabBarItem(
+                      icon: Icons.calendar_month_outlined,
+                      selectedIcon: Icons.calendar_month,
+                      label: AppLocalizations.of(context).calendar,
+                    ),
+                    LiquidGlassTabBarItem(
+                      icon: Icons.person_outline,
+                      selectedIcon: Icons.person,
+                      label: AppLocalizations.of(context).profile,
+                    ),
+                  ],
                 ),
               ),
             ],
