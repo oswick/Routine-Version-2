@@ -2,6 +2,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/models/event.dart';
 import 'package:provider/provider.dart';
@@ -274,24 +275,32 @@ class _MainHomeScreenState extends State<MainHomeScreen>
             },
             children: widgetOptions,
           ),
-          bottomNavigationBar: M3ENavigationBar(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: _onItemTapped,
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            destinations: [
-              M3ENavigationBarDestination(
-                icon: const Icon(Icons.home_outlined),
-                label: AppLocalizations.of(context).home,
-              ),
-              M3ENavigationBarDestination(
-                icon: const Icon(Icons.calendar_month_outlined),
-                label: AppLocalizations.of(context).calendar,
-              ),
-              M3ENavigationBarDestination(
-                icon: const Icon(Icons.person_outline),
-                label: AppLocalizations.of(context).profile,
-              ),
-            ],
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: LiquidGlassTabBar.withImpeller(
+              width: MediaQuery.sizeOf(context).width - 32,
+              height: 64,
+              margin: const EdgeInsets.only(bottom: 8),
+              selectedIndex: _selectedIndex,
+              onChanged: _onItemTapped,
+              items: [
+                LiquidGlassTabBarItem(
+                  icon: Icons.home_outlined,
+                  selectedIcon: Icons.home,
+                  label: AppLocalizations.of(context).home,
+                ),
+                LiquidGlassTabBarItem(
+                  icon: Icons.calendar_month_outlined,
+                  selectedIcon: Icons.calendar_month,
+                  label: AppLocalizations.of(context).calendar,
+                ),
+                LiquidGlassTabBarItem(
+                  icon: Icons.person_outline,
+                  selectedIcon: Icons.person,
+                  label: AppLocalizations.of(context).profile,
+                ),
+              ],
+            ),
           ),
         );
       },
