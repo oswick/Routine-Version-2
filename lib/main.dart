@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'package:myapp/config/app_config.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/providers/auth_provider.dart';
@@ -20,6 +21,9 @@ export 'utils/notification_service.dart' show notificationBackgroundHandler;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Preload the Liquid Glass shader before the first glass surface appears.
+  await LiquidGlassShaders.ensureLoaded();
 
   await BackgroundService.initWorkManager();
   await BackgroundService.registerRescheduleTask();
