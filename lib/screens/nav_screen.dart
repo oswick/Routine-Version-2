@@ -264,52 +264,64 @@ class _MainHomeScreenState extends State<MainHomeScreen>
 
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-          body: PageView(
-            controller: _pageController,
-            onPageChanged: (index) {
-              // Keeps the nav bar in sync when the user swipes between pages
-              // instead of tapping a destination.
-              setState(() {
-                _selectedIndex = index;
-              });
-            },
-            children: widgetOptions,
-          ),
-          bottomNavigationBar: SafeArea(
-            top: false,
-            child: LiquidGlassTabBar.withImpeller(
-              width: MediaQuery.sizeOf(context).width - 32,
-              height: 64,
-              margin: const EdgeInsets.only(bottom: 8),
-              selectedIndex: _selectedIndex,
-              onChanged: _onItemTapped,
-              itemStyle: LiquidGlassTabItemStyle(
-                selectedColor: Theme.of(context).colorScheme.onSurface,
-                unselectedColor:
-                    Theme.of(context).colorScheme.onSurfaceVariant,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              PageView(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  // Keeps the nav bar in sync when the user swipes between pages
+                  // instead of tapping a destination.
+                  if (_selectedIndex != index) {
+                    setState(() {
+                      _selectedIndex = index;
+                    });
+                  }
+                },
+                children: widgetOptions,
               ),
-              pillStyle: const LiquidGlassTabPillStyle(
-                animated: true,
-                animationDuration: Duration(milliseconds: 280),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 8,
+                child: SafeArea(
+                  top: false,
+                  child: LiquidGlassTabBar.withImpeller(
+                    width: double.infinity,
+                    height: 64,
+                    margin: EdgeInsets.zero,
+                    selectedIndex: _selectedIndex,
+                    onChanged: _onItemTapped,
+                    itemStyle: LiquidGlassTabItemStyle(
+                      selectedColor: Theme.of(context).colorScheme.onSurface,
+                      unselectedColor:
+                          Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    pillStyle: const LiquidGlassTabPillStyle(
+                      animated: true,
+                      animationDuration: Duration(milliseconds: 280),
+                    ),
+                    items: [
+                      LiquidGlassTabBarItem(
+                        icon: Icons.home_outlined,
+                        selectedIcon: Icons.home,
+                        label: AppLocalizations.of(context).home,
+                      ),
+                      LiquidGlassTabBarItem(
+                        icon: Icons.calendar_month_outlined,
+                        selectedIcon: Icons.calendar_month,
+                        label: AppLocalizations.of(context).calendar,
+                      ),
+                      LiquidGlassTabBarItem(
+                        icon: Icons.person_outline,
+                        selectedIcon: Icons.person,
+                        label: AppLocalizations.of(context).profile,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              items: [
-                LiquidGlassTabBarItem(
-                  icon: Icons.home_outlined,
-                  selectedIcon: Icons.home,
-                  label: AppLocalizations.of(context).home,
-                ),
-                LiquidGlassTabBarItem(
-                  icon: Icons.calendar_month_outlined,
-                  selectedIcon: Icons.calendar_month,
-                  label: AppLocalizations.of(context).calendar,
-                ),
-                LiquidGlassTabBarItem(
-                  icon: Icons.person_outline,
-                  selectedIcon: Icons.person,
-                  label: AppLocalizations.of(context).profile,
-                ),
-              ],
-            ),
+            ],
           ),
         );
       },
