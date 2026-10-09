@@ -377,25 +377,34 @@ class _DayScreenState extends State<DayScreen>
           Colors.transparent,
 
       builder: (context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .surface,
+        final colors = Theme.of(context).colorScheme;
 
-            borderRadius:
-                const BorderRadius.vertical(
-              top: Radius.circular(28),
-            ),
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(28),
           ),
-
-          child:
-              AddEventBottomSheet(
-            onAddEvent: (event) {
-              widget.onAddEvent(event);
-            },
-
-            day: widget.day,
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              decoration: BoxDecoration(
+                color: colors.surface.withOpacity(0.88),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+                border: Border(
+                  top: BorderSide(
+                    color: colors.outlineVariant.withOpacity(0.45),
+                    width: 0.8,
+                  ),
+                ),
+              ),
+              child: AddEventBottomSheet(
+                onAddEvent: (event) {
+                  widget.onAddEvent(event);
+                },
+                day: widget.day,
+              ),
+            ),
           ),
         );
       },
