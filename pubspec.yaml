@@ -41,7 +41,6 @@ dependencies:
     sdk: flutter
   collection: ^1.19.1
   material_3_expressive: ^1.0.9
-  liquid_glass_easy: ^4.3.4
 
 dev_dependencies:
   flutter_test:
