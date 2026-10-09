@@ -2,7 +2,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'package:myapp/l10n/app_localizations.dart';
 import 'package:myapp/models/event.dart';
 import 'package:provider/provider.dart';
@@ -264,51 +263,33 @@ class _MainHomeScreenState extends State<MainHomeScreen>
 
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              PageView(
-                controller: _pageController,
-                onPageChanged: (index) {
-                  // Keeps the nav bar in sync when the user swipes between pages
-                  // instead of tapping a destination.
-                  if (_selectedIndex != index) {
-                    setState(() {
-                      _selectedIndex = index;
-                    });
-                  }
-                },
-                children: widgetOptions,
+          body: PageView(
+            controller: _pageController,
+            onPageChanged: (index) {
+              // Keeps the nav bar in sync when the user swipes between pages
+              // instead of tapping a destination.
+              setState(() {
+                _selectedIndex = index;
+              });
+            },
+            children: widgetOptions,
+          ),
+          bottomNavigationBar: M3ENavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: _onItemTapped,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            destinations: [
+              M3ENavigationBarDestination(
+                icon: const Icon(Icons.home_outlined),
+                label: AppLocalizations.of(context).home,
               ),
-              LiquidGlassTabBar.withImpeller(
-                items: [
-                  LiquidGlassTabBarItem(
-                    icon: Icons.home_outlined,
-                    selectedIcon: Icons.home,
-                    label: AppLocalizations.of(context).home,
-                  ),
-                  LiquidGlassTabBarItem(
-                    icon: Icons.calendar_month_outlined,
-                    selectedIcon: Icons.calendar_month,
-                    label: AppLocalizations.of(context).calendar,
-                  ),
-                  LiquidGlassTabBarItem(
-                    icon: Icons.person_outline,
-                    selectedIcon: Icons.person,
-                    label: AppLocalizations.of(context).profile,
-                  ),
-                ],
-                selectedIndex: _selectedIndex,
-                onChanged: _onItemTapped,
-                itemStyle: LiquidGlassTabItemStyle(
-                  selectedColor: Theme.of(context).colorScheme.onSurface,
-                  unselectedColor:
-                      Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                pillStyle: const LiquidGlassTabPillStyle(
-                  animated: true,
-                  animationDuration: Duration(milliseconds: 280),
-                ),
+              M3ENavigationBarDestination(
+                icon: const Icon(Icons.calendar_month_outlined),
+                label: AppLocalizations.of(context).calendar,
+              ),
+              M3ENavigationBarDestination(
+                icon: const Icon(Icons.person_outline),
+                label: AppLocalizations.of(context).profile,
               ),
             ],
           ),
