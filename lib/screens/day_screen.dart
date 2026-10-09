@@ -1,6 +1,6 @@
 // lib/screens/day_screen.dart
 
-import 'package:material_ui/material_ui.dart';
+import 'dart:ui' as ui;\n\nimport 'package:material_ui/material_ui.dart';
 import 'package:material_3_expressive/components/buttons/enums/m3e_button_enums.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:myapp/l10n/app_localizations.dart';
@@ -239,12 +239,8 @@ class _DayScreenState extends State<DayScreen>
                       nonEmptyPeriods,
                     ),
 
-          floatingActionButton: M3EFab(
-            icon: const Icon(
-              Icons.add,
-            ),
-            onPressed:
-                _showAddEventBottomSheet,
+          floatingActionButton: _LiquidGlassAddButton(
+            onPressed: _showAddEventBottomSheet,
           ),
         );
       },
@@ -817,5 +813,72 @@ class _PeriodSection
       case TimePeriod.night:
         return Icons.bedtime;
     }
+  }
+}
+
+/// Floating action control inspired by Liquid Glass.
+/// Keep glass on this functional, floating control rather than event cards.
+class _LiquidGlassAddButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _LiquidGlassAddButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Semantics(
+      button: true,
+      label: AppLocalizations.of(context).tapPlusButtonToAddEvent,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Material(
+            color: colors.surface.withOpacity(0.58),
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(22),
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colors.surface.withOpacity(0.72),
+                      colors.surfaceContainerHigh.withOpacity(0.46),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: colors.outlineVariant.withOpacity(0.55),
+                    width: 0.8,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.shadow.withOpacity(0.12),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                    BoxShadow(
+                      color: colors.onSurface.withOpacity(0.05),
+                      blurRadius: 1,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.add_rounded,
+                  size: 28,
+                  color: colors.primary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
