@@ -30,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen>
   final ConnectivityService _connectivity = ConnectivityService();
 
   DateTime selectedDate = DateTime.now();
+  String _selectedCategory = '';
 
   bool _isOnline = false;
   SyncStatus _syncStatus = SyncStatus.offline;
@@ -150,19 +151,268 @@ void dispose() {
             .getEventsForDay(selectedDate)
             .toList();
 
+        final categories = eventProvider.events
+            .map((event) => event.category.trim())
+            .where((category) => category.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+
+        final visibleEvents = _selectedCategory.isEmpty
+            ? dailyEvents
+            : dailyEvents
+                .where((event) => event.category == _selectedCategory)
+                .toList();
+
+        final completedCount = dailyEvents.where((event) {
+          return event.repeatDays.isNotEmpty
+              ? eventProvider.getEventCompletion(event.id, selectedDate)
+              : event.isCompleted;
+        }).length;
+        final completionProgress = dailyEvents.isEmpty
+            ? 0.0
+            : completedCount / dailyEvents.length;
+
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
-
           appBar: _buildAppBar(context, user),
-
-          body: M3ERefreshIndicator.contained(
-            onRefresh: _refreshEvents,
-            child: eventProvider.isLoading && dailyEvents.isEmpty
-                ? const Center(child: M3ELoadingIndicator())
-                : _buildDayScreen(dailyEvents),
+          body: Column(
+            children: [
+              _buildDailySummary(
+                context,
+                completedCount,
+                dailyEvents.length,
+                completionProgress,
+              ),
+              _buildWeekSelector(context),
+              _buildCategoryFilters(context, categories),
+              Expanded(
+                child: M3ERefreshIndicator.contained(
+                  onRefresh: _refreshEvents,
+                  child: eventProvider.isLoading && visibleEvents.isEmpty
+                      ? const Center(child: M3ELoadingIndicator())
+                      : _buildDayScreen(visibleEvents),
+                ),
+              ),
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDailySummary(
+    BuildContext context,
+    int completed,
+    int total,
+    double progress,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: colors.primaryContainer,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.todaysEvents,
+                    style: TextStyle(
+                      color: colors.onPrimaryContainer.withOpacity(0.8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${(progress * 100).round()}%',
+                  style: TextStyle(
+                    color: colors.onPrimaryContainer,
+                    fontSize: 25,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$completed / $total ${l10n.events}',
+              style: TextStyle(
+                color: colors.onPrimaryContainer,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 7,
+                backgroundColor: colors.onPrimaryContainer.withOpacity(0.16),
+                color: colors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeekSelector(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final today = DateTime.now();
+    final startOfWeek = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    ).subtract(Duration(days: selectedDate.weekday - 1));
+
+    return SizedBox(
+      height: 76,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: 7,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final date = startOfWeek.add(Duration(days: index));
+          final selected = date.year == selectedDate.year &&
+              date.month == selectedDate.month &&
+              date.day == selectedDate.day;
+          final isToday = date.year == today.year &&
+              date.month == today.month &&
+              date.day == today.day;
+
+          return Material(
+            color: selected ? colors.primary : colors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                setState(() {
+                  selectedDate = date;
+                  _selectedCategory = '';
+                });
+              },
+              child: Container(
+                width: 48,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: selected
+                        ? colors.primary
+                        : isToday
+                            ? colors.primary.withOpacity(0.45)
+                            : colors.outlineVariant.withOpacity(0.35),
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      getDayName(date.weekday).substring(
+                        0,
+                        getDayName(date.weekday).length > 3
+                            ? 3
+                            : getDayName(date.weekday).length,
+                      ),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: selected ? colors.onPrimary : colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${date.day}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: selected ? colors.onPrimary : colors.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilters(
+    BuildContext context,
+    List<String> categories,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+
+    return SizedBox(
+      height: 54,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+        scrollDirection: Axis.horizontal,
+        children: [
+          _categoryChip(
+            label: l10n.events,
+            selected: _selectedCategory.isEmpty,
+            onSelected: () => setState(() => _selectedCategory = ''),
+            colors: colors,
+          ),
+          ...categories.map(
+            (category) => Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: _categoryChip(
+                label: category,
+                selected: _selectedCategory == category,
+                onSelected: () => setState(() => _selectedCategory = category),
+                colors: colors,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _categoryChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onSelected,
+    required ColorScheme colors,
+  }) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      showCheckmark: false,
+      labelStyle: TextStyle(
+        fontSize: 12,
+        color: selected ? colors.onPrimary : colors.onSurfaceVariant,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+      ),
+      selectedColor: colors.primary,
+      backgroundColor: colors.surfaceContainerLow,
+      side: BorderSide(
+        color: selected ? colors.primary : colors.outlineVariant.withOpacity(0.4),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
 

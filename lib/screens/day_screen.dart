@@ -97,66 +97,46 @@ class _DayScreenState extends State<DayScreen>
     }
   }
 
+  DateTime _dateOnly(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
+
+  DateTime _eventTimeOnDay(DateTime day, DateTime eventTime) =>
+      DateTime(day.year, day.month, day.day, eventTime.hour, eventTime.minute);
+
   bool _isEventPast(Event event) {
     final now = DateTime.now();
+    final selectedDay = _dateOnly(widget.day);
+    final today = _dateOnly(now);
 
-    final selectedDay = DateTime(
-      widget.day.year,
-      widget.day.month,
-      widget.day.day,
-    );
+    // La fecha seleccionada manda: los eventos de días anteriores son
+    // históricos y los de días posteriores todavía no han ocurrido.
+    if (selectedDay.isBefore(today)) return true;
+    if (selectedDay.isAfter(today)) return false;
 
-    final today = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    );
+    final start = event.repeatDays.isNotEmpty
+        ? _eventTimeOnDay(widget.day, event.startTime)
+        : event.startTime;
+    final end = event.endTime == null
+        ? start.add(const Duration(hours: 1))
+        : event.repeatDays.isNotEmpty
+            ? _eventTimeOnDay(widget.day, event.endTime!)
+            : event.endTime!;
 
-    if (event.repeatDays.isNotEmpty) {
-      if (widget.day.weekday == now.weekday &&
-          selectedDay.isAtSameMomentAs(today)) {
-        if (event.endTime != null) {
-          final todayEndTime = DateTime(
-            now.year,
-            now.month,
-            now.day,
-            event.endTime!.hour,
-            event.endTime!.minute,
-          );
+    return now.isAfter(end);
+  }
 
-          return now.isAfter(todayEndTime);
-        } else {
-          final todayStartTime = DateTime(
-            now.year,
-            now.month,
-            now.day,
-            event.startTime.hour,
-            event.startTime.minute,
-          );
+  bool _isEventFuture(Event event) {
+    final now = DateTime.now();
+    final selectedDay = _dateOnly(widget.day);
+    final today = _dateOnly(now);
 
-          return now.isAfter(
-            todayStartTime.add(
-              const Duration(hours: 1),
-            ),
-          );
-        }
-      } else {
-        return selectedDay.isBefore(today) &&
-            event.repeatDays.contains(
-              widget.day.weekday,
-            );
-      }
-    }
+    if (selectedDay.isAfter(today)) return true;
+    if (selectedDay.isBefore(today)) return false;
 
-    if (event.endTime != null) {
-      return now.isAfter(event.endTime!);
-    }
-
-    return now.isAfter(
-      event.startTime.add(
-        const Duration(hours: 1),
-      ),
-    );
+    final start = event.repeatDays.isNotEmpty
+        ? _eventTimeOnDay(widget.day, event.startTime)
+        : event.startTime;
+    return now.isBefore(start);
   }
 
   String _getPeriodName(
@@ -303,6 +283,8 @@ class _DayScreenState extends State<DayScreen>
 
           isEventPast:
               _isEventPast,
+          isEventFuture:
+              _isEventFuture,
 
           onUpdateEvent:
               widget.onUpdateEvent,
@@ -421,6 +403,8 @@ class _PeriodSection
 
   final bool Function(Event)
       isEventPast;
+  final bool Function(Event)
+      isEventFuture;
 
   final Function(int, Event)
       onUpdateEvent;
@@ -437,6 +421,7 @@ class _PeriodSection
     required this.onToggleVisibility,
     required this.day,
     required this.isEventPast,
+    required this.isEventFuture,
     required this.onUpdateEvent,
     required this.onDeleteEvent,
   });
@@ -679,8 +664,8 @@ class _PeriodSection
 
           event: event,
 
-          pastEvent:
-              isPastEvent,
+          pastEvent: isPastEvent(event),
+          futureEvent: isEventFuture(event),
 
           onUpdateEvent:
               (updatedEvent) async {
