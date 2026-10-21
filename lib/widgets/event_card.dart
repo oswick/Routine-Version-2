@@ -23,12 +23,14 @@ class EventCard extends StatefulWidget {
   final Event event;
   final Function(Event) onUpdateEvent;
   final bool pastEvent;
+  final bool futureEvent;
 
   const EventCard({
     super.key,
     required this.event,
     required this.onUpdateEvent,
     this.pastEvent = false,
+    this.futureEvent = false,
   });
 
   @override
@@ -255,12 +257,15 @@ class _EventCardState extends State<EventCard>
 
   // ── Status text / icon ────────────────────────────────────────────────────────
   Widget _buildStatusIndicator() {
+    final colors = Theme.of(context).colorScheme;
+
     if (widget.pastEvent) {
       return Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             isCompleted ? Icons.check_circle : Icons.history,
-            color: isCompleted ? Colors.green : Colors.grey,
+            color: isCompleted ? colors.primary : colors.onSurfaceVariant,
             size: 14,
           ),
           const SizedBox(width: 4),
@@ -269,8 +274,26 @@ class _EventCardState extends State<EventCard>
                 ? AppLocalizations.of(context).accomplished
                 : AppLocalizations.of(context).notAccomplished,
             style: TextStyle(
-              color: isCompleted ? Colors.green : Colors.grey,
+              color: isCompleted ? colors.primary : colors.onSurfaceVariant,
               fontSize: 12,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (widget.futureEvent) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.schedule, color: colors.primary, size: 14),
+          const SizedBox(width: 4),
+          Text(
+            AppLocalizations.of(context).upcomingEvents,
+            style: TextStyle(
+              color: colors.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -282,14 +305,14 @@ class _EventCardState extends State<EventCard>
         children: [
           Icon(
             Icons.repeat,
-            color: Theme.of(context).colorScheme.primary,
+            color: colors.primary,
             size: 14,
           ),
           const SizedBox(width: 4),
           Text(
             _repeatDaysText(),
             style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
+              color: colors.primary,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
