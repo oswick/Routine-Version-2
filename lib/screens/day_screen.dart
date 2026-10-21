@@ -283,6 +283,8 @@ class _DayScreenState extends State<DayScreen>
 
           isEventPast:
               _isEventPast,
+          isEventFuture:
+              _isEventFuture,
 
           onUpdateEvent:
               widget.onUpdateEvent,
@@ -401,6 +403,8 @@ class _PeriodSection
 
   final bool Function(Event)
       isEventPast;
+  final bool Function(Event)
+      isEventFuture;
 
   final Function(int, Event)
       onUpdateEvent;
@@ -417,6 +421,7 @@ class _PeriodSection
     required this.onToggleVisibility,
     required this.day,
     required this.isEventPast,
+    required this.isEventFuture,
     required this.onUpdateEvent,
     required this.onDeleteEvent,
   });
