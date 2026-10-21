@@ -665,7 +665,7 @@ class _PeriodSection
           event: event,
 
           pastEvent: isPastEvent(event),
-          futureEvent: _isEventFuture(event),
+          futureEvent: isEventFuture(event),
 
           onUpdateEvent:
               (updatedEvent) async {
